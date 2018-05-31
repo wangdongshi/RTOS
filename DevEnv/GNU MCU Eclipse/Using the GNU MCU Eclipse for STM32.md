@@ -37,7 +37,7 @@ The 4th tool is J-Link tools. It is made by SEGGER Corporation. For the emulator
 
 The 5th tool is QEMU. QEMU is an open source virtual machine program that is becoming popular. It is a great project, but its original focus was to emulate boards with large cores, usually application class, able to run Unix/Linux kernels. Support for bare metal Cortex-M based boards was available only for a very limited range of Cortex-M3 cores, so of little use in GNU MCU Eclipse. Now the GNU MCU Eclipse community developed the qemu-system-gnuarmeclipse. The GNU MCU Eclipse QEMU maintains a certain degree of compatibility with the original qemu-system-arm, but it does not include the large ARM cores, being focused only on Cortex-M cores. The main compatibility requirement for the emulator was to support all devices addressed during the standard CMSIS initializations, which generally refer to PLL & clock settings. The next requirement was to fully support the GPIOs, at the level of allowing one or more LEDs to blink. qemu-system-gnuarmeclipse accurately emulates Cortex-M3 and M4 thumb instructions, but specific Cortex-M4 floating point instructions are not supported. The current implementation of NVIC uses some related interrupt controller code from larger cores, and is not very accurate. Only the following limited MCUs and evaluation boards can be supported by QEMU at this stage.
 
-<MCU>
+[ MCU ]
 - STM32F103RB
 - STM32F107VC
 - STM32F405RG
@@ -46,7 +46,7 @@ The 5th tool is QEMU. QEMU is an open source virtual machine program that is bec
 - STM32F429ZI
 - STM32L152RE
 
-<board>
+[ board ]
 - Maple – LeafLab Arduino-style STM32 microcontroller board
 - NUCLEO-F103RB – ST Nucleo Development Board for STM32 F1 series
 - NetduinoGo – Netduino GoBus Development Board with STM32F4
