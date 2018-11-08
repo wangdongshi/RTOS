@@ -141,5 +141,6 @@ void Thread::run()
 有人会说我还用个全局函数不就完了吗？是可以，但我们之前用thread类的run方法作为线程体的设想不就泡汤了吗？而且，作为C++这种面向对象的设计，你一想到线程体作为一个个全局函数在你的一堆类之间满天飞，是不是很抓狂呢？  
 这个咋处理呢，具体方法就不介绍了，推荐一个链接，可以再仔细看看。  
 [https://blog.csdn.net/maotoula/article/details/18501963](https://blog.csdn.net/maotoula/article/details/18501963)  
+[http://www.cppblog.com/Chosen/archive/2013/10/07/203567.html](http://www.cppblog.com/Chosen/archive/2013/10/07/203567.html)
 
 好了，当把上述这些问题都搞明白了以后，再回过头来看看某系统的线程类封装，是不是有种豁然开朗的赶脚？  
