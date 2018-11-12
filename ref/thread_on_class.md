@@ -53,7 +53,7 @@ int main()
 }
 ```
 在上面的例子中，pthread.h不见了，取而代之的是thread，这家伙就是C++提供的线程接口。这种设计中蕴含着一个重要的思想，即将应用程序与线程分开，这样做的好处是让应用模块的实现者尽量少的去关心线程配置的问题。  
-
+### RTOS下线程的封装  
 先说个小插曲。某系统关于线程类的设计过于复杂，主要是考虑了如何将模块独立为可执行程序的问题，这一部分其实和HMI的设计没有太大关系。除去关于可执行文件封装类和Application封装类，其实某系统的线程类和C++中thread类的封装方式大致是一样的。但还有些细微区别，稍后再分析。  
 
 接下来还是直奔主题，如何把RTOS上的线程封装在类中。也就是说假设我们现在只有Linux的pthread库，而没有C++的thread类，考虑如何把线程和应用隔离开来。其实就是思考两个问题：  
@@ -127,7 +127,7 @@ public:
 		status = pthread_create(_pThread, NULL, Thread::run, NULL);
 		if(status != 0) err_abort("creating thread failure", status);
 	}
-} 
+}
 ```
 但很快就会发现，这么搞编译过程是会报错的！报错的根源在于pthread_create要求传入的线程入口函数的形式为：  
 ```C++
@@ -142,5 +142,7 @@ void Thread::run()
 这个咋处理呢，具体方法就不介绍了，推荐一个链接，可以再仔细看看。  
 [https://blog.csdn.net/maotoula/article/details/18501963](https://blog.csdn.net/maotoula/article/details/18501963)  
 [http://www.cppblog.com/Chosen/archive/2013/10/07/203567.html](http://www.cppblog.com/Chosen/archive/2013/10/07/203567.html)
+
+最后总结一下，C++中thread类的封装不如Java中Thread类封装来得彻底。C++的thread类使用时，线程体仍然作为一个全局函数暴露在全局空间之中，而Java的Thread类使用时，线程体被巧妙的封装在了Thread类的run虚函数中，因此在Java中，Thread类的用法更加贴近面向对象的处理方式。
 
 好了，当把上述这些问题都搞明白了以后，再回过头来看看某系统的线程类封装，是不是有种豁然开朗的赶脚？  
