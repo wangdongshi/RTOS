@@ -91,7 +91,7 @@ public:
 	static unsigned hardware_concurrency() noexcept;
 };
 ```
-这怎么看不到某系统中的start方法和run方法？不着急，拓展一下，来看看Java中的Tread类的定义。  
+这怎么看不到某系统中的start方法和run方法？不着急，拓展一下，来看看Java中的Thread类的定义。  
 ```Java
 class Thread {
 
