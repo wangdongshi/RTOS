@@ -14,7 +14,7 @@
 extern "C" {
 #endif
 
-void trace(const char *format, ...);
+void Trace(const char *format, ...);
 
 #ifdef __cplusplus
 }
