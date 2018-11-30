@@ -156,9 +156,9 @@ int main( void )
 1. 它也需要一个主循环，在主循环中，它需要从Queue中获取一个消息，然后解释这个消息并作出相应的动作。  
 2. 考虑到封装性，HMI线程最好封装在一个类之中，今后HMI的开发者就可以只关心它的HMI类了。  
 3. Queue应该放在哪里？因为是HMI使用，当然应该由HMI的类来管理。  
-4. Event应该设计成啥样？怎么把它装进Queue里再取出来？这个稍后再说明。  
+4. Event应该设计成啥样？怎么把它装进Queue里再取出来？  
 
-给出一个HMI类的大致框架吧，具体的实现自己填进去就好。
+给出一个HMI类的大致框架，具体的实现自己填进去就好。
 ```C++
 #include <queue>
 #include <mutex>
@@ -189,4 +189,45 @@ private :
 #endif // __EHMI_MAIN_H__
 ```
 这里有个细节稍微说明一下，C++11的STL中有两种Queue，一种是普通的queue，另一种是双端口queue（名称为deque），考虑到要实现的消息队列应该是FIFO型，采用deque更为方便。  
+上面这个HMI的类中，自己维持着一个消息队列，以及一个同步消息队列用的互斥锁。因为这将是属于HMI对象的存储空间（消息队列），因此，需要为其它线程访问这个消息队列提供接口，这就是AddQueue方法。当然，这个HMI类中最主要的处理将是main方法，这里面会从消息队列中依次取出消息并做相应动作。  
 
+现在还有一件事未完成，就是消息本身该如何定义？  
+这里的实现也是用一个类来封装，即EHmiEvent类。这个类的定义如下。  
+```C++
+#ifndef __EHMI_EVENT_H__
+#define __EHMI_EVENT_H__
+
+typedef union _EHmiEventParam{
+	unsigned long	lp;
+	unsigned int    ip[2];
+	unsigned short  sp[4];
+	_EHmiEventParam() {}
+	_EHmiEventParam(unsigned long ul) {lp = ul;}
+} EHmiEventParam;
+
+typedef enum {
+    HMI_EV_NONE,
+    HMI_EV_KEYDOWN, // for test
+} EHmiEventType;
+
+class EHmiEvent {
+public :
+    EHmiEvent();
+    EHmiEvent(EHmiEventType ev);
+    EHmiEvent(EHmiEventType ev, unsigned long lp);
+    ~EHmiEvent();
+	
+public :	
+    EHmiEventType GetEvent() {return(type);}
+    unsigned long GetULArg() {return(arg.lp);}
+	void SetULArg(unsigned long ul) {arg.lp = ul;}
+	
+private :
+    EHmiEventType	type;
+    EHmiEventParam	arg;
+};
+#endif // __EHMI_EVENT_H__
+```
+事件类的结构比较简单，主要理解类中的两个属性的，一个是消息类型，即type，一个是消息参数（随消息发送的变量），即arg。  
+
+EHmiMain、EHmiEvent就构成了HMI线程和其它线程交互的结构，并且，这里用类的方式把HMI和其它部分的处理隔离了开来。  
