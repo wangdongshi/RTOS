@@ -17,11 +17,14 @@ typedef union _EHmiEventParam{
 	
 	_EHmiEventParam() {}
 	_EHmiEventParam(unsigned long ul) {lp = ul;}
+	_EHmiEventParam(unsigned int i1, unsigned int i2) {ip[0] = i1; ip[1] = i2;}
 } EHmiEventParam;
 
 typedef enum {
     HMI_EV_NONE,
-    HMI_EV_KEYDOWN, // for test
+	HMI_EV_INIT,
+    HMI_EV_MOUSE_DOWN,
+    HMI_EV_MOUSE_UP,
 } EHmiEventType;
 
 ///
@@ -33,12 +36,12 @@ public :
     EHmiEvent();
     EHmiEvent(EHmiEventType ev);
     EHmiEvent(EHmiEventType ev, unsigned long lp);
-	/*
-    EHmiEventInfo(EHmiEventType ev, 
+    EHmiEvent(EHmiEventType ev, 
 			unsigned int ip1,
 			unsigned int ip2
 			);
-    EHmiEventInfo(EHmiEventType ev,
+	/*
+    EHmiEvent(EHmiEventType ev,
 			unsigned short sp1,
 			unsigned short sp2,
 			unsigned short sp3,
@@ -47,8 +50,16 @@ public :
 	*/
     ~EHmiEvent();
     EHmiEventType GetEvent() {return(type);}
-    unsigned long GetULArg() {return(arg.lp);}
-	void SetULArg(unsigned long ul) {arg.lp = ul;}
+    unsigned long GetParam() {return(arg.lp);}
+    void GetParam(unsigned int* i1, unsigned int* i2) {
+			*i1 = arg.ip[0];
+			*i2 = arg.ip[1];
+	}
+	void SetParam(unsigned long ul) {arg.lp = ul;}
+	void SetParam(unsigned int i1, unsigned int i2) {
+			arg.ip[0] = i1;
+			arg.ip[1] = i2;
+	}
 	
 private :
     EHmiEventType	type;

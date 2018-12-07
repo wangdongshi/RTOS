@@ -9,10 +9,17 @@
 #include <queue>
 #include <mutex>
 #include <condition_variable>
+#include <X11/Xlib.h>
 #include "EHmiEvent.h"
 
 #ifndef __EHMI_MAIN_H__
 #define __EHMI_MAIN_H__
+
+// base window size
+enum SCWindowSize {
+	WINDOW_WIDTH	= 320,
+	WINDOW_HEIGHT	= 240,
+};
 
 ///
 /// class : EHmiMain
@@ -21,6 +28,7 @@
 class EHmiMain {
 public :
     EHmiMain();
+    EHmiMain(Display* display, Window& window);
     virtual ~EHmiMain();
 	
 public :
@@ -42,6 +50,9 @@ private :
     std::mutex				mtx;
     std::condition_variable	cv;
     bool                	is_ready;
+	Display*				disp;
+	Window					win;
+	GC						gc;
 };
 
 #endif // __EHMI_MAIN_H__

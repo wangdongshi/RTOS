@@ -9,7 +9,9 @@
 #include <thread>
 #include <unistd.h>
 #include <termio.h>
+#include <X11/Xlib.h>
 #include "debug.h"
+#include "EHmiCtrl.h"
 #include "EHmiMain.h"
 
 using namespace std;
@@ -17,11 +19,12 @@ using namespace std;
 /// function	hmiCtrl
 /// brief		eHMI controller function
 ///
-/// param		none
+/// param		pCtrl
 /// return		none
-void hmiCtrl()
+void hmiCtrl(EHmiCtrl* pCtrl)
 {
-	Trace("HMI ctrl thread is setup!\n");
+	Trace("HMI touch event monitor thread is setup!\n");
+	pCtrl->Start();
 }
 
 /// function	hmiMain
@@ -46,18 +49,32 @@ void hmiMain(EHmiMain* pHmi)
 /// return		error code
 int main( void )
 {
-	// create hmi ctrl thread
-	// thread hmi_ctrl(hmiCtrl);
-	// hmi_ctrl.join();
+	// create panel with touch(mouse) event
+	// link to X server
+	Display* disp = XOpenDisplay(NULL);
+	// create 320x240 window
+	unsigned long background = WhitePixel(disp, 0);
+	unsigned long foreground = BlackPixel(disp, 0);
+	Window win = XCreateSimpleWindow(disp, DefaultRootWindow(disp),
+			0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, 0, background);
+	// select draw event
+	XSelectInput(disp, win, ExposureMask | ButtonPressMask | ButtonReleaseMask);
+	// map window
+	XMapWindow(disp, win);
 
 	// create hmi main thread
-	EHmiMain* pHmi = new EHmiMain();
+	EHmiMain* pHmi = new EHmiMain(disp, win);
 	thread hmi_main(hmiMain, pHmi);
 	hmi_main.detach();
 
+	// create hmi ctrl thread
+	EHmiCtrl* pCtrl = new EHmiCtrl(disp, pHmi);
+	thread hmi_ctrl(hmiCtrl, pCtrl);
+	hmi_ctrl.detach();
+
 	while(1) {
 		sleep(1);
-		
+		/*	
 		int in;
 		struct termios new_settings;
 		struct termios stored_settings;
@@ -78,7 +95,10 @@ int main( void )
 			pHmi->SetReady(true);
 			pHmi->AddQueue(ev);
 		}
+		*/
 	}
 
+	XCloseDisplay(disp);
+	
 	return 0;
 }

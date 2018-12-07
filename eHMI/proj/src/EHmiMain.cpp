@@ -20,10 +20,21 @@ EHmiMain::EHmiMain() : is_ready(false)
 {
 }
 
+/// function	EHmiMain
+/// brief		constructor
+EHmiMain::EHmiMain(Display* display, Window& window) : 
+is_ready(false),
+disp(display),
+win(window),
+gc(XCreateGC(display, window, 0, NULL))
+{
+}
+
 /// function	~EHmiMain
 /// brief		deconstructor
 EHmiMain::~EHmiMain()
 {
+	XFreeGC(disp, gc);
 }
 
 /// function	main
@@ -33,6 +44,9 @@ EHmiMain::~EHmiMain()
 /// return		none
 void EHmiMain::main(void)
 {
+	// get draw context
+	gc = XCreateGC(disp, win, 0, NULL);
+
     EHmiEvent ev(HMI_EV_NONE);
 	
     while(true) {
@@ -50,8 +64,7 @@ void EHmiMain::main(void)
                 if(deq.empty()) {
                     // if queue is empty, break while.
                     break;
-                }
-                else {
+                } else {
                     // get event from queue
 					ev = deq.front();
                     deq.pop_front();
@@ -72,13 +85,21 @@ void EHmiMain::eventHandler(EHmiEvent& ev)
 {
     EHmiEventType type = HMI_EV_NONE;
 	unsigned long param;
+	unsigned int  x, y;
 
     // get event type & param
 	type = ev.GetEvent();
     switch(type) {
-    case HMI_EV_KEYDOWN:
-        param = ev.GetULArg();
-		cout << endl << "\"" << (char)param << "\" key is pushed down!" << endl;
+    case HMI_EV_INIT:
+		Trace("Get window init event.\n");
+        break;
+    case HMI_EV_MOUSE_DOWN:
+		ev.GetParam(&x, &y);
+		Trace("Get mouse down event. X=%d, Y=%d\n", x, y);
+        break;
+    case HMI_EV_MOUSE_UP:
+		ev.GetParam(&x, &y);
+		Trace("Get mouse up   event. X=%d, Y=%d\n", x, y);
         break;
     default: // HMI_EV_NONE or not defined
         break;
