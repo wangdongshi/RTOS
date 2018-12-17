@@ -7,6 +7,8 @@
 /// date		2018/12/07
 ///
 #include <mutex>
+#include <unistd.h>
+#include <termio.h>
 #include "debug.h"
 #include "EHmiCtrl.h"
 
@@ -47,6 +49,7 @@ void EHmiCtrl::main(void)
 
 	// catch and process event created from screen
     while(true) {
+		sleep(1);
 		// event get from mouse
 		XEvent win_ev;
 		XNextEvent(disp, (XEvent *)&win_ev);
@@ -55,14 +58,12 @@ void EHmiCtrl::main(void)
 		{
 			case Expose: // window init event
 			{
-				Trace("Expose event.\n");
 				EHmiEvent hmi_ev(HMI_EV_EXPOSE);
 				send2HMI(hmi_ev);
 			}
 				break;
 			case ButtonPress: // mouse down event
 			{
-				Trace("Button Down event.\n");
 				XButtonEvent xbutton = win_ev.xbutton;
 				EHmiEvent hmi_ev(HMI_EV_MOUSE_DOWN, xbutton.x, xbutton.y);
 				send2HMI(hmi_ev);
@@ -70,7 +71,6 @@ void EHmiCtrl::main(void)
 				break;
 			case ButtonRelease: // mouse up event
 			{
-				Trace("Button up event.\n");
 				XButtonEvent xbutton = win_ev.xbutton;
 				EHmiEvent hmi_ev(HMI_EV_MOUSE_UP, xbutton.x, xbutton.y);
 				send2HMI(hmi_ev);
