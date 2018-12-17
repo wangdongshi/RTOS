@@ -22,7 +22,8 @@ typedef union _EHmiEventParam{
 
 typedef enum {
     HMI_EV_NONE,
-	HMI_EV_INIT,
+	HMI_EV_EXPOSE,
+	HMI_EV_WINDOW_INIT,
     HMI_EV_MOUSE_DOWN,
     HMI_EV_MOUSE_UP,
 } EHmiEventType;

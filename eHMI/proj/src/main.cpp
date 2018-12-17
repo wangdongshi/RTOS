@@ -53,10 +53,15 @@ int main( void )
 	// link to X server
 	Display* disp = XOpenDisplay(NULL);
 	// create 320x240 window
-	unsigned long background = WhitePixel(disp, 0);
-	unsigned long foreground = BlackPixel(disp, 0);
-	Window win = XCreateSimpleWindow(disp, DefaultRootWindow(disp),
-			0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, 0, background);
+	//unsigned long background = WhitePixel(disp, 0);
+	//unsigned long foreground = BlackPixel(disp, 0);
+	//Window win = XCreateSimpleWindow(disp, DefaultRootWindow(disp),
+	//		0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, 0, background);
+	XSetWindowAttributes attributes;
+	attributes.background_pixel = XWhitePixel(disp, 0);
+	Window win = XCreateWindow(disp, XRootWindow(disp, 0), 0, 0,
+			WINDOW_WIDTH, WINDOW_HEIGHT, 0, DefaultDepth(disp, 0), 
+			InputOutput, DefaultVisual(disp, 0), CWBackPixel, &attributes); 
 	// select draw event
 	XSelectInput(disp, win, ExposureMask | ButtonPressMask | ButtonReleaseMask);
 	// map window

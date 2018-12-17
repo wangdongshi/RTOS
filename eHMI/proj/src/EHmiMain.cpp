@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <termio.h>
 #include "debug.h"
+#include "SCDrawContext.h"
 #include "EHmiMain.h"
 
 using namespace std;
@@ -24,9 +25,7 @@ EHmiMain::EHmiMain() : is_ready(false)
 /// brief		constructor
 EHmiMain::EHmiMain(Display* display, Window& window) : 
 is_ready(false),
-disp(display),
-win(window),
-gc(XCreateGC(display, window, 0, NULL))
+dc(new SCDrawContext(display, window))
 {
 }
 
@@ -34,7 +33,7 @@ gc(XCreateGC(display, window, 0, NULL))
 /// brief		deconstructor
 EHmiMain::~EHmiMain()
 {
-	XFreeGC(disp, gc);
+	delete dc;
 }
 
 /// function	main
@@ -44,9 +43,6 @@ EHmiMain::~EHmiMain()
 /// return		none
 void EHmiMain::main(void)
 {
-	// get draw context
-	gc = XCreateGC(disp, win, 0, NULL);
-
     EHmiEvent ev(HMI_EV_NONE);
 	
     while(true) {
@@ -57,6 +53,7 @@ void EHmiMain::main(void)
         // }
 
         // command process
+		sleep(2);
         while(true) {
 			sleep(1);
             {
@@ -84,14 +81,20 @@ void EHmiMain::main(void)
 void EHmiMain::eventHandler(EHmiEvent& ev)
 {
     EHmiEventType type = HMI_EV_NONE;
-	unsigned long param;
+	//unsigned long param;
 	unsigned int  x, y;
-
+	SCPos start(10, 30);
+	
     // get event type & param
 	type = ev.GetEvent();
     switch(type) {
-    case HMI_EV_INIT:
+    case HMI_EV_WINDOW_INIT:
 		Trace("Get window init event.\n");
+        break;
+    case HMI_EV_EXPOSE:
+		Trace("Get window expose event.\n");
+		dc->drawRect(start, 300, 80, 0xFFFFFFFF);
+		dc->drawChar(start, 0xFFFFFFFF, 0xFFFFFFFF, SC_FONT_MIDDLE, 'W');
         break;
     case HMI_EV_MOUSE_DOWN:
 		ev.GetParam(&x, &y);

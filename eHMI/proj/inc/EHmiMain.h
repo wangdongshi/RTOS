@@ -10,6 +10,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <X11/Xlib.h>
+#include "SCDrawContext.h"
 #include "EHmiEvent.h"
 
 #ifndef __EHMI_MAIN_H__
@@ -50,9 +51,7 @@ private :
     std::mutex				mtx;
     std::condition_variable	cv;
     bool                	is_ready;
-	Display*				disp;
-	Window					win;
-	GC						gc;
+	SCDrawContext*			dc;
 };
 
 #endif // __EHMI_MAIN_H__

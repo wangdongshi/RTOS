@@ -41,20 +41,28 @@ EHmiCtrl::~EHmiCtrl()
 /// return		none
 void EHmiCtrl::main(void)
 {
+	// init window
+	EHmiEvent hmi_ev(HMI_EV_WINDOW_INIT);
+	send2HMI(hmi_ev);
+
+	// catch and process event created from screen
     while(true) {
 		// event get from mouse
 		XEvent win_ev;
 		XNextEvent(disp, (XEvent *)&win_ev);
+		// send event
 		switch(win_ev.type) 
 		{
 			case Expose: // window init event
 			{
-				EHmiEvent hmi_ev(HMI_EV_INIT);
+				Trace("Expose event.\n");
+				EHmiEvent hmi_ev(HMI_EV_EXPOSE);
 				send2HMI(hmi_ev);
 			}
 				break;
 			case ButtonPress: // mouse down event
 			{
+				Trace("Button Down event.\n");
 				XButtonEvent xbutton = win_ev.xbutton;
 				EHmiEvent hmi_ev(HMI_EV_MOUSE_DOWN, xbutton.x, xbutton.y);
 				send2HMI(hmi_ev);
@@ -62,6 +70,7 @@ void EHmiCtrl::main(void)
 				break;
 			case ButtonRelease: // mouse up event
 			{
+				Trace("Button up event.\n");
 				XButtonEvent xbutton = win_ev.xbutton;
 				EHmiEvent hmi_ev(HMI_EV_MOUSE_UP, xbutton.x, xbutton.y);
 				send2HMI(hmi_ev);
