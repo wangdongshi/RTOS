@@ -92,15 +92,16 @@ void EHmiMain::eventHandler(EHmiEvent& ev)
     case HMI_EV_EXPOSE:
 		Trace("Get window expose event.\n");
 	{
-		char str[] = "Welcome to this embedded HMI sample!";
+		//char str[] = "Welcome to this embedded HMI sample!";
+		char str[] = "Test";
 		char* p_str = str;
 		SCPos pos(10, 30);
 		unsigned int x = 35, y = 180, internal = 7;
 		// draw a rectangle
-		dc->drawRect(pos, 300, 80, 0xFFFFFFFF);
+		dc->drawRect(pos, 300, 80, 0x7FFF00007FFF);
 		// draw a string
 		while (*p_str) {
-			dc->drawASCII(x, y, static_cast<const char>(*p_str), 0xFFFFFFFF, 0xFFFFFFFF, SC_FONT_MIDDLE);
+			dc->drawASCII(x, y, static_cast<const char>(*p_str), 0x0000FFFF0000, 0x7FFF7FFF7FFF, SC_FONT_MIDDLE);
 			p_str++;
 			x += internal;
 		}
