@@ -9,6 +9,7 @@
 #include <iostream>
 #include <unistd.h>
 #include <termio.h>
+#include <X11/Xlib.h>
 #include "debug.h"
 #include "SCDrawContext.h"
 #include "EHmiMain.h"
@@ -25,8 +26,10 @@ EHmiMain::EHmiMain() : is_ready(false)
 /// brief		constructor
 EHmiMain::EHmiMain(Display* display, Window& window) : 
 is_ready(false),
-dc(new SCDrawContext(display, window))
+dc(new SCDrawContext(display, window)),
+color(new SCColor(display))
 {
+	color->AllocColor();
 }
 
 /// function	~EHmiMain
@@ -92,16 +95,15 @@ void EHmiMain::eventHandler(EHmiEvent& ev)
     case HMI_EV_EXPOSE:
 		Trace("Get window expose event.\n");
 	{
-		//char str[] = "Welcome to this embedded HMI sample!";
-		char str[] = "Test";
+		char str[] = "Welcome to this embedded HMI sample!";
 		char* p_str = str;
 		SCPos pos(10, 30);
-		unsigned int x = 35, y = 180, internal = 7;
+		unsigned int x = 35, y = 40, internal = 7;
 		// draw a rectangle
-		dc->drawRect(pos, 300, 80, 0x7FFF00007FFF);
+		dc->drawRect(pos, 300, 80, SC_COLOR_BLUE);
 		// draw a string
 		while (*p_str) {
-			dc->drawASCII(x, y, static_cast<const char>(*p_str), 0x0000FFFF0000, 0x7FFF7FFF7FFF, SC_FONT_MIDDLE);
+			dc->drawASCII(x, y, static_cast<const char>(*p_str), SC_COLOR_BLACK, SC_COLOR_WHITE, SC_FONT_MIDDLE);
 			p_str++;
 			x += internal;
 		}

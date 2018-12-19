@@ -57,26 +57,22 @@ public: // change this to protected after create SCDrawCommand class
 							const unsigned int y,
 							const unsigned int width,
 							const unsigned int height,
-							const unsigned long color);
+							const XColor& color);
 	void			drawRect(const SCPos pos,
 							const unsigned int width,
 							const unsigned int height,
-							const unsigned long color);
+							const XColor& color);
 	void			drawASCII(const unsigned int x,
 							const unsigned int y,
 							const char ascii,
-							const unsigned long fore_color,
-							const unsigned long back_color,
+							const XColor& fore_color,
+							const XColor& back_color,
 							char* font_name);
 	void			drawASCII(const SCPos pos,
 							const char ascii,
-							const unsigned long fore_color,
-							const unsigned long back_color,
+							const XColor& fore_color,
+							const XColor& back_color,
 							char* font_name);
-
-protected:
-	Colormap		allocColor(const unsigned long color,
-							const bool fb = true);
 
 public:
 	static const char font_type[3][70];

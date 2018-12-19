@@ -10,6 +10,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <X11/Xlib.h>
+#include "SCColor.h"
 #include "SCDrawContext.h"
 #include "EHmiEvent.h"
 
@@ -52,6 +53,7 @@ private :
     std::condition_variable	cv;
     bool                	is_ready;
 	SCDrawContext*			dc;
+	SCColor* 				color;
 };
 
 #endif // __EHMI_MAIN_H__
