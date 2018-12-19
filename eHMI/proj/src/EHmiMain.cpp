@@ -11,6 +11,7 @@
 #include <termio.h>
 #include <X11/Xlib.h>
 #include "debug.h"
+#include "SCColor.h"
 #include "SCDrawContext.h"
 #include "EHmiMain.h"
 
@@ -100,10 +101,10 @@ void EHmiMain::eventHandler(EHmiEvent& ev)
 		SCPos pos(10, 30);
 		unsigned int x = 35, y = 40, internal = 7;
 		// draw a rectangle
-		dc->drawRect(pos, 300, 80, SC_COLOR_BLUE);
+		dc->drawRect(pos, 300, 80, GetColor("Blue"));
 		// draw a string
 		while (*p_str) {
-			dc->drawASCII(x, y, static_cast<const char>(*p_str), SC_COLOR_BLACK, SC_COLOR_WHITE, SC_FONT_MIDDLE);
+			dc->drawASCII(x, y, static_cast<const char>(*p_str), GetColor("Black"), GetColor("White"), SC_FONT_MIDDLE);
 			p_str++;
 			x += internal;
 		}

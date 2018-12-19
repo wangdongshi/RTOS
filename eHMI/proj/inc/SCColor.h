@@ -10,44 +10,31 @@
 #ifndef __SCL_COLOR_H__
 #define __SCL_COLOR_H__
 
+#include <unordered_map>
 #include <X11/Xlib.h>
 
-#define SC_COLOR_WHITE		SCColor::sc_white
-#define SC_COLOR_BLACK		SCColor::sc_black
-#define SC_COLOR_RED	 	SCColor::sc_red
-#define SC_COLOR_YELLOW		SCColor::sc_yellow
-#define SC_COLOR_BLUE		SCColor::sc_blue
-#define SC_COLOR_GREEN		SCColor::sc_green
-#define SC_COLOR_GRAY		SCColor::sc_gray
-#define SC_COLOR_LIGHT_GRAY	SCColor::sc_light_gray
-#define SC_COLOR_DARK_GRAY	SCColor::sc_dark_gray
+#define SC_COLOR_NUMBER		30	// there is margin
 
 ///
 /// class : SCColor
 /// Coordinate class
 ///
 class SCColor {
-public:
+public :
 	SCColor(Display* display);
 	virtual ~SCColor();
 
-public:
-	void AllocColor(void);
-
 public :
-	static XColor sc_white;
-	static XColor sc_black;
-	static XColor sc_red;
-	static XColor sc_yellow;
-	static XColor sc_blue;
-	static XColor sc_green;
-	static XColor sc_gray;
-	static XColor sc_light_gray;
-	static XColor sc_dark_gray;
+	void AllocColor(void);
+	XColor GetColor(char* p_color);
+	
+public :
+	static std::unordered_map<int, std::string> colorMap;	// color name's index
 
-private:
+private :
+	static XColor xcolor[SC_COLOR_NUMBER];
 	Display* disp;
+	Colormap cmap;
 };
 
 #endif // __SCL_COLOR_H__
-

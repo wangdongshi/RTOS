@@ -8,19 +8,23 @@
 ///
 #include "SCColor.h"
 
-XColor SCColor::sc_white;
-XColor SCColor::sc_black;
-XColor SCColor::sc_red;
-XColor SCColor::sc_yellow;
-XColor SCColor::sc_blue;
-XColor SCColor::sc_green;
-XColor SCColor::sc_gray;
-XColor SCColor::sc_light_gray;
-XColor SCColor::sc_dark_gray;
+static std::unordered_map<int, string> colorMap = {
+	{0,		"White"},
+	{1, 	"Black"},
+	{2, 	"Red"},
+	{3,		"Yellow"},
+	{4, 	"Blue"},
+	{5, 	"Green"},
+	{6, 	"Gray"},
+	{7, 	"LightGray"},
+	{8, 	"DarkGray"},
+};
 
 /// function	SCColor
 /// brief		constructor
-SCColor::SCColor(Display* display) : disp(display)
+SCColor::SCColor(Display* display) :
+disp(display),
+cmap(DefaultColormap(display, 0))
 {
 }
 
@@ -32,19 +36,22 @@ SCColor::~SCColor()
 
 /// function	AllocColor
 /// brief		alloc color for eHMI
+///
+/// param		none
+/// return		none
 void SCColor::AllocColor(void)
 {
-	Colormap cmap;
 	XColor true_color;
-	cmap = DefaultColormap(disp, 0);
-	XAllocNamedColor(disp, cmap, "White",		&sc_white,		&true_color);
-	XAllocNamedColor(disp, cmap, "Black",		&sc_black,		&true_color);
-	XAllocNamedColor(disp, cmap, "Blue",		&sc_blue,		&true_color);
-	XAllocNamedColor(disp, cmap, "Red",			&sc_red,		&true_color);
-	XAllocNamedColor(disp, cmap, "Yellow",		&sc_yellow,		&true_color);
-	XAllocNamedColor(disp, cmap, "Blue",		&sc_blue,		&true_color);
-	XAllocNamedColor(disp, cmap, "Green",		&sc_green,		&true_color);
-	XAllocNamedColor(disp, cmap, "Gray",		&sc_gray,		&true_color);
-	XAllocNamedColor(disp, cmap, "LightGray",	&sc_light_gray,	&true_color);
-	XAllocNamedColor(disp, cmap, "DarkGray",	&sc_dark_gray,	&true_color);
+	for (int i = 0; i < colorMap.size(); ++i) {
+		XAllocNamedColor(disp, camp, colorMap.at(i).c_str(), &xcolor[i], &true_color);
+	}
+}
+
+/// function	GetColor
+/// brief		get color with color name in X11
+///
+/// param		p_color		color name
+/// return		Xcolor struct
+XColor SCColor::GetColor(char* p_color) {
+	return xcolor[SC_COLOR_NUMBER];
 }
