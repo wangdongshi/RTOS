@@ -7,7 +7,7 @@ X Window系统是一个基于网络的图形界面系统，它于1984年由MIT�
 但是，随着Linux的发展，显示的要求毕竟也是存在的，因此诞生了X Window系统。不同于Windows的图形界面，X Window是C/S架构的，也就是说，Linux上有个X Window的服务器，然后客户端的显示进程通过X11协议来和X Window服务器进行通信。从这种设计结构来看，显示的确算不上Linux的核心。  
 X Window包括X Server、X Client、X协议三部分内容。其中X Client有三种开发模式：基于XLib、基于GTK、基于Qt。XLib是最底层的实现方式，GTK和QT想必大家都有所了解，就不罗嗦了。  
 
-### 在putty上使用X Window
+### 在putty上使用X Window  
 在产生向Linux移植图形界面的想法之前，自己一直都是通过putty/ssh登录Linux服务器来开发Linux程序的，现在突然发现此种方式好像没法操作图形界面。基于X Window的理念，想到完全可以在Windows端实现一个X Client，于是在网上搜了一下，果然是可以的，就是Xming。至于这个家伙怎么用大家可以自行百度。总之有了它配合putty，原来Linux的几乎所有图形应用就可以在Windows端再现了！  
 
 ### 一个简单的Xlib的例子  
@@ -16,211 +16,108 @@ https://www.ibm.com/developerworks/cn/linux/l-cn-xwin/index.html
 从这里可以看到，通过Xlib，可以完成在X Client上的绘图，也能从GUI上接收各种消息，非常适合这次GUI系统的模拟。  
 
 ### 为HMI提供基本描画元素  
-现在已经有了在Linux上描画的基本方法，接下来需要考虑构建作为HMI基础的底层描画元素，换句话说，如何提供一个统一的接口来实现这些基础描画功能？按照某系统的设计，此处应该提供一个点、一条线、一个矩形区域、一个字符串的描画函数，而这些基本的描画方法应该封装在一个HMI图形元素的基类中。其实一般还应提供图像描画函数，不过这个稍微复杂了一些，因为有解析位图之类的操作，作为HMI的示例程序，这个可以先不处理，以免一开始将问题复杂化。  
-画点最简单，如果只考虑黑白两色，那么以一个函数来考虑的话，只需要传入该点的坐标就够了。描画直线需要传入一对坐标，描画一个矩形区域需要一个起始坐标和矩形区域的长宽。接下来如果再加上颜色的话，情况就稍微复杂些，尤其是描画矩形还需要考虑前景色和背景色。   再进一步，点的坐标一定是一个常用的结构，应该抽象为类，颜色如果以RGB来表示的话，也应该将其抽象为一个类。  
-最后说一下字符串描画问题。作为函数接口，直觉就是将ASCII字符数组构成的C格式字符串作为参数传入，挨个描画字符即可。但是字符怎么描画呢？如果重头实现HMI，不考虑这个问题就不行了。从根本上来说其实就是先判断字符是什么，然后一笔一画用点的描画堆砌起来。不过字符的写法其实多种多样，这样用什么风格来显示这个字符就成了问题，如果字符描画固定在程序中，那么希望改动字体时就要重新编译代码，这样代价实在是太大了，就可以抽象为一个字体文件，描画的时候按照字体文件中的描述来进行，就可以做到主程序不变，只改动字体文件就可以改动字符的描画风格，这也是大部分系统提供给应用开发者的基本结构。当然，这其中字体文件还有点阵和矢量的区分。幸好现在是在Linux上来实现字符串描画，系统当然提供了字体，也就不用从字体文件开始实现了。   
+#### 点和线  
+现在已经有了在Linux上描画的基本方法，接下来需要考虑构建作为HMI基础的底层描画元素，换句话说，如何提供一个统一的接口来实现这些基础描画功能？回想下平时使用的GUI系统，似乎这里应该提供一个点、一条线、一个字符、一个图像的描画函数，这些东西构成基本描画元素，可以理解为最基本的方法，它们应该封装在一个HMI图形元素的基类中。在这之上可以构成种类的繁多的诸如Label、Combox、Button、Checkbox等等更为复杂的GUI元素。  
 
-下面做出这个HMI描画基类的头文件。   
+下面来具体分析一下这几个所谓的基本描画元素：点、直线、字符、图像。  
+
+点的描画最简单，如果不考虑颜色的话，那么以一个函数来描述画点的描画方法，只需传入该点的坐标就够了。直线的描画是不是直需要传入一对坐标（开始坐标和结束坐标）就可以了？事情远没有这么Easy，如果直线不是水平的或是垂直的，那么应该如何去分配从开始点到结束点的角度变化，使这种变化是均匀分布在直线的每一点上吗，如果是这样那么应该以水平方向进行这种计算，还是以垂直方向进行这种计算呢？看来一个简单的直线描画真正实施起来并不容易。  
+参考一下某系统的做法吧，很简单，它不提供斜线的描画，而只提供描画水平或垂直的直线的方法。换句话说，它的底层根本就没有提供画“直线”和画“点”的这种方法，而只有画“矩形”这种方法。只有画“矩形”的方法？这种设计乍听起来是不是很不可思议，但是仔细考虑下就会明白这其中的合理性。直线的描画由于上述所提到的那些问题造成了很麻烦的计算，这其实是一个矢量描画的问题。对于一个支持大屏幕的系统来讲，为了实现良好的显示效果它不得不支持这种计算，但是对于嵌入式系统，尤其是象某系统这样只有320x240这种小尺寸点阵LCD的系统来说则不然，在这种系统上，如果每描画一次直线都进行这种计算那也会是非常大的开销，而且，在这么小的屏幕上要描画复杂的各种斜线的情况本来就少得可怜，可以看看某系统的显示元素，诸如Label、Button、Textbox等，它们都根本不存在斜线的描画，因此专门考虑斜线描画显然是不必要的。如果我们只需要描画水平或垂直的直线，那么问题是不是大大的被简化了？再进一步思考一下，这种简化可以做到什么程度？画矩形。对了，只要支持了矩形的描画，直线就可以看作是长或宽为1个像素的矩形，而点也可以看作是长宽均为1个像素的矩形。  
+
+某系统的底层显示设计中，对于这类元素（点、直线等）的描画，只提供了一个接口，就是矩形的描画。既然是画矩形，那么这个接口当然需要表示描画范围的参数，很容易想到，这可以由一个起始坐标（通常是矩形的左上角坐标）和矩形的长宽来表示。接下来还需要颜色参数，这里说的颜色就是将这个矩形全部都涂成一种颜色，有人可能会问，要是想描画边框颜色和内部颜色不同的矩形怎么办？很简单边框以四条直线来描画，它们用边框的颜色，而矩形内部用则用另一个矩形来描画，它用矩形内部的颜色，而边框的四条线其实还是长或宽为1个像素的矩形，说来说去，它们还是都归结于矩形的描画。  
+颜色的表示也是一个很大的问题，这其实主要是颜色的丰富性与存储容量之间的均衡考虑。简而言之，就是想要表现丰富的颜色就必须占用更大的存储空间。某系统的颜色表示采用的是调色板的方式，这个方法就不再这里进行展开了，总之它使用调色板的目的，是将256色的表示用一个字节的空间来解决，因为这里是在Linux上做模拟，就暂不考虑这种方式了，而是直接采用256色的RGB值，也就是一个4字节的存储空间来表示颜色信息。  
+
+说到这里，点和线要考虑的问题基本上就差不多了，有人可能会想，如果真得需要描画“斜线”或“椭圆”之类的东西怎么办，很简单，一个点一个点描就是了，巧妇难为无米之炊啊。  
+
+#### 字符  
+好了，现在再来考虑另一类复杂的描画——字符。作为函数接口，直觉就是将ASCII字符和描画位置作为参数传入即可。但是字符怎么描画呢？如果重头实现HMI，不考虑这个问题就不行。从本质上来说其实就是先判断字符是什么，然后参照某个字体模板，一笔一画用点的描画堆砌起来。不过字符的写法其实多种多样，这样用什么风格来显示这个字符就成了问题。如果将字符的描画固定在程序中，那么希望改动字体时就要重新编译代码，这样的代价实在太大，因此可以将字符的描画抽象为一个字体文件，描画的时候按照字体文件中的描述来进行，就可以做到主程序不变，只改动字体文件就可以改动字符的描画风格，这也是大部分系统提供给应用开发者的基本结构。当然，这其中字体文件还有点阵和矢量的区分。  
+
+某系统的底层描画函数提供了字符描画的接口，因为这是一个常用的必须实现的接口。本来在示例的HMI工程中也是想以字体文件的方式来模拟的，这样更接近嵌入式系统中的实际情况，但考虑到本次练习的目的，就不将问题过度复杂化了，这里简单以Linux提供的字符描画接口来实现。  
+
+#### 图像  
+其实一般还应提供图像描画函数，不过这个比字符描画就更复杂了，因为还有解析位图之类的操作。作为HMI的示例程序，这个功能没有的话其实也不影响示例工程的功能，因此这部分功能就不实现了，以免将问题复杂化。  
+
+#### 设计上的考虑  
+上面已经分析了在基本元素的描画层面要实现的几个方法，那么这些方法应该以什么样的形式提供给上层应用程序呢？当然，可以将这些方法（矩形、字符的描画）视为驱动程序提供的功能，如此一来这些方法就可以以全局函数的形式出现在HMI的工程中，这样做当然没问题，某系统的HMI也基本上是以这种思路完成的。（在DrawCom类中实现了一批静态方法，可以看作是全局方法。）  
+但是，用静态方法类似于全局函数，并不是一个理想的实现，为此，可以参考大部分GUI系统的实现，既提供了一种所谓绘图上下文的类，这个类中维持着描画所需要的所有环境信息，比如，颜色、字体，当然也可以有我们这里需要封装的基本描画命令。  
+这样做的好处是将来再出现任何描画上的新的基础功能时，我们可以用更灵活（继承或者修改特定的类，如颜色类、字体类、命令类）的方式进行处理，不至于在一个全局的区间随意的增加方法。  
+
+下面就基于这种思想给出一个HMI的关键类描述。  
 ```C++
-template<class ELEMENT, unsigned int m_size>
-class Queue {
-	private:
-		bool full;
-		unsigned int front;
-		unsigned int back;
-		ELEMENT m_e[m_size];
+#include <X11/Xlib.h>
 
-		unsigned int next(unsigned int num) {
-			return (num + 1) % m_size;
-		}
-	public:
-		Queue() {
-			front = 0;
-			back = 0;
-			full = false;
-		}
-		bool add(ELEMENT e) {
-			if(full) {
-				return false;
-			} else {
-				m_e[back] = e;
-				back = next(back);
-				if(front == back) {
-					full = true;
-				}
-				return true;
-			}
-		}
-		ELEMENT remove() {
-			if(front != back || full) {
-				if(full) {
-					full = false;
-				}
-				ELEMENT e = m_e[front];
-				front = next(front);
-				return e;
-			} else {
-				throw std::out_of_range("Empty Queue.");
-			}
-		}
-		ELEMENT element() {
-			if(front != back || full) {
-				return m_e[front];
-			} else {
-				throw std::out_of_range("Empty Queue.");
-			}
-		}
-		std::size_t count()
-		{
-			if(full) {
-				return m_size;
-			} else {
-				return front <= back ? back - front : back + m_size - front;
-			}
-		}
-		void clear() {
-			front = 0;
-			back = 0;
-			full = false;
-		}
-		bool empty() {
-			return front == back && !full;
-		}
-		unsigned int size() {
-			return m_size;
-		}
-};
-```
-Mutex的实现就离不开操作系统调用了，这个必须和OS结合起来，不过某系统也对Mutex的接口给出了定义，如下。  
-```C++
-class Mutex {
-	private:
-		void *mtx; /*!< OS-specific Mutex object pointer */
-	public:
-		Mutex();
-		~Mutex();
-		void set(void **_mtx);
-		uint32_t *getId();
-};
-```
+class SCDrawContext {
+public:
+	SCDrawContext();
+	SCDrawContext(Display* d, Window& w);
+	virtual ~SCDrawContext();
 
-由于目前的目标是在Linux跑起来这个HMI系统，而Linux/GNU上的C++已经提供了完整的Queue和Mutex等OS资源，因此暂时就不自己来实现这些资源，直接用Linux的资源就好了。（至于在RTOS上实现这类C++接口，这个工作并不轻松，以后有时间的时候再做吧。）  
+public:
+	Display*	getDisplay(void) {return disp;};
+	Window*		getWindow(void) {return &win;};
+	GC*			getGC(void) {return &gc;};
 
-### HMI线程和控制线程  
-按照上次介绍的C++封装的thread类库的实现方法，先生成HMI和控制逻辑的两个线程。下例中主程序在生成了HMI线程后，自己担当了控制逻辑的任务。  
-```C++
-#include <thread>
-#include <unistd.h>
-#include <termio.h>
-#include "EHmiMain.h"
+protected:
+	void		drawRect(const unsigned int x,
+						const unsigned int y,
+						const unsigned int width,
+						const unsigned int height,
+						const XColor& color);
+	void		drawASCII(const unsigned int x,
+						const unsigned int y,
+						const char ascii,
+						const XColor& fore_color,
+						const XColor& back_color,
+						const std::string font_name);
 
-using namespace std;
-
-void hmiMain(EHmiMain* pHmi)
-{
-	printf("HMI main thread is setup!\n");
-	pHmi->Start();
-}
-
-int main( void )
-{
-	// create hmi main thread
-	EHmiMain* pHmi = new EHmiMain();
-	thread hmi_main(hmiMain, pHmi);
-	hmi_main.detach();
-
-	while(1) {
-		sleep(1);
-		int in = getchar();		
-		EHmiEvent ev(HMI_EV_KEYDOWN, (unsigned long)in);
-		{
-			lock_guard<mutex> lock(pHmi->Mutex());
-			pHmi->SetReady(true);
-			pHmi->AddQueue(ev);
-		}
-	}
-	return 0;
-}
-```
-
-上面的例子当然还不能单独运行起来，因为还有很多新的东东没有定义，比如EHmiMain、EHmiEvent等等。在这里，只要看懂HMI线程的生成，以及控制线程（main函数）如何向HMI线程发消息就OK了。  
-
-现在再来想想，HMI线程应该处理些什么？  
-1. 它也需要一个主循环，在主循环中，它需要从Queue中获取一个消息，然后解释这个消息并作出相应的动作。  
-2. 考虑到封装性，HMI线程最好封装在一个类之中，今后HMI的开发者就可以只关心它的HMI类了。  
-3. Queue应该放在哪里？因为是HMI使用，当然应该由HMI的类来管理。  
-4. Event应该设计成啥样？怎么把它装进Queue里再取出来？  
-
-给出一个HMI类的大致框架，具体的实现自己填进去就好。
-```C++
-#include <queue>
-#include <mutex>
-#include "EHmiEvent.h"
-
-#ifndef __EHMI_MAIN_H__
-#define __EHMI_MAIN_H__
-
-class EHmiMain {
-public :
-    EHmiMain();
-    virtual ~EHmiMain();
+protected:
+	Display*	disp;
+	Window		win;
+	GC			gc;
 	
-public :
-	void Start(void) {main();}
-    std::mutex& Mutex(void) {return(mtx);}
-    void AddQueue(EHmiEvent ev) {deq.push_back(ev);}
-	
-private :
-	void main(void);
-	void eventHandler(EHmiEvent& ev);
+	static const std::string font_type[3];
+};
+
+#endif // __SCL_DRAW_CONTEXT_H__
+```
+
+```C++
+#include "SCColor.h"
+#include "SCDrawContext.h"
+
+class SCDrawCommand : public SCDrawContext {
+public:
+	SCDrawCommand();
+	SCDrawCommand(Display* d, Window& w);
+	virtual ~SCDrawCommand();
+
+public:
+	bool		DrawPoint(const unsigned int x,
+						const unsigned int y,
+						const XColor& color = SC_COLOR("Black"));
+	bool		DrawLine(const unsigned int x1,
+						const unsigned int y1,
+						const unsigned int x2,
+						const unsigned int y2,
+						const XColor& color = SC_COLOR("Black"));
+	bool		FillRect(const unsigned int x,
+						const unsigned int y,
+						const unsigned int width,
+						const unsigned int height,
+						const XColor& color = SC_COLOR("Gray"));
+	bool		DrawRect(const unsigned int x,
+						const unsigned int y,
+						const unsigned int width,
+						const unsigned int height,
+						const XColor& color = SC_COLOR("Black"));
+	bool		DrawString(const unsigned int x,
+						const unsigned int y,
+						const std::string text,
+						const std::string font = SC_FONT_MIDDLE,
+						const XColor& fore_color = SC_COLOR("Black"),
+						const XColor& back_color = SC_COLOR("White"));
 
 private :
-    std::deque<EHmiEvent>	deq;
-    std::mutex				mtx;
+	SCColor*	pcolor;
 };
-
-#endif // __EHMI_MAIN_H__
 ```
-这里有个细节稍微说明一下，C++11的STL中有两种Queue，一种是普通的queue，另一种是双端口queue（名称为deque），考虑到要实现的消息队列应该是FIFO型，采用deque更为方便。  
-上面这个HMI的类中，自己维持着一个消息队列，以及一个同步消息队列用的互斥锁。因为这将是属于HMI对象的存储空间（消息队列），因此，需要为其它线程访问这个消息队列提供接口，这就是AddQueue方法。当然，这个HMI类中最主要的处理将是main方法，这里面会从消息队列中依次取出消息并做相应动作。  
-
-现在还有一件事未完成，就是消息本身该如何定义？  
-这里的实现也是用一个类来封装，即EHmiEvent类。这个类的定义如下。  
-```C++
-#ifndef __EHMI_EVENT_H__
-#define __EHMI_EVENT_H__
-
-typedef union _EHmiEventParam{
-	unsigned long	lp;
-	unsigned int    ip[2];
-	unsigned short  sp[4];
-	_EHmiEventParam() {}
-	_EHmiEventParam(unsigned long ul) {lp = ul;}
-} EHmiEventParam;
-
-typedef enum {
-    HMI_EV_NONE,
-    HMI_EV_KEYDOWN, // for test
-} EHmiEventType;
-
-class EHmiEvent {
-public :
-    EHmiEvent();
-    EHmiEvent(EHmiEventType ev);
-    EHmiEvent(EHmiEventType ev, unsigned long lp);
-    ~EHmiEvent();
-	
-public :	
-    EHmiEventType GetEvent() {return(type);}
-    unsigned long GetULArg() {return(arg.lp);}
-	void SetULArg(unsigned long ul) {arg.lp = ul;}
-	
-private :
-    EHmiEventType	type;
-    EHmiEventParam	arg;
-};
-#endif // __EHMI_EVENT_H__
-```
-事件类的结构比较简单，主要理解类中的两个属性的，一个是消息类型，即type，一个是消息参数（随消息发送的变量），即arg。  
-
-EHmiMain、EHmiEvent就构成了HMI线程和其它线程交互的结构，并且，这里用类的方式把HMI和其它部分的处理隔离了开来。  

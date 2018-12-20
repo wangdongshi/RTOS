@@ -11,17 +11,11 @@
 #include <condition_variable>
 #include <X11/Xlib.h>
 #include "SCColor.h"
-#include "SCDrawContext.h"
+#include "SCDrawCommand.h"
 #include "EHmiEvent.h"
 
 #ifndef __EHMI_MAIN_H__
 #define __EHMI_MAIN_H__
-
-// base window size
-enum SCWindowSize {
-	WINDOW_WIDTH	= 320,
-	WINDOW_HEIGHT	= 240,
-};
 
 ///
 /// class : EHmiMain
@@ -52,8 +46,7 @@ private :
     std::mutex				mtx;
     std::condition_variable	cv;
     bool                	is_ready;
-	SCDrawContext*			dc;
-	SCColor* 				color;
+	SCDrawCommand*			pcomm;
 };
 
 #endif // __EHMI_MAIN_H__

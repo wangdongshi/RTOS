@@ -11,7 +11,9 @@
 #include "debug.h"
 #include "SCDrawContext.h"
 
-const char SCDrawContext::font_type[3][70] = {
+using namespace std;
+
+const string SCDrawContext::font_type[3] = {
 	"6x13",
 	"6x13",
 	"6x13",
@@ -47,17 +49,19 @@ SCDrawContext::~SCDrawContext()
 /// param		width	rectangle's width
 /// param		height	rectangle's height
 /// param		color	rectangle's color
-/// return		none
-void SCDrawContext::drawRect(
+/// return		success or failed
+bool SCDrawContext::drawRect(
 		const unsigned int x,
 		const unsigned int y,
 		const unsigned int width,
 		const unsigned int height,
 		const XColor& color) {
+	if (x+width > WINDOW_WIDTH || y+height > WINDOW_HEIGHT) return false;
 	XSetForeground(disp, gc, color.pixel);
 	XFillRectangle(disp, win, gc, x, y, width, height);
 	XFlush(disp);
-};
+	return true;
+}
 
 /// function	drawRect
 /// brief		draw a rectangle
@@ -66,14 +70,14 @@ void SCDrawContext::drawRect(
 /// param		width	rectangle's width
 /// param		height	rectangle's height
 /// param		color	rectangle's color
-/// return		none
-void SCDrawContext::drawRect(
+/// return		success or failed
+bool SCDrawContext::drawRect(
 		const SCPos pos,
 		const unsigned int width,
 		const unsigned int height,
 		const XColor& color) {
-	drawRect(pos.x, pos.y, width, height, color);
-};
+	return drawRect(pos.x, pos.y, width, height, color);
+}
 
 /// function	drawASCII
 /// brief		draw a ASCII charactor
@@ -84,29 +88,31 @@ void SCDrawContext::drawRect(
 /// param		fore_color	charactor's color
 /// param		back_color	charactor's background color
 /// param		font_name	font name of charactor
-/// return		none
-void SCDrawContext::drawASCII(
+/// return		success or failed
+bool SCDrawContext::drawASCII(
 		const unsigned int x,
 		const unsigned int y,
 		const char ascii,
 		const XColor& fore_color,
 		const XColor& back_color,
-		char* font_name) {
-	Font font = XLoadFont(disp, font_name);
+		const string font_name) {
+	Font font = XLoadFont(disp, font_name.c_str());
 	if (!font)
 	{
 		Trace("XLoadFont Error!");
+		return false;
 	} else {
+		if (x+6 > WINDOW_WIDTH || y+13 > WINDOW_HEIGHT) return false;
 		XSetForeground(disp, gc, fore_color.pixel);
 		XSetBackground(disp, gc, back_color.pixel);
 		XSetFont(disp, gc, font);
 		XTextItem text = {const_cast<char*>(&ascii), 1, 0, font};
 		XDrawText(disp, win, gc, x, y, &text, 1);
 		XUnloadFont(disp, font);
-		//XFreeFont(disp, &font);
 		XFlush(disp);
+		return true;
 	}
-};
+}
 
 /// function	drawASCII
 /// brief		draw a ASCII charactor
@@ -116,13 +122,13 @@ void SCDrawContext::drawASCII(
 /// param		fore_color	charactor's color
 /// param		back_color	charactor's background color
 /// param		font_name	font name of charactor
-/// return		none
-void SCDrawContext::drawASCII(
+/// return		success or failed
+bool SCDrawContext::drawASCII(
 		const SCPos pos,
 		const char ascii,
 		const XColor& fore_color,
 		const XColor& back_color,
-		char* font_name) {
-	drawASCII(pos.x, pos.y, ascii, fore_color, back_color, font_name);
-};
+		const string font_name) {
+	return drawASCII(pos.x, pos.y, ascii, fore_color, back_color, font_name);
+}
 

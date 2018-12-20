@@ -12,7 +12,6 @@
 #include <X11/Xlib.h>
 #include "debug.h"
 #include "SCColor.h"
-#include "SCDrawContext.h"
 #include "EHmiMain.h"
 
 using namespace std;
@@ -27,17 +26,15 @@ EHmiMain::EHmiMain() : is_ready(false)
 /// brief		constructor
 EHmiMain::EHmiMain(Display* display, Window& window) : 
 is_ready(false),
-dc(new SCDrawContext(display, window)),
-color(new SCColor(display))
+pcomm(new SCDrawCommand(display, window))
 {
-	color->AllocColor();
 }
 
 /// function	~EHmiMain
 /// brief		deconstructor
 EHmiMain::~EHmiMain()
 {
-	delete dc;
+	delete pcomm;
 }
 
 /// function	main
@@ -95,20 +92,9 @@ void EHmiMain::eventHandler(EHmiEvent& ev)
         break;
     case HMI_EV_EXPOSE:
 		Trace("Get window expose event.\n");
-	{
-		char str[] = "Welcome to this embedded HMI sample!";
-		char* p_str = str;
-		SCPos pos(10, 30);
-		unsigned int x = 35, y = 40, internal = 7;
-		// draw a rectangle
-		dc->drawRect(pos, 300, 80, GetColor("Blue"));
-		// draw a string
-		while (*p_str) {
-			dc->drawASCII(x, y, static_cast<const char>(*p_str), GetColor("Black"), GetColor("White"), SC_FONT_MIDDLE);
-			p_str++;
-			x += internal;
-		}
-	}
+		pcomm->FillRect(10, 30, 300, 80, SC_COLOR("Green"));
+		pcomm->DrawRect(10, 30, 300, 80, SC_COLOR("Blue"));
+		pcomm->DrawString(35, 75, "Welcome to this embedded HMI sample!");
         break;
     case HMI_EV_MOUSE_DOWN:
 		ev.GetParam(&x, &y);
