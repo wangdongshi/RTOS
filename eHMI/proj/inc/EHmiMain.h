@@ -17,6 +17,13 @@
 #ifndef __EHMI_MAIN_H__
 #define __EHMI_MAIN_H__
 
+enum _SCRENN_ID {
+	SCREEN_NONE		= -1,
+	SCREEN_TEST1,
+	SCREEN_TEST2,
+	SCREEN_TEST3,
+};
+
 ///
 /// class : EHmiMain
 /// HMI main class

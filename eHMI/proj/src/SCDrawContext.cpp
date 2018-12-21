@@ -72,7 +72,7 @@ bool SCDrawContext::drawRect(
 /// param		color	rectangle's color
 /// return		success or failed
 bool SCDrawContext::drawRect(
-		const SCPos pos,
+		const SCPoint pos,
 		const unsigned int width,
 		const unsigned int height,
 		const XColor& color) {
@@ -124,7 +124,7 @@ bool SCDrawContext::drawASCII(
 /// param		font_name	font name of charactor
 /// return		success or failed
 bool SCDrawContext::drawASCII(
-		const SCPos pos,
+		const SCPoint pos,
 		const char ascii,
 		const XColor& fore_color,
 		const XColor& back_color,

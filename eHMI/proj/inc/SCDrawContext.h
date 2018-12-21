@@ -12,6 +12,7 @@
 
 #include <string>
 #include <X11/Xlib.h>
+#include "SCBase.h"
 
 #define SC_FONT_LARGE	(SCDrawContext::GetLargeFont())
 #define SC_FONT_MIDDLE	(SCDrawContext::GetMiddleFont())
@@ -22,31 +23,6 @@
 // base window size
 #define WINDOW_WIDTH		(320)
 #define WINDOW_HEIGHT		(240)
-
-///
-/// class : SCPos
-/// Coordinate class
-///
-class SCPos {
-public :
-	SCPos() : x(0), y(0){};
-	SCPos(int xIn, int yIn) : x(xIn), y(yIn){};
-	SCPos operator =(const SCPos& opt){x = opt.x; y = opt.y; return opt;};
-	bool operator != (const SCPos &opt) const {
-			return ((x != opt.x) || (y != opt.y));
-	};
-	bool operator == (const SCPos &opt) const {
-			return ((x == opt.x) && (y == opt.y));
-	};
-	SCPos operator +(const SCPos &opt) const {
-			SCPos pos(x + opt.x, y + opt.y);
-			return pos;
-	};
-
-public :
-	int x;
-	int y;
-};
 
 class SCDrawContext {
 public :
@@ -70,7 +46,7 @@ protected :
 							const unsigned int width,
 							const unsigned int height,
 							const XColor& color);
-	bool			drawRect(const SCPos pos,
+	bool			drawRect(const SCPoint pos,
 							const unsigned int width,
 							const unsigned int height,
 							const XColor& color);
@@ -80,7 +56,7 @@ protected :
 							const XColor& fore_color,
 							const XColor& back_color,
 							const std::string font_name);
-	bool			drawASCII(const SCPos pos,
+	bool			drawASCII(const SCPoint pos,
 							const char ascii,
 							const XColor& fore_color,
 							const XColor& back_color,
