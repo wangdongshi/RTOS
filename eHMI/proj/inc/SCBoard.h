@@ -13,35 +13,41 @@
 #include "SCBase.h"
 #include "SCParts.h"
 
+class SCParts;
+
 ///
 /// class : SCBoard
 /// Board class
 ///
 class SCBoard : public SCCore {
 public :
-	SCBoard(const SCRect& area, const short sID = -1); // -1: illegal ID
+	SCBoard(const SCRect& area, const short id = -1); // -1: illegal ID
 	virtual ~SCBoard();
 
-	virtual int		Draw(unsigned short* com);
-	virtual int		Update(const int updateType, unsigned short* com);
+	void			RegistParts(SCParts* target);
+	void			UnregistParts(SCParts* target);
+	void			DestroyParts(SCParts* target);
+	void			DestroyAllParts(void);
 	
-	virtual int		DrawBackground(const SCRect& area, unsigned short* com);
-	virtual void	TDown(const unsigned short x, const unsigned short y);
-	virtual void	TUp(const unsigned short x, const unsigned short y);
+	void			Initialize(void);
+	virtual bool	Draw(void);
+	//virtual int		Update(const int updateType, unsigned short* com);
+	
+	virtual bool	DrawBackground(void);
+	//virtual void	TDown(const unsigned short x, const unsigned short y);
+	//virtual void	TUp(const unsigned short x, const unsigned short y);
 	SCParts*		GetChild(void) const {return(m_child);}
 	SCParts*		GetChild(const unsigned short x, const unsigned short y) const;
 	SCParts*		GetChild(const SCPoint& point) const;
 	SCParts*		GetChild(const short id) const;
-	void			RegistParts(SCParts* p);
-	void			DestroyParts(SCParts* p);
-	void			DestroyAllParts(void);
+	SCParts*		GetLastChild(void) const;
 
-	short			GetScreenID() {return(m_screenID);}
+	short			GetScreenID() {return(m_screen_id);}
 
 protected :
-	short			m_screenID;		// screen ID
+	short			m_screen_id;	// screen ID
 	SCParts*		m_child;		// child parts
-	SCParts*		m_captured;		// part on touch event
+	//SCParts*		m_captured;		// part on touch event
 	//SCBoard*		m_dialog;		// dialog
 	//SCBoard*		m_parent;		// father dialog
 	SCPoint			m_touch_point;	// touch point (for Callback)

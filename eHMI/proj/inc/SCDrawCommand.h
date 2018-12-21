@@ -13,10 +13,13 @@
 #include "SCColor.h"
 #include "SCDrawContext.h"
 
-#define MakePoint	SCDrawCommand::DrawPoint
-#define MakeLine	SCDrawCommand::DrawLine
-#define MakeRect	SCDrawCommand::DrawRect
-#define MakeString	SCDrawCommand::DrawString
+#define MakePoint		SCDrawCommand::DrawPoint
+#define MakeLine		SCDrawCommand::DrawLine
+#define PaintRect		SCDrawCommand::FillRect
+#define MakeRect		SCDrawCommand::DrawRect
+#define MakeString		SCDrawCommand::DrawString
+
+#define ClearRect(r)	SCDrawCommand::FillRect(r)
 
 class SCDrawCommand : public SCDrawContext {
 public:
@@ -35,7 +38,7 @@ public:
 							const unsigned int y,
 							const unsigned int width,
 							const unsigned int height,
-							const XColor& color = SC_COLOR("Gray"));
+							const XColor& color = SC_COLOR("LightGray"));
 	static bool		DrawRect(const unsigned int x,
 							const unsigned int y,
 							const unsigned int width,
@@ -44,8 +47,24 @@ public:
 							const XColor& back_color = SC_COLOR("LightGray"));
 	static bool		DrawString(const unsigned int x,
 							const unsigned int y,
-							const std::string text,
-							const std::string font = SC_FONT_MIDDLE,
+							const std::string& text,
+							const std::string& font = SC_FONT_MIDDLE,
+							const XColor& fore_color = SC_COLOR("Black"),
+							const XColor& back_color = SC_COLOR("LightGray"));
+								
+	static bool		DrawPoint(const SCPoint& p,
+							const XColor& color = SC_COLOR("Black"));
+	static bool		DrawLine(const SCPoint& p1,
+							const SCPoint& p2,
+							const XColor& color = SC_COLOR("Black"));
+	static bool		FillRect(const SCRect& rect,
+							const XColor& color = SC_COLOR("LightGray"));
+	static bool		DrawRect(const SCRect& rect,
+							const XColor& fore_color = SC_COLOR("Black"),
+							const XColor& back_color = SC_COLOR("LightGray"));
+	static bool		DrawString(const SCPoint& p,
+							const std::string& text,
+							const std::string& font = SC_FONT_MIDDLE,
 							const XColor& fore_color = SC_COLOR("Black"),
 							const XColor& back_color = SC_COLOR("LightGray"));
 };

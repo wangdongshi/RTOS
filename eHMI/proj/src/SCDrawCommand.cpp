@@ -44,8 +44,8 @@ bool SCDrawCommand::DrawPoint(
 ///
 /// param		x1		start x coordinate
 /// param		y1		start y coordinate
-/// param		x1		end x coordinate
-/// param		y1		end y coordinate
+/// param		x2		end x coordinate
+/// param		y2		end y coordinate
 /// param		color	rectangle's color
 /// return		success or failed
 bool SCDrawCommand::DrawLine(
@@ -130,8 +130,8 @@ bool SCDrawCommand::DrawRect(
 bool SCDrawCommand::DrawString(
 		const unsigned int x,
 		const unsigned int y,
-		const string text,
-		const string font,
+		const string& text,
+		const string& font,
 		const XColor& fore_color,
 		const XColor& back_color)
 {
@@ -148,5 +148,79 @@ bool SCDrawCommand::DrawString(
 	}
 
 	return res;
+}
+
+/// function	DrawPoint
+/// brief		draw a point
+///
+/// param		p		start coordinate
+/// param		color	rectangle's color
+/// return		success or failed
+bool SCDrawCommand::DrawPoint(
+		const SCPoint& p,
+		const XColor& color)
+{
+	return DrawPoint(p.x, p.y, color);
+}
+
+/// function	DrawLine
+/// brief		draw a line
+///
+/// param		p1		start coordinate
+/// param		p2		end coordinate
+/// param		color	rectangle's color
+/// return		success or failed
+bool SCDrawCommand::DrawLine(
+		const SCPoint& p1,
+		const SCPoint& p2,
+		const XColor& color)
+{
+	return DrawLine(p1.x, p1.y, p2.x, p2.y, color);
+}
+
+/// function	FillRect
+/// brief		fill a rectangle
+///
+/// param		rect	rectangle's area
+/// param		color	rectangle's color
+/// return		success or failed
+bool SCDrawCommand::FillRect(
+		const SCRect& rect,
+		const XColor& color)
+{
+	return FillRect(rect.x, rect.y, rect.width, rect.height, color);
+}
+
+/// function	DrawRect
+/// brief		draw a rectangle
+///
+/// param		rect	rectangle's area
+/// param		color	rectangle's color
+/// return		success or failed
+bool SCDrawCommand::DrawRect(
+		const SCRect& rect,
+		const XColor& fore_color,
+		const XColor& back_color)
+{
+	return DrawRect(rect.x, rect.y, rect.width, rect.height, fore_color, back_color);
+}
+
+/// function	DrawRect
+/// brief		draw a rectangle
+///
+/// param		x		start x coordinate
+/// param		y		start y coordinate
+/// param		width	rectangle's width
+/// param		height	rectangle's height
+/// param		color	rectangle's color
+/// return		success or failed
+bool SCDrawCommand::DrawString(
+		const SCPoint& p,
+		const std::string& text,
+		const std::string& font,
+		const XColor& fore_color,
+		const XColor& back_color)
+{
+	return DrawString(p.x, p.y, text, font, fore_color, back_color);
 }
 

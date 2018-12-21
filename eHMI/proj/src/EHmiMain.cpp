@@ -68,7 +68,7 @@ void EHmiMain::main(void)
 /// function	eventHandler
 /// brief		HMI main event process function
 ///
-/// param		ev	: event popped from queue
+/// param		ev		event popped from queue
 /// return		none
 void EHmiMain::eventHandler(EHmiEvent& ev)
 {
