@@ -18,15 +18,8 @@ using namespace std;
 
 /// function	EHmiMain
 /// brief		constructor
-EHmiMain::EHmiMain() : is_ready(false)
-{
-}
-
-/// function	EHmiMain
-/// brief		constructor
-EHmiMain::EHmiMain(Display* display, Window& window) : 
-is_ready(false),
-pcomm(new SCDrawCommand(display, window))
+EHmiMain::EHmiMain() :
+is_ready(false)
 {
 }
 
@@ -34,7 +27,6 @@ pcomm(new SCDrawCommand(display, window))
 /// brief		deconstructor
 EHmiMain::~EHmiMain()
 {
-	delete pcomm;
 }
 
 /// function	main
@@ -92,9 +84,8 @@ void EHmiMain::eventHandler(EHmiEvent& ev)
         break;
     case HMI_EV_EXPOSE:
 		Trace("Get window expose event.\n");
-		pcomm->FillRect(10, 30, 300, 80, SC_COLOR("Green"));
-		pcomm->DrawRect(10, 30, 300, 80, SC_COLOR("Blue"));
-		pcomm->DrawString(35, 75, "Welcome to this embedded HMI sample!");
+		MakeRect(10, 30, 300, 80, SC_COLOR("Blue"), SC_COLOR("Green"));
+		MakeString(35, 75, "Welcome to this embedded HMI sample!");
         break;
     case HMI_EV_MOUSE_DOWN:
 		ev.GetParam(&x, &y);

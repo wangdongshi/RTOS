@@ -18,15 +18,6 @@ SCDrawCommand::SCDrawCommand()
 {
 }
 
-/// function	SCDrawCommand
-/// brief		constructor
-SCDrawCommand::SCDrawCommand(Display* d, Window& w) :
-SCDrawContext(d, w),
-pcolor(new SCColor(d))
-{
-	pcolor->AllocColor();
-}
-
 /// function	~SCDrawContext
 /// brief		deconstructor
 SCDrawCommand::~SCDrawCommand()
@@ -114,14 +105,15 @@ bool SCDrawCommand::DrawRect(
 		const unsigned int y,
 		const unsigned int width,
 		const unsigned int height,
-		const XColor& color)
+		const XColor& fore_color,
+		const XColor& back_color)
 {
-	bool res = true;
+	bool res = FillRect(x, y, width, height, back_color);
 
-	res &= drawRect(x, y, width, 1, color);			// top
-	res &= drawRect(x+width-1, y, 1, height, color);// right
-	res &= drawRect(x, y+height-1, width, 1, color);// bottom
-	res &= drawRect(x, y, 1, height, color);		// left
+	res &= drawRect(x, y, width, 1, fore_color);			// top
+	res &= drawRect(x+width-1, y, 1, height, fore_color);	// right
+	res &= drawRect(x, y+height-1, width, 1, fore_color);	// bottom
+	res &= drawRect(x, y, 1, height, fore_color);			// left
 
 	return res;
 }

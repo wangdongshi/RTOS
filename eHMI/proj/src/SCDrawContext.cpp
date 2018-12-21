@@ -13,6 +13,10 @@
 
 using namespace std;
 
+// static parameter initialization
+Display*	 SCDrawContext::disp;
+Window*		 SCDrawContext::win;
+GC*			 SCDrawContext::gc;
 const string SCDrawContext::font_type[3] = {
 	"6x13",
 	"6x13",
@@ -25,20 +29,24 @@ SCDrawContext::SCDrawContext()
 {
 }
 
-/// function	SCDrawContext
-/// brief		constructor
-SCDrawContext::SCDrawContext(Display* display, Window& window) : 
-disp(display),
-win(window)
-{
-	gc = XCreateGC(disp, win, 0, NULL);
-}
-
 /// function	~SCDrawContext
 /// brief		deconstructor
 SCDrawContext::~SCDrawContext()
 {
-	XFreeGC(disp, gc);
+}
+
+/// function	Initialize
+/// brief		bonding draw resource
+///
+/// param		d		display
+/// param		w		window
+/// param		g		GC
+/// return		none
+void SCDrawContext::Initialize(Display* d, Window* w, GC* g)
+{
+	disp = d;
+	win	 = w;
+	gc	 = g;
 }
 
 /// function	drawRect
@@ -55,10 +63,11 @@ bool SCDrawContext::drawRect(
 		const unsigned int y,
 		const unsigned int width,
 		const unsigned int height,
-		const XColor& color) {
+		const XColor& color)
+{
 	if (x+width > WINDOW_WIDTH || y+height > WINDOW_HEIGHT) return false;
-	XSetForeground(disp, gc, color.pixel);
-	XFillRectangle(disp, win, gc, x, y, width, height);
+	XSetForeground(disp, *gc, color.pixel);
+	XFillRectangle(disp, *win, *gc, x, y, width, height);
 	XFlush(disp);
 	return true;
 }
@@ -75,7 +84,8 @@ bool SCDrawContext::drawRect(
 		const SCPoint pos,
 		const unsigned int width,
 		const unsigned int height,
-		const XColor& color) {
+		const XColor& color)
+{
 	return drawRect(pos.x, pos.y, width, height, color);
 }
 
@@ -95,7 +105,8 @@ bool SCDrawContext::drawASCII(
 		const char ascii,
 		const XColor& fore_color,
 		const XColor& back_color,
-		const string font_name) {
+		const string font_name)
+{
 	Font font = XLoadFont(disp, font_name.c_str());
 	if (!font)
 	{
@@ -103,11 +114,11 @@ bool SCDrawContext::drawASCII(
 		return false;
 	} else {
 		if (x+6 > WINDOW_WIDTH || y+13 > WINDOW_HEIGHT) return false;
-		XSetForeground(disp, gc, fore_color.pixel);
-		XSetBackground(disp, gc, back_color.pixel);
-		XSetFont(disp, gc, font);
+		XSetForeground(disp, *gc, fore_color.pixel);
+		XSetBackground(disp, *gc, back_color.pixel);
+		XSetFont(disp, *gc, font);
 		XTextItem text = {const_cast<char*>(&ascii), 1, 0, font};
-		XDrawText(disp, win, gc, x, y, &text, 1);
+		XDrawText(disp, *win, *gc, x, y, &text, 1);
 		XUnloadFont(disp, font);
 		XFlush(disp);
 		return true;
@@ -128,7 +139,8 @@ bool SCDrawContext::drawASCII(
 		const char ascii,
 		const XColor& fore_color,
 		const XColor& back_color,
-		const string font_name) {
+		const string font_name)
+{
 	return drawASCII(pos.x, pos.y, ascii, fore_color, back_color, font_name);
 }
 

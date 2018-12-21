@@ -6,8 +6,8 @@
 /// version 	00.01.00
 /// date		2018/12/19
 ///
-#include "debug.h"
 #include "SCColor.h"
+#include "SCDrawContext.h"
 
 using namespace std;
 
@@ -27,9 +27,7 @@ XColor SCColor::xcolor[SC_COLOR_NUMBER] = {};
 
 /// function	SCColor
 /// brief		constructor
-SCColor::SCColor(Display* display) :
-disp(display),
-cmap(&DefaultColormap(display, 0))
+SCColor::SCColor()
 {
 }
 
@@ -43,10 +41,11 @@ SCColor::~SCColor()
 /// function	GetColor
 /// brief		get color with color name in X11
 ///
-/// param		p_color		color name
+/// param		name	color name
 /// return		Xcolor struct
-XColor SCColor::GetColor(string color_name) {
-	return xcolor[color_map[color_name]];
+XColor SCColor::GetColor(string name)
+{
+	return xcolor[color_map[name]];
 }
 
 /// brief		alloc color for eHMI
@@ -55,10 +54,14 @@ XColor SCColor::GetColor(string color_name) {
 /// return		none
 void SCColor::AllocColor(void)
 {
-	XColor true_color;
+	XColor real;
 	map<string, int>::iterator it;
+	Display* disp = SCDrawContext::GetDisplay();
+	Colormap cmap = DefaultColormap(disp, 0);
 	for (it = color_map.begin(); it != color_map.end(); ++it) {
-		XAllocNamedColor(disp, *cmap, (it->first).c_str(), &xcolor[it->second], &true_color);
+		const char* name = (it->first).c_str();
+		XColor* near = &xcolor[it->second];
+		XAllocNamedColor(disp, cmap, name, near, &real);
 	}
 }
 

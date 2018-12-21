@@ -27,45 +27,42 @@
 class SCDrawContext {
 public :
 	SCDrawContext();
-	SCDrawContext(Display* d, Window& w);
 	virtual ~SCDrawContext();
 
-public :
-	Display*		getDisplay(void) {return disp;};
-	Window*			getWindow(void) {return &win;};
-	GC*				getGC(void) {return &gc;};
-
-public :
+	static void 		Initialize(Display* d, Window* w, GC* g);
+	static Display*		GetDisplay(void) {return disp;};
+	static Window*		GetWindow(void) {return win;};
+	static GC*			GetGC(void) {return gc;};
 	static std::string	GetLargeFont(void)	{return font_type[0];};
 	static std::string	GetMiddleFont(void)	{return font_type[1];};
 	static std::string	GetSmallFont(void)	{return font_type[2];};
 
 protected :
-	bool			drawRect(const unsigned int x,
+	static bool		drawRect(const unsigned int x,
 							const unsigned int y,
 							const unsigned int width,
 							const unsigned int height,
 							const XColor& color);
-	bool			drawRect(const SCPoint pos,
+	static bool		drawRect(const SCPoint pos,
 							const unsigned int width,
 							const unsigned int height,
 							const XColor& color);
-	bool			drawASCII(const unsigned int x,
+	static bool		drawASCII(const unsigned int x,
 							const unsigned int y,
 							const char ascii,
 							const XColor& fore_color,
 							const XColor& back_color,
 							const std::string font_name);
-	bool			drawASCII(const SCPoint pos,
+	static bool		drawASCII(const SCPoint pos,
 							const char ascii,
 							const XColor& fore_color,
 							const XColor& back_color,
 							const std::string font_name);
 	
 protected :
-	Display*		disp;
-	Window			win;
-	GC				gc;
+	static Display*	disp;
+	static Window*	win;
+	static GC*		gc;
 
 	static const std::string font_type[3];
 };

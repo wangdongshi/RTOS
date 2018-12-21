@@ -20,7 +20,7 @@
 class EHmiCtrl {
 public :
     EHmiCtrl();
-    EHmiCtrl(Display* display, EHmiMain* pHmi);
+    EHmiCtrl(EHmiMain* pHmi);
     virtual ~EHmiCtrl();
 	
 public :
@@ -31,7 +31,6 @@ private :
 	void send2HMI(EHmiEvent& ev);
 
 private :
-	Display*				disp;
 	EHmiMain*				hmi;
 };
 

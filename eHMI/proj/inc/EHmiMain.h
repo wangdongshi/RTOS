@@ -31,10 +31,8 @@ enum _SCRENN_ID {
 class EHmiMain {
 public :
     EHmiMain();
-    EHmiMain(Display* display, Window& window);
     virtual ~EHmiMain();
 	
-public :
 	void Start(void) {main();}
     bool IsReady(void) {return(is_ready);}
     void SetReady(bool ready) {is_ready = ready;}

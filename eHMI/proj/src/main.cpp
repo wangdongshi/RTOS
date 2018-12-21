@@ -61,14 +61,20 @@ int main( void )
 	XSelectInput(disp, win, ExposureMask | ButtonPressMask | ButtonReleaseMask);
 	// map window
 	XMapWindow(disp, win);
+	// create GC
+	GC gc = XCreateGC(disp, win, 0, NULL);
+	// bond draw resource to context class
+	SCDrawContext::Initialize(disp, &win, &gc);
+	// alloc color
+	SCColor::AllocColor();
 
 	// create hmi main thread
-	EHmiMain* pHmi = new EHmiMain(disp, win);
+	EHmiMain* pHmi = new EHmiMain();
 	thread hmi_main(hmiMain, pHmi);
 	hmi_main.detach();
 
 	// create hmi ctrl thread
-	EHmiCtrl* pCtrl = new EHmiCtrl(disp, pHmi);
+	EHmiCtrl* pCtrl = new EHmiCtrl( pHmi);
 	thread hmi_ctrl(hmiCtrl, pCtrl);
 	hmi_ctrl.detach();
 
@@ -97,7 +103,9 @@ int main( void )
 		}
 		*/
 	}
-
+	
+	// release draw resource
+	XFreeGC(disp, gc);
 	XCloseDisplay(disp);
 	
 	return 0;

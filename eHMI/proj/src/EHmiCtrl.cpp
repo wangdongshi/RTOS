@@ -24,8 +24,7 @@ EHmiCtrl::EHmiCtrl()
 /// param		display
 /// param		pHmi
 /// brief		constructor
-EHmiCtrl::EHmiCtrl(Display* display, EHmiMain* pHmi) : 
-disp(display),
+EHmiCtrl::EHmiCtrl(EHmiMain* pHmi) : 
 hmi(pHmi)
 {
 }
@@ -43,6 +42,8 @@ EHmiCtrl::~EHmiCtrl()
 /// return		none
 void EHmiCtrl::main(void)
 {
+	Display* disp = SCDrawContext::GetDisplay();
+
 	// init window
 	EHmiEvent hmi_ev(HMI_EV_WINDOW_INIT);
 	send2HMI(hmi_ev);
