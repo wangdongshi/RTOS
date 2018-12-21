@@ -37,9 +37,7 @@ public :
     bool IsReady(void) {return(is_ready);}
     void SetReady(bool ready) {is_ready = ready;}
     std::mutex& Mutex(void) {return(mtx);}
-    std::condition_variable& ConditionVariable(void) {
-		return(cv);
-	}
+    std::condition_variable& ConditionVariable(void) {return(cv);}
     void AddQueue(EHmiEvent ev) {deq.push_back(ev);}
 	
 private :
@@ -51,7 +49,6 @@ private :
     std::mutex				mtx;
     std::condition_variable	cv;
     bool                	is_ready;
-	SCDrawCommand*			pcomm;
 };
 
 #endif // __EHMI_MAIN_H__

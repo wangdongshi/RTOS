@@ -30,12 +30,12 @@ public :
 	virtual ~SCDrawContext();
 
 	static void 		Initialize(Display* d, Window* w, GC* g);
-	static Display*		GetDisplay(void) {return disp;};
-	static Window*		GetWindow(void) {return win;};
-	static GC*			GetGC(void) {return gc;};
-	static std::string	GetLargeFont(void)	{return font_type[0];};
-	static std::string	GetMiddleFont(void)	{return font_type[1];};
-	static std::string	GetSmallFont(void)	{return font_type[2];};
+	static Display*		GetDisplay(void) {return disp;}
+	static Window*		GetWindow(void) {return win;}
+	static GC*			GetGC(void) {return gc;}
+	static std::string	GetLargeFont(void)	{return font_type[0];}
+	static std::string	GetMiddleFont(void)	{return font_type[1];}
+	static std::string	GetSmallFont(void)	{return font_type[2];}
 
 protected :
 	static bool		drawRect(const unsigned int x,
