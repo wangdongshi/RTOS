@@ -13,6 +13,7 @@
 #include "SCColor.h"
 #include "SCDrawContext.h"
 
+#define GetStrWidth		SCDrawCommand::GetStringWidth
 #define MakePoint		SCDrawCommand::DrawPoint
 #define MakeLine		SCDrawCommand::DrawLine
 #define PaintRect		SCDrawCommand::FillRect
@@ -25,6 +26,8 @@ class SCDrawCommand : public SCDrawContext {
 public:
 	SCDrawCommand();
 	virtual ~SCDrawCommand();
+	
+	static int		GetStringWidth(const unsigned short* str);
 
 	static bool		DrawPoint(const unsigned int x,
 							const unsigned int y,
@@ -48,9 +51,15 @@ public:
 	static bool		DrawString(const unsigned int x,
 							const unsigned int y,
 							const std::string& text,
-							const std::string& font = SC_FONT_MIDDLE,
 							const XColor& fore_color = COLOR(Black),
-							const XColor& back_color = COLOR(Transparent));
+							const XColor& back_color = COLOR(Transparent),
+							const std::string& font = SC_FONT_MIDDLE);
+	static bool		DrawString(const unsigned int x,
+							const unsigned int y,
+							const unsigned short* text,
+							const XColor& fore_color = COLOR(Black),
+							const XColor& back_color = COLOR(Transparent),
+							const std::string& font = SC_FONT_MIDDLE);
 								
 	static bool		DrawPoint(const SCPoint& p,
 							const XColor& color = COLOR(Black));
@@ -64,9 +73,14 @@ public:
 							const XColor& back_color = COLOR(Transparent));
 	static bool		DrawString(const SCPoint& p,
 							const std::string& text,
-							const std::string& font = SC_FONT_MIDDLE,
 							const XColor& fore_color = COLOR(Black),
-							const XColor& back_color = COLOR(Transparent));
+							const XColor& back_color = COLOR(Transparent),
+							const std::string& font = SC_FONT_MIDDLE);
+	static bool		DrawString(const SCPoint& p,
+							const unsigned short* text,
+							const XColor& fore_color = COLOR(Black),
+							const XColor& back_color = COLOR(Transparent),
+							const std::string& font = SC_FONT_MIDDLE);
 };
 
 #endif // __SCL_DRAW_COMMAND_H__

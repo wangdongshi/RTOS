@@ -13,7 +13,7 @@
 using namespace std;
 
 map<string, int> SCColor::color_map = {
-	{"Chocolate",	0	},
+	{"Chocolate",	0	}, // transparent
 	{"White",		1	},
 	{"Black",		2	},
 	{"Red",			3	},

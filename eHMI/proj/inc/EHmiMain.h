@@ -12,6 +12,7 @@
 #include <X11/Xlib.h>
 #include "SCColor.h"
 #include "SCDrawCommand.h"
+#include "SCBoard.h"
 #include "EHmiEvent.h"
 
 #ifndef __EHMI_MAIN_H__
@@ -32,23 +33,29 @@ class EHmiMain {
 public :
     EHmiMain();
     virtual ~EHmiMain();
-	
-	void Start(void) {main();}
+
+	void Start(void) {run();}
     bool IsReady(void) {return(is_ready);}
     void SetReady(bool ready) {is_ready = ready;}
     std::mutex& Mutex(void) {return(mtx);}
     std::condition_variable& ConditionVariable(void) {return(cv);}
     void AddQueue(EHmiEvent ev) {deq.push_back(ev);}
-	
+
 private :
+	void run(void);
 	void main(void);
 	void eventHandler(EHmiEvent& ev);
+	void startScreen(void);
+	void changeScreen(const short id, const EHmiEvent& ev);
 
 private :
     std::deque<EHmiEvent>	deq;
     std::mutex				mtx;
     std::condition_variable	cv;
     bool                	is_ready;
+
+	short               	m_screen_id;
+	SCBoard*            	m_screen;
 };
 
 #endif // __EHMI_MAIN_H__

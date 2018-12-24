@@ -15,6 +15,8 @@
 #include "SCBase.h"
 #include "SCBoard.h"
 
+class SCBoard;
+
 ///
 /// class : SCParts
 /// Parts class
@@ -23,10 +25,9 @@ class SCParts : public SCCore {
 public :
 	SCParts(const short id, const SCRect& area,
 			const XColor fore_color = COLOR(Black),
-			const XColor back_color = COLOR(LightGray));
-	virtual ~SCParts() = 0;
+			const XColor back_color = COLOR(Transparent));
+	virtual ~SCParts();
 
-	virtual void	Initialize() = 0;
 	virtual bool	Draw(void) = 0;
 	virtual bool	DrawBackground(void);
 	//virtual int		Update(const int updateType, unsigned short* para);
@@ -34,6 +35,7 @@ public :
 	//virtual void	TUp(const SCPoint& point);
 	//void			AddCallback(SCCallback* cb);
 	//void			DoCallback(int type);
+	virtual void	Initialize() {}
 
 	SCBoard*		Parent(void) const {return(m_parent);}
 	void			Parent(SCBoard* parent) {m_parent = parent;}

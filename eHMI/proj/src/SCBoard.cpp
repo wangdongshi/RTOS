@@ -194,7 +194,7 @@ SCParts* SCBoard::GetChild(const SCPoint& point) const
 ///
 /// param		id		part's ID
 /// return		parts with this ID
-SCParts*	SCBoard::GetChild(const short id) const
+SCParts* SCBoard::GetChild(const short id) const
 {
 	SCParts* target = GetChild();
 	
@@ -228,3 +228,4 @@ SCParts* SCBoard::GetLastChild(void) const
 	
 	return(target);
 }
+

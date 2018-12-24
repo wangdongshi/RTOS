@@ -12,6 +12,7 @@
 #include <X11/Xlib.h>
 #include "debug.h"
 #include "SCColor.h"
+#include "PICTest1.h"
 #include "EHmiMain.h"
 
 using namespace std;
@@ -19,7 +20,9 @@ using namespace std;
 /// function	EHmiMain
 /// brief		constructor
 EHmiMain::EHmiMain() :
-is_ready(false)
+is_ready(false),
+m_screen_id(SCREEN_NONE),
+m_screen(NULL)
 {
 }
 
@@ -27,6 +30,22 @@ is_ready(false)
 /// brief		deconstructor
 EHmiMain::~EHmiMain()
 {
+}
+
+/// function	run
+/// brief		HMI run function(init)
+///
+/// param		none
+/// return		none
+void EHmiMain::run(void)
+{
+	// initialize hmi resource
+	
+	// create default screen
+	startScreen();
+
+	// main loop
+	main();
 }
 
 /// function	main
@@ -84,8 +103,9 @@ void EHmiMain::eventHandler(EHmiEvent& ev)
         break;
     case HMI_EV_EXPOSE:
 		Trace("Get window expose event.\n");
-		MakeRect(10, 30, 300, 80, COLOR(Blue), COLOR(Green));
-		MakeString(35, 75, "Welcome to this embedded HMI sample!", SC_FONT_MIDDLE, COLOR(Black), COLOR(Yellow));
+		//MakeRect(10, 30, 300, 80, COLOR(Blue), COLOR(Green));
+		//MakeString(35, 75, "Welcome to this embedded HMI sample!", COLOR(Black), COLOR(Yellow));
+		m_screen->Draw();
         break;
 ///
     case HMI_EV_MOUSE_DOWN:
@@ -100,3 +120,40 @@ void EHmiMain::eventHandler(EHmiEvent& ev)
         break;
     }
 }
+
+/// function	startScreen
+/// brief		initialize default screen
+///
+/// param		none
+/// return		none
+void EHmiMain::startScreen(void)
+{
+	EHmiEvent ev(HMI_EV_CHG_SCREEN);
+
+	changeScreen(SCREEN_TEST1, ev);
+}
+
+/// function	changeScreen
+/// brief		send change screen message
+///
+/// param		id		screen ID
+/// param		ev		event message
+/// return		none
+void EHmiMain::changeScreen(const short id, const EHmiEvent& ev)
+{
+	// destory old screen
+	if(m_screen != NULL) {
+		delete m_screen;
+		m_screen = NULL;
+	}
+
+	// create new screen
+	SCRect area(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+	switch(id) {
+		default:
+		case SCREEN_TEST1:
+			 m_screen = new PICTest1(area, id);
+			 break;
+	}
+}
+

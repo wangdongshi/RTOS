@@ -10,7 +10,8 @@
 #ifndef __SCL_LABEL_H__
 #define __SCL_LABEL_H__
 
-#include "SCPart.h"
+#include "SCParts.h"
+#include "SCDrawCommand.h"
 
 #define SC_LABEL_STRING_MAX     (60)
 
@@ -22,21 +23,19 @@ class SCLabel : public SCParts {
 public :
     SCLabel(const short id,
 			const SCRect& area,
-			const std::string& font = SC_FONT_MIDDLE,
-			const XColor& fore_color = SC_COLOR("Black"),
-			const XColor& back_color = SC_COLOR("LightGray"))
+			const XColor& fore_color = COLOR(Black),
+			const XColor& back_color = COLOR(Transparent),
+			const std::string& font = SC_FONT_MIDDLE);
 	virtual ~SCLabel();
 
-	virtual int		Draw(unsigned short* com);
+	virtual bool	Draw(void);
 	void			setStr(const char* mes);
 	void			setStr(const unsigned short* mes);
-	void			setStr(int target_id);
-	void			Arrangement(int arr){this->m_arrangement = arr;};
+	void			Arrangement(int arr){this->m_arrangement = arr;}
 	
 private:
-	unsigned short	m_font;
+	std::string		m_font;
 	unsigned short	m_label[SC_LABEL_STRING_MAX+1];
-	int				m_targetID;
 	int				m_arrangement;
 };
 

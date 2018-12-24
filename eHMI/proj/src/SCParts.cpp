@@ -26,6 +26,12 @@ m_back_color(back_color)
 {
 }
 
+/// function	~SCParts
+/// brief		deconstructor
+SCParts::~SCParts()
+{
+}
+
 /// function	DrawBackground
 /// brief		draw part's background
 ///
@@ -33,5 +39,6 @@ m_back_color(back_color)
 /// return		success or failed
 bool SCParts::DrawBackground(void)
 {
-	return PaintRect(m_area, COLOR(LightGray));
+	return PaintRect(m_area, m_back_color);
 }
+

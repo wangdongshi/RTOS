@@ -24,6 +24,22 @@ SCDrawCommand::~SCDrawCommand()
 {
 }
 
+/// function	GetStringWidth
+/// brief		get width of string
+///
+/// param		str		target string
+/// return		string's width (by pixel)
+int SCDrawCommand::GetStringWidth(const unsigned short* str)
+{
+	int width = 0;
+
+	do {
+		width += 7;
+	} while (*str++);
+
+	return width;
+}
+
 /// function	DrawPoint
 /// brief		draw a point
 ///
@@ -118,22 +134,55 @@ bool SCDrawCommand::DrawRect(
 	return res;
 }
 
-/// function	DrawRect
-/// brief		draw a rectangle
+/// function	DrawString
+/// brief		draw a string
 ///
-/// param		x		start x coordinate
-/// param		y		start y coordinate
-/// param		width	rectangle's width
-/// param		height	rectangle's height
-/// param		color	rectangle's color
+/// param		x			start x coordinate
+/// param		y			start y coordinate
+/// param		text		string for print
+/// param		fore_color	foreground color
+/// param		back_color	background color
+/// param		font		font type of string
+/// return		success or failed
+bool SCDrawCommand::DrawString(
+		const unsigned int x,
+		const unsigned int y,
+		const unsigned short* text,
+		const XColor& fore_color,
+		const XColor& back_color,
+		const string& font)
+{
+	bool res = true;
+	int x_head = x;
+	unsigned short* p_str = const_cast<unsigned short*>(text);
+
+	while (*p_str) {
+		res &= drawASCII(x_head, y, static_cast<const char>(*p_str),
+				fore_color, back_color, font);
+		p_str++;
+		x_head += SC_FONT_INTERNAL;
+	}
+
+	return res;
+}
+
+/// function	DrawString
+/// brief		draw a string
+///
+/// param		x			start x coordinate
+/// param		y			start y coordinate
+/// param		text		string for print
+/// param		fore_color	foreground color
+/// param		back_color	background color
+/// param		font		font type of string
 /// return		success or failed
 bool SCDrawCommand::DrawString(
 		const unsigned int x,
 		const unsigned int y,
 		const string& text,
-		const string& font,
 		const XColor& fore_color,
-		const XColor& back_color)
+		const XColor& back_color,
+		const string& font)
 {
 	bool res = true;
 	int x_head = x;
@@ -205,22 +254,43 @@ bool SCDrawCommand::DrawRect(
 	return DrawRect(rect.x, rect.y, rect.width, rect.height, fore_color, back_color);
 }
 
-/// function	DrawRect
-/// brief		draw a rectangle
+/// function	DrawString
+/// brief		draw a string
 ///
-/// param		x		start x coordinate
-/// param		y		start y coordinate
-/// param		width	rectangle's width
-/// param		height	rectangle's height
-/// param		color	rectangle's color
+/// param		x			start x coordinate
+/// param		y			start y coordinate
+/// param		text		string for print
+/// param		fore_color	foreground color
+/// param		back_color	background color
+/// param		font		font type of string
 /// return		success or failed
 bool SCDrawCommand::DrawString(
 		const SCPoint& p,
 		const std::string& text,
-		const std::string& font,
 		const XColor& fore_color,
-		const XColor& back_color)
+		const XColor& back_color,
+		const std::string& font)
 {
-	return DrawString(p.x, p.y, text, font, fore_color, back_color);
+	return DrawString(p.x, p.y, text, fore_color, back_color, font);
+}
+
+/// function	DrawString
+/// brief		draw a string
+///
+/// param		x			start x coordinate
+/// param		y			start y coordinate
+/// param		text		string for print
+/// param		fore_color	foreground color
+/// param		back_color	background color
+/// param		font		font type of string
+/// return		success or failed
+bool SCDrawCommand::DrawString(
+		const SCPoint& p,
+		const unsigned short* text,
+		const XColor& fore_color,
+		const XColor& back_color,
+		const std::string& font)
+{
+	return DrawString(p.x, p.y, text, fore_color, back_color, font);
 }
 

@@ -14,15 +14,19 @@
 #include <X11/Xlib.h>
 #include "SCBase.h"
 
-#define SC_FONT_LARGE	(SCDrawContext::GetLargeFont())
-#define SC_FONT_MIDDLE	(SCDrawContext::GetMiddleFont())
-#define SC_FONT_SMALL	(SCDrawContext::GetSmallFont())
+#define ARRANGE_LEFT		(0)
+#define ARRANGE_MIDDLE		(1)
+#define ARRANGE_RIGHT		(2)
 
 #define SC_FONT_INTERNAL	(7)
 
 // base window size
 #define WINDOW_WIDTH		(320)
 #define WINDOW_HEIGHT		(240)
+
+#define SC_FONT_LARGE	(SCDrawContext::GetLargeFont())
+#define SC_FONT_MIDDLE	(SCDrawContext::GetMiddleFont())
+#define SC_FONT_SMALL	(SCDrawContext::GetSmallFont())
 
 class SCDrawContext {
 public :

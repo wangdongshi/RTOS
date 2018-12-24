@@ -15,7 +15,6 @@
 #include <X11/Xlib.h>
 
 #define SC_COLOR_NUMBER		30	// there is margin
-//#define COLOR(name)		SCColor::GetColor(name)
 #define _QUOTE(name)		#name
 #define _PARAM(name)		_QUOTE(name)		
 #define COLOR(name)			((strcmp((_PARAM(name)),(_QUOTE(Transparent)))!=0)?(SCColor::GetColor(_PARAM(name))):(SCColor::GetColor(_QUOTE(Chocolate))))
