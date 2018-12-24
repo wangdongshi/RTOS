@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <termio.h>
 #include "debug.h"
+#include "SCColor.h"
 #include "SCDrawContext.h"
 
 using namespace std;
@@ -66,9 +67,12 @@ bool SCDrawContext::drawRect(
 		const XColor& color)
 {
 	if (x+width > WINDOW_WIDTH || y+height > WINDOW_HEIGHT) return false;
-	XSetForeground(disp, *gc, color.pixel);
-	XFillRectangle(disp, *win, *gc, x, y, width, height);
-	XFlush(disp);
+
+	if (!IsTrans(color)) {
+		XSetForeground(disp, *gc, color.pixel);
+		XFillRectangle(disp, *win, *gc, x, y, width, height);
+		XFlush(disp);
+	}
 	return true;
 }
 
@@ -107,20 +111,33 @@ bool SCDrawContext::drawASCII(
 		const XColor& back_color,
 		const string font_name)
 {
-	Font font = XLoadFont(disp, font_name.c_str());
-	if (!font)
-	{
-		Trace("XLoadFont Error!");
-		return false;
+	//Trace("Foreground color = Red:%x, Green:%x, Blue:%x", fore_color.red, fore_color.green, fore_color.blue);
+	//Trace("Background color = Red:%x, Green:%x, Blue:%x", back_color.red, back_color.green, back_color.blue);
+	// Fill background (Null : transparent)
+	if (!IsTrans(back_color)) {
+		XSetForeground(disp, *gc, back_color.pixel);
+		XFillRectangle(disp, *win, *gc, x, y, SC_FONT_INTERNAL, 13);
+	}
+
+	// Draw string
+	if (!IsTrans(fore_color)) {
+		Font font = XLoadFont(disp, font_name.c_str());
+		if (!font)
+		{
+			Trace("XLoadFont Error!");
+			return false;
+		} else {
+			if (x+6 > WINDOW_WIDTH || y+11 > WINDOW_HEIGHT) return false;
+			XSetForeground(disp, *gc, fore_color.pixel);
+			//XSetBackground(disp, *gc, back_color.pixel);
+			XSetFont(disp, *gc, font);
+			XTextItem text = {const_cast<char*>(&ascii), 1, 0, font};
+			XDrawText(disp, *win, *gc, x, y+11, &text, 1);
+			XUnloadFont(disp, font);
+			XFlush(disp);
+			return true;
+		}
 	} else {
-		if (x+6 > WINDOW_WIDTH || y+13 > WINDOW_HEIGHT) return false;
-		XSetForeground(disp, *gc, fore_color.pixel);
-		XSetBackground(disp, *gc, back_color.pixel);
-		XSetFont(disp, *gc, font);
-		XTextItem text = {const_cast<char*>(&ascii), 1, 0, font};
-		XDrawText(disp, *win, *gc, x, y, &text, 1);
-		XUnloadFont(disp, font);
-		XFlush(disp);
 		return true;
 	}
 }

@@ -28,45 +28,45 @@ public:
 
 	static bool		DrawPoint(const unsigned int x,
 							const unsigned int y,
-							const XColor& color = SC_COLOR("Black"));
+							const XColor& color = COLOR(Black));
 	static bool		DrawLine(const unsigned int x1,
 							const unsigned int y1,
 							const unsigned int x2,
 							const unsigned int y2,
-							const XColor& color = SC_COLOR("Black"));
+							const XColor& color = COLOR(Black));
 	static bool		FillRect(const unsigned int x,
 							const unsigned int y,
 							const unsigned int width,
 							const unsigned int height,
-							const XColor& color = SC_COLOR("LightGray"));
+							const XColor& color);
 	static bool		DrawRect(const unsigned int x,
 							const unsigned int y,
 							const unsigned int width,
 							const unsigned int height,
-							const XColor& fore_color = SC_COLOR("Black"),
-							const XColor& back_color = SC_COLOR("LightGray"));
+							const XColor& fore_color = COLOR(Black),
+							const XColor& back_color = COLOR(Transparent));
 	static bool		DrawString(const unsigned int x,
 							const unsigned int y,
 							const std::string& text,
 							const std::string& font = SC_FONT_MIDDLE,
-							const XColor& fore_color = SC_COLOR("Black"),
-							const XColor& back_color = SC_COLOR("LightGray"));
+							const XColor& fore_color = COLOR(Black),
+							const XColor& back_color = COLOR(Transparent));
 								
 	static bool		DrawPoint(const SCPoint& p,
-							const XColor& color = SC_COLOR("Black"));
+							const XColor& color = COLOR(Black));
 	static bool		DrawLine(const SCPoint& p1,
 							const SCPoint& p2,
-							const XColor& color = SC_COLOR("Black"));
+							const XColor& color = COLOR(Black));
 	static bool		FillRect(const SCRect& rect,
-							const XColor& color = SC_COLOR("LightGray"));
+							const XColor& color);
 	static bool		DrawRect(const SCRect& rect,
-							const XColor& fore_color = SC_COLOR("Black"),
-							const XColor& back_color = SC_COLOR("LightGray"));
+							const XColor& fore_color = COLOR(Black),
+							const XColor& back_color = COLOR(Transparent));
 	static bool		DrawString(const SCPoint& p,
 							const std::string& text,
 							const std::string& font = SC_FONT_MIDDLE,
-							const XColor& fore_color = SC_COLOR("Black"),
-							const XColor& back_color = SC_COLOR("LightGray"));
+							const XColor& fore_color = COLOR(Black),
+							const XColor& back_color = COLOR(Transparent));
 };
 
 #endif // __SCL_DRAW_COMMAND_H__

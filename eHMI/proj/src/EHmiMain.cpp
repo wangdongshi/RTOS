@@ -84,9 +84,10 @@ void EHmiMain::eventHandler(EHmiEvent& ev)
         break;
     case HMI_EV_EXPOSE:
 		Trace("Get window expose event.\n");
-		MakeRect(10, 30, 300, 80, SC_COLOR("Blue"), SC_COLOR("Green"));
-		MakeString(35, 75, "Welcome to this embedded HMI sample!");
+		MakeRect(10, 30, 300, 80, COLOR(Blue), COLOR(Green));
+		MakeString(35, 75, "Welcome to this embedded HMI sample!", SC_FONT_MIDDLE, COLOR(Black), COLOR(Yellow));
         break;
+///
     case HMI_EV_MOUSE_DOWN:
 		ev.GetParam(&x, &y);
 		Trace("Get mouse down event. X=%d, Y=%d\n", x, y);

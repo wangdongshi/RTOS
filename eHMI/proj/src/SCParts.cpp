@@ -33,5 +33,5 @@ m_back_color(back_color)
 /// return		success or failed
 bool SCParts::DrawBackground(void)
 {
-	return PaintRect(m_area, SC_COLOR("LightGray"));
+	return PaintRect(m_area, COLOR(LightGray));
 }

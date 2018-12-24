@@ -22,8 +22,8 @@
 class SCParts : public SCCore {
 public :
 	SCParts(const short id, const SCRect& area,
-			const XColor fore_color = SC_COLOR("Black"),
-			const XColor back_color = SC_COLOR("LightGray"));
+			const XColor fore_color = COLOR(Black),
+			const XColor back_color = COLOR(LightGray));
 	virtual ~SCParts() = 0;
 
 	virtual void	Initialize() = 0;

@@ -11,10 +11,16 @@
 #define __SCL_COLOR_H__
 
 #include <map>
+#include <string.h>
 #include <X11/Xlib.h>
 
 #define SC_COLOR_NUMBER		30	// there is margin
-#define SC_COLOR(name)		SCColor::GetColor(name)
+//#define COLOR(name)		SCColor::GetColor(name)
+#define _QUOTE(name)		#name
+#define _PARAM(name)		_QUOTE(name)		
+#define COLOR(name)			((strcmp((_PARAM(name)),(_QUOTE(Transparent)))!=0)?(SCColor::GetColor(_PARAM(name))):(SCColor::GetColor(_QUOTE(Chocolate))))
+
+#define IsTrans				SCColor::IsTransparent
 
 ///
 /// class : SCColor
@@ -27,6 +33,7 @@ public :
 
 	static XColor GetColor(std::string color_name);
 	static void AllocColor(void);
+	static bool IsTransparent(XColor xcolor);
 	
 private :
 	static std::map<std::string, int> color_map; // color index in xcolor

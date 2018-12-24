@@ -62,86 +62,75 @@ https://www.ibm.com/developerworks/cn/Linux/l-cn-xwin/index.html
 其实一般还应提供图像描画函数，不过这个比字符描画就更复杂了，因为还有解析位图之类的操作。作为HMI的示例程序，这个函数没有的话其实也不影响示例工程的功能，因此这部分函数就不实现了，以免将问题复杂化。  
 
 #### 设计上的考虑  
-上面已经分析了在基本元素的描画层面要实现的几个方法，那么这些方法应该以什么样的形式提供给上层应用程序呢？当然，可以将这些方法（矩形、字符的描画）视为驱动程序提供的功能，如此一来这些方法就能够以全局函数的形式出现在HMI的工程中，这样做当然没问题，某系统的HMI也基本上是以这种思路完成的。（在DrawCom类中实现了一批静态方法，可以看作是全局方法。）  
-但是，用静态方法类似于全局函数，并不是一个理想的实现，为此，可以参考大部分GUI系统的实现，既提供了一种所谓绘图上下文的类，这个类中维持着描画所需要的所有环境信息，比如，颜色、字体，当然也可以有我们这里需要封装的基本描画命令。  
-这样做的好处是将来再出现任何描画上的新的基础功能时，我们可以用更灵活（继承或者修改特定的类，如颜色类、字体类、命令类）的方式进行处理，不至于在一个全局空间中随意的增加方法。  
+上面已经分析了在基本元素的描画层面要实现的几个方法，那么这些方法应该以什么样的形式提供给上层应用程序呢？当然，可以将这些方法（矩形、字符的描画）视为驱动程序提供的功能，如此一来这些方法就能够以全局函数的形式出现在HMI的工程中，这样做当然没问题，某系统的HMI也基本上是以这种思路完成的。（在DrawCom类中实现了一批静态方法，可以看作是全局方法。）   
 
 下面就基于这种思想给出一个HMI的关键类描述。  
 ```C++
-#include <X11/Xlib.h>
-
 class SCDrawContext {
-public:
+public :
 	SCDrawContext();
-	SCDrawContext(Display* d, Window& w);
 	virtual ~SCDrawContext();
 
-public:
-	Display*	getDisplay(void) {return disp;};
-	Window*		getWindow(void) {return &win;};
-	GC*			getGC(void) {return &gc;};
+	static void 		Initialize(Display* d, Window* w, GC* g);
+	static Display*		GetDisplay(void) {return disp;}
+	static Window*		GetWindow(void) {return win;}
+	static GC*			GetGC(void) {return gc;}
+	static std::string	GetLargeFont(void)	{return font_type[0];}
+	static std::string	GetMiddleFont(void)	{return font_type[1];}
+	static std::string	GetSmallFont(void)	{return font_type[2];}
 
-protected:
-	void		drawRect(const unsigned int x,
-						const unsigned int y,
-						const unsigned int width,
-						const unsigned int height,
-						const XColor& color);
-	void		drawASCII(const unsigned int x,
-						const unsigned int y,
-						const char ascii,
-						const XColor& fore_color,
-						const XColor& back_color,
-						const std::string font_name);
-
-protected:
-	Display*	disp;
-	Window		win;
-	GC			gc;
+protected :
+	static bool		drawRect(const unsigned int x,
+							const unsigned int y,
+							const unsigned int width,
+							const unsigned int height,
+							const XColor& color);
+	static bool		drawASCII(const unsigned int x,
+							const unsigned int y,
+							const char ascii,
+							const XColor& fore_color,
+							const XColor& back_color,
+							const std::string font_name);
 	
+protected :
+	static Display*	disp;
+	static Window*	win;
+	static GC*		gc;
+
 	static const std::string font_type[3];
 };
-
-#endif // __SCL_DRAW_CONTEXT_H__
 ```
 
 ```C++
-#include "SCColor.h"
-#include "SCDrawContext.h"
-
 class SCDrawCommand : public SCDrawContext {
 public:
 	SCDrawCommand();
-	SCDrawCommand(Display* d, Window& w);
 	virtual ~SCDrawCommand();
 
-public:
-	bool		DrawPoint(const unsigned int x,
-						const unsigned int y,
-						const XColor& color = SC_COLOR("Black"));
-	bool		DrawLine(const unsigned int x1,
-						const unsigned int y1,
-						const unsigned int x2,
-						const unsigned int y2,
-						const XColor& color = SC_COLOR("Black"));
-	bool		FillRect(const unsigned int x,
-						const unsigned int y,
-						const unsigned int width,
-						const unsigned int height,
-						const XColor& color = SC_COLOR("Gray"));
-	bool		DrawRect(const unsigned int x,
-						const unsigned int y,
-						const unsigned int width,
-						const unsigned int height,
-						const XColor& color = SC_COLOR("Black"));
-	bool		DrawString(const unsigned int x,
-						const unsigned int y,
-						const std::string text,
-						const std::string font = SC_FONT_MIDDLE,
-						const XColor& fore_color = SC_COLOR("Black"),
-						const XColor& back_color = SC_COLOR("White"));
-
-private :
-	SCColor*	pcolor;
+	static bool		DrawPoint(const unsigned int x,
+							const unsigned int y,
+							const XColor& color = SC_COLOR("Black"));
+	static bool		DrawLine(const unsigned int x1,
+							const unsigned int y1,
+							const unsigned int x2,
+							const unsigned int y2,
+							const XColor& color = SC_COLOR("Black"));
+	static bool		FillRect(const unsigned int x,
+							const unsigned int y,
+							const unsigned int width,
+							const unsigned int height,
+							const XColor& color = SC_COLOR("LightGray"));
+	static bool		DrawRect(const unsigned int x,
+							const unsigned int y,
+							const unsigned int width,
+							const unsigned int height,
+							const XColor& fore_color = SC_COLOR("Black"),
+							const XColor& back_color = SC_COLOR("LightGray"));
+	static bool		DrawString(const unsigned int x,
+							const unsigned int y,
+							const std::string& text,
+							const std::string& font = SC_FONT_MIDDLE,
+							const XColor& fore_color = SC_COLOR("Black"),
+							const XColor& back_color = SC_COLOR("LightGray"));
 };
 ```

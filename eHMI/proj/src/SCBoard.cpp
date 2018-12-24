@@ -152,7 +152,7 @@ bool SCBoard::Draw(void)
 /// return		success or failed
 bool SCBoard::DrawBackground(void)
 {
-	return PaintRect(m_area, SC_COLOR("LightGray"));
+	return PaintRect(m_area, COLOR(LightGray));
 }
 
 /// function	GetChild

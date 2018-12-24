@@ -6,21 +6,23 @@
 /// version 	00.01.00
 /// date		2018/12/19
 ///
+#include "debug.h"
 #include "SCColor.h"
 #include "SCDrawContext.h"
 
 using namespace std;
 
 map<string, int> SCColor::color_map = {
-	{"White",		0	},
-	{"Black",		1	},
-	{"Red",			2	},
-	{"Yellow",		3	},
-	{"Blue",		4	},
-	{"Green",		5	},
-	{"Gray",		6	},
-	{"LightGray",	7	},
-	{"DarkGray",	8	},
+	{"Chocolate",	0	},
+	{"White",		1	},
+	{"Black",		2	},
+	{"Red",			3	},
+	{"Yellow",		4	},
+	{"Blue",		5	},
+	{"Green",		6	},
+	{"Gray",		7	},
+	{"LightGray",	8	},
+	{"DarkGray",	9	},
 };
 
 XColor SCColor::xcolor[SC_COLOR_NUMBER] = {};
@@ -37,7 +39,7 @@ SCColor::~SCColor()
 {
 }
 
-/// function	AllocColor
+/// function	GetColor
 /// function	GetColor
 /// brief		get color with color name in X11
 ///
@@ -48,6 +50,7 @@ XColor SCColor::GetColor(string name)
 	return xcolor[color_map[name]];
 }
 
+/// function	AllocColor
 /// brief		alloc color for eHMI
 ///
 /// param		none
@@ -62,6 +65,23 @@ void SCColor::AllocColor(void)
 		const char* name = (it->first).c_str();
 		XColor* near = &xcolor[it->second];
 		XAllocNamedColor(disp, cmap, name, near, &real);
+		//Trace("%s is registered. (real color value = %x)\n", name, real);
+	}
+}
+
+/// function	IsTransparent
+/// brief		judge if the color is transparent
+///
+/// param		xcolor	the color for judgement
+/// return		none
+bool SCColor::IsTransparent(XColor xcolor)
+{
+	if (xcolor.red   == 0xD2D2 &&
+		xcolor.green == 0x6969 &&
+		xcolor.blue  == 0x1E1E) {
+		return true;
+	} else {
+		return false;
 	}
 }
 
