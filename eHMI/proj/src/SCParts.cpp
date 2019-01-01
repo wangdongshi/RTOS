@@ -19,8 +19,9 @@ m_id(id),
 m_parent(0),
 m_next(0),
 m_prev(0),
-//m_callback(0),
-//m_fPushed(false),
+m_callback(0),
+m_visible(true),
+m_pushed(false),
 m_fore_color(fore_color),
 m_back_color(back_color)
 {
@@ -30,6 +31,9 @@ m_back_color(back_color)
 /// brief		deconstructor
 SCParts::~SCParts()
 {
+	if(m_callback) {
+		RemoveAllCallbacks();
+	}
 }
 
 /// function	DrawBackground
@@ -42,3 +46,92 @@ bool SCParts::DrawBackground(void)
 	return PaintRect(m_area, m_back_color);
 }
 
+/// function	ReDraw
+/// brief		redraw the part include background
+///
+/// param		none
+/// return		none
+void SCParts::ReDraw(void)
+{
+	DrawBackground();
+	Draw();
+}
+
+/// function	TDown
+/// brief		process when mouse click is catched
+///
+/// param		point	the position of the mouse pointer when it's catched
+/// return		none
+void SCParts::TDown(const SCPoint& point)
+{
+	m_pushed = true;
+}
+
+/// function	TUp
+/// brief		process when mouse click is released
+///
+/// param		point	the position of the mouse pointer when it's released
+/// return		none
+void SCParts::TUp(const SCPoint& point)
+{
+	if(m_pushed) {
+		m_pushed = false;
+		DoCallback(SCCallbackTypeTAP);
+	}
+}
+
+/// function	AddCallback
+/// brief		register the specified type call back function
+///
+/// param		cb		point of call back function
+/// return		none
+void SCParts::AddCallback(SCCallback* cb)
+{
+	if(cb != 0) {
+		SCCallback*	last = m_callback;
+		
+		if(last == 0) {
+			m_callback = cb;
+		} else {
+			while(last->Next() != 0) {
+				last = last->Next();
+			}
+			last->Next(cb);
+		}
+	}
+}
+
+/// function	DoCallback
+/// brief		execute the specified type call back function
+///
+/// param		type	type of call back function
+/// return		none
+void SCParts::DoCallback(const int type)
+{
+	SCCallback*	cb = m_callback;
+	
+	while(cb) {
+		if(cb->GetType() == type) cb->DoCallback();
+		cb = cb->Next();
+	}
+}
+
+/// function	RemoveAllCallbacks
+/// brief		remove all of call back function
+///
+/// param		none
+/// return		none
+void SCParts::RemoveAllCallbacks(void)
+{
+	SCCallback* next;
+	SCCallback*	cb = m_callback;
+	
+	while(cb) {
+		next = cb->Next();
+		delete cb;
+
+		cb = next;
+	}
+
+	m_callback = 0;
+}

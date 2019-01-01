@@ -13,6 +13,7 @@
 #include "SCCore.h"
 #include "SCColor.h"
 #include "SCBase.h"
+#include "SCCallback.h"
 #include "SCBoard.h"
 
 class SCBoard;
@@ -28,14 +29,16 @@ public :
 			const XColor back_color = COLOR(Transparent));
 	virtual ~SCParts();
 
+	virtual void	Initialize() {}
 	virtual bool	Draw(void) = 0;
 	virtual bool	DrawBackground(void);
+	virtual void	ReDraw(void);
 	//virtual int		Update(const int updateType, unsigned short* para);
-	//virtual void	TDown(const SCPoint& point);
-	//virtual void	TUp(const SCPoint& point);
-	//void			AddCallback(SCCallback* cb);
-	//void			DoCallback(int type);
-	virtual void	Initialize() {}
+	virtual void	TDown(const SCPoint& point);
+	virtual void	TUp(const SCPoint& point);
+	void			AddCallback(SCCallback* cb); // TODO : ?
+	void			DoCallback(const int type);
+	void			RemoveAllCallbacks(void);
 
 	SCBoard*		Parent(void) const {return(m_parent);}
 	void			Parent(SCBoard* parent) {m_parent = parent;}
@@ -44,16 +47,20 @@ public :
 	SCParts*		Prev(void) const {return(m_prev);}
 	void			Prev(SCParts* prev) {m_prev = prev;}
 	short			GetID() const {return(m_id);}
+	bool			GetVisible(void) const {return(m_visible);}
+	void			SetVisible(bool visible) {m_visible = visible;}
+	bool			GetPushed(void) const {return(m_pushed);}
+	void			SetPushed(bool pushed) {m_pushed = pushed;}
 
 protected :
 	short			m_id;			// part ID
 	SCBoard*		m_parent;		// father screen
 	SCParts*		m_next;			// next part by register sequence
 	SCParts*		m_prev;			// previous part by register sequence
-	//SCCallback*		m_callback;		// call back list pointer
-	//bool			m_fVisible;		// visible?
-	//bool			m_fEnable;		// selectable?
-	//bool			m_fPushed;		// in push state?
+	SCCallback*		m_callback;		// call back list pointer
+	bool			m_visible;		// visible?
+	//bool			m_enable;		// selectable?
+	bool			m_pushed;		// in push state?
 	XColor			m_fore_color;	// foreground color
 	XColor			m_back_color;	// background color
 };

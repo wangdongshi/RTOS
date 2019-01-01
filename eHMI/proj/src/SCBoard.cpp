@@ -15,7 +15,7 @@ SCBoard::SCBoard(const SCRect& area, const short id) :
 SCCore(area),
 m_screen_id(id),
 m_child(0),
-//m_captured(0),
+m_captured(0),
 //m_dialog(0),
 //m_parent(false),
 m_touch_point()
@@ -107,7 +107,7 @@ void SCBoard::DestroyAllParts(void)
 	}
 
 	m_child = NULL;
-	//m_captured = NULL;
+	m_captured = NULL;
 }
 
 /// function	Initialize
@@ -153,6 +153,35 @@ bool SCBoard::Draw(void)
 bool SCBoard::DrawBackground(void)
 {
 	return PaintRect(m_area, COLOR(LightGray));
+}
+
+/// function	TDown
+/// brief		process when mouse click is catched on screen
+///
+/// param		point	the position of the mouse pointer when it's catched
+/// return		none
+void SCBoard::TDown(const SCPoint& point)
+{
+	SCParts* target = GetOperableChild(point);
+
+	if(target) {
+		m_captured = target;
+		m_captured->TDown(point);
+	}
+}
+
+/// function	TUp
+/// brief		process when mouse click is released on screen
+///
+/// param		point	the position of the mouse pointer when it's released
+/// return		none
+void SCBoard::TUp(const SCPoint& point)
+{
+	if(m_captured) {
+		m_touch_point = point;
+		m_captured->TUp(point);
+		m_captured = 0;
+	}
 }
 
 /// function	GetChild
@@ -215,8 +244,8 @@ SCParts* SCBoard::GetChild(const short id) const
 /// return		last parts
 SCParts* SCBoard::GetLastChild(void) const
 {
-	SCParts*	next;
-	SCParts*	target = GetChild();
+	SCParts* next;
+	SCParts* target = GetChild();
 	
 	while(target) {
 		next = target->Next();
@@ -229,3 +258,27 @@ SCParts* SCBoard::GetLastChild(void) const
 	return(target);
 }
 
+/// function	GetOperableChild
+/// brief		get operable child part on the screen
+///
+/// param		point	the specified point
+/// return		part's pointer
+SCParts* SCBoard::GetOperableChild(const SCPoint& point) const
+{
+	SCParts* target = GetLastChild();
+
+	while(target) {
+		if(target->GetVisible()) {
+			SCRect area = target->GetArea();
+			if(area.Contains(point)) {
+				//if(target->GetEnable() == false) {
+				//	target = 0;
+				//}
+				break;
+			}
+		}
+		target = target->Prev();
+	}
+
+	return(target);
+}

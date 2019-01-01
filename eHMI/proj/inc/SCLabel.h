@@ -1,6 +1,6 @@
 ///
-/// file		SCParts.h
-/// brief		HMI parts class define head file
+/// file		SCLabel.h
+/// brief		HMI label class define head file
 ///
 /// author		Wang.Yu
 /// version 	00.01.00
@@ -17,7 +17,7 @@
 
 ///
 /// class : SCLabel
-/// Parts class
+/// Label class
 ///
 class SCLabel : public SCParts {
 public :
@@ -29,11 +29,14 @@ public :
 	virtual ~SCLabel();
 
 	virtual bool	Draw(void);
-	void			setStr(const char* mes);
-	void			setStr(const unsigned short* mes);
+	void			SetStr(const char* mes);
+	void			SetStr(const unsigned short* mes);
 	void			Arrangement(int arr){this->m_arrangement = arr;}
+
+protected :	
+	virtual bool	drawString(void);
 	
-private:
+protected:
 	std::string		m_font;
 	unsigned short	m_label[SC_LABEL_STRING_MAX+1];
 	int				m_arrangement;

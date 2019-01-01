@@ -33,7 +33,7 @@ void PICTest1::InitScreen(void)
 	SCRect		area(10, 30, 300, 80);
 	SCLabel* 	label = new SCLabel(1, area, COLOR(Red));
 
-	label->setStr("Welcome to Test1 screen!");
+	label->SetStr("Welcome to Test1 screen!");
 	RegistParts(static_cast<SCParts*>(label));
 }
 
