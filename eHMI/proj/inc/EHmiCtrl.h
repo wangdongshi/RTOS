@@ -13,25 +13,30 @@
 #ifndef __EHMI_CTRL_H__
 #define __EHMI_CTRL_H__
 
+#define	EHMI			EHmiCtrl::GetHMI()
+#define	SendMassage		EHmiCtrl::Send2HMI
+
+
 ///
 /// class : EHmiCtrl
-/// HMI contrl process class
+/// HMI control process class
 ///
 class EHmiCtrl {
 public :
     EHmiCtrl();
-    EHmiCtrl(EHmiMain* pHmi);
     virtual ~EHmiCtrl();
 	
 public :
-	void Start(void) {main();}
+	static void				Send2HMI(EHmiEvent& ev);
+	static EHmiMain*		GetHMI(void){return(hmi);}
+	static void				SetHMI(EHmiMain* hmi_main){hmi = hmi_main;}
+	void					Start(void) {main();}
 	
 private :
-	void main(void);
-	void send2HMI(EHmiEvent& ev);
+	void					main(void);
 
 private :
-	EHmiMain*				hmi;
+	static EHmiMain*		hmi;
 	unsigned int			move_cnt;
 };
 

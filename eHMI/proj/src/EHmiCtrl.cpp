@@ -9,27 +9,17 @@
 #include <mutex>
 #include <unistd.h>
 #include <termio.h>
-#include "debug.h"
 #include "EHmiCtrl.h"
+
+#define MOUSE_MOVE_ACT_COUNT	4
 
 using namespace std;
 
-#define MOUSE_MOVE_ACT_COUNT	4
+EHmiMain* EHmiCtrl::hmi = NULL;
 
 /// function	EHmiCtrl
 /// brief		constructor
 EHmiCtrl::EHmiCtrl() : 
-hmi(NULL),
-move_cnt(0)
-{
-}
-
-/// function	EHmiCtrl
-/// param		display
-/// param		pHmi
-/// brief		constructor
-EHmiCtrl::EHmiCtrl(EHmiMain* pHmi) : 
-hmi(pHmi),
 move_cnt(0)
 {
 }
@@ -51,7 +41,7 @@ void EHmiCtrl::main(void)
 
 	// init window
 	EHmiEvent hmi_ev(HMI_EV_WINDOW_INIT);
-	send2HMI(hmi_ev);
+	SendMassage(hmi_ev);
 
 	// catch and process event created from screen
     while(true) {
@@ -65,21 +55,21 @@ void EHmiCtrl::main(void)
 			case Expose: // window initialization event
 			{
 				EHmiEvent hmi_ev(HMI_EV_EXPOSE);
-				send2HMI(hmi_ev);
+				SendMassage(hmi_ev);
 			}
 				break;
 			case ButtonPress: // mouse down event
 			{
 				XButtonEvent xbutton = win_ev.xbutton;
 				EHmiEvent hmi_ev(HMI_EV_MOUSE_DOWN, xbutton.x, xbutton.y);
-				send2HMI(hmi_ev);
+				SendMassage(hmi_ev);
 			}
 				break;
 			case ButtonRelease: // mouse up event
 			{
 				XButtonEvent xbutton = win_ev.xbutton;
 				EHmiEvent hmi_ev(HMI_EV_MOUSE_UP, xbutton.x, xbutton.y);
-				send2HMI(hmi_ev);
+				SendMassage(hmi_ev);
 			}
 				break;
 			case MotionNotify: // mouse move
@@ -88,7 +78,7 @@ void EHmiCtrl::main(void)
 				if (move_cnt >= MOUSE_MOVE_ACT_COUNT) {
 					XButtonEvent xbutton = win_ev.xbutton;
 					EHmiEvent hmi_ev(HMI_EV_MOUSE_MOVE, xbutton.x, xbutton.y);
-					send2HMI(hmi_ev);
+					SendMassage(hmi_ev);
 					move_cnt = 0;
 				} else {
 					++move_cnt;
@@ -101,16 +91,14 @@ void EHmiCtrl::main(void)
     }
 }
 
-
-/// function	send2HMI
+/// function	Send2HMI
 /// brief		push event to hmi main thread
 ///
 /// param		ev
 /// return		none
-void EHmiCtrl::send2HMI(EHmiEvent& ev)
+void EHmiCtrl::Send2HMI(EHmiEvent& ev)
 {
-	lock_guard<mutex> lock(hmi->Mutex());
-	hmi->SetReady(true);
-	hmi->AddQueue(ev);
+	lock_guard<mutex> lock(EHMI->Mutex());
+	EHMI->SetReady(true);
+	EHMI->AddQueue(ev);
 }
-

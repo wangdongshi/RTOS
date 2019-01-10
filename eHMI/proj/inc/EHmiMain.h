@@ -45,8 +45,11 @@ private :
 	void run(void);
 	void main(void);
 	void eventHandler(EHmiEvent& ev);
-	void startScreen(void);
-	void changeScreen(const short id, const EHmiEvent& ev);
+
+public :
+	void StartScreen(void);
+	void ChangeScreen(const short id, const EHmiEvent& ev);
+	SCBoard* GetBoard(){return(m_screen);}
 
 private :
     std::deque<EHmiEvent>	deq;

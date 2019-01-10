@@ -32,7 +32,7 @@ m_back_color(back_color)
 SCParts::~SCParts()
 {
 	if(m_callback) {
-		RemoveAllCallbacks();
+		removeAllCallbacks();
 	}
 }
 
@@ -130,12 +130,12 @@ void SCParts::DoCallback(const int type)
 	}
 }
 
-/// function	RemoveAllCallbacks
+/// function	removeAllCallbacks
 /// brief		remove all of call back function
 ///
 /// param		none
 /// return		none
-void SCParts::RemoveAllCallbacks(void)
+void SCParts::removeAllCallbacks(void)
 {
 	SCCallback* next;
 	SCCallback*	cb = m_callback;

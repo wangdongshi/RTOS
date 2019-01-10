@@ -35,7 +35,7 @@ public :
 	int				GetType(void) const {return(m_type);}
 	
 private :
-	void			(*m_func)(int data);
+	void			(*m_func)(const int data);
 	int				m_type;		// call back type
 	int				m_data;		// parameter in call back function
 	SCCallback*		m_next;		// next call back function point by registered sequence

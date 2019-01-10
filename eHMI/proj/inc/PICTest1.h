@@ -22,6 +22,7 @@ public :
 	virtual ~PICTest1();
 
 	void InitScreen(void);
+	void ButtonPushed(const int id);
 
 private :
 	static const SCRect		area_label;

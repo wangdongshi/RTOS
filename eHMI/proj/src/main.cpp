@@ -74,7 +74,8 @@ int main( void )
 	hmi_main.detach();
 
 	// create hmi ctrl thread
-	EHmiCtrl* pCtrl = new EHmiCtrl( pHmi);
+	EHmiCtrl* pCtrl = new EHmiCtrl();
+	EHmiCtrl::SetHMI(pHmi);
 	thread hmi_ctrl(hmiCtrl, pCtrl);
 	hmi_ctrl.detach();
 

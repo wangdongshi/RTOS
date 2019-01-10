@@ -13,6 +13,7 @@
 #include "debug.h"
 #include "SCColor.h"
 #include "PICTest1.h"
+#include "PICTest2.h"
 #include "EHmiMain.h"
 
 using namespace std;
@@ -42,7 +43,7 @@ void EHmiMain::run(void)
 	// initialize hmi resource
 	
 	// create default screen
-	startScreen();
+	StartScreen();
 
 	// main loop
 	main();
@@ -91,22 +92,29 @@ void EHmiMain::main(void)
 /// return		none
 void EHmiMain::eventHandler(EHmiEvent& ev)
 {
-    EHmiEventType	type = HMI_EV_NONE;
-	//unsigned long param;
-	unsigned int	x, y;
-	
-    // get event type & param
+	// get event type & param
+    EHmiEventType type = HMI_EV_NONE;
 	type = ev.GetEvent();
-	ev.GetParam(&x, &y);
-	SCPoint point(x, y);
+	
+	short screen_id = ev.GetParam();
+	unsigned int ui1, ui2;
+	ev.GetParam(&ui1, &ui2);
+	SCPoint point(ui1, ui2);
+	
+	EHmiEvent event;
 	
 	// dispatch event
     switch(type) {
     case HMI_EV_WINDOW_INIT:
-		Trace("Get window initialization event.\n");
+		//Trace("Get window initialization event.\n");
         break;
     case HMI_EV_EXPOSE:
-		Trace("Get window expose event.\n");
+		//Trace("Get window expose event.\n");
+		m_screen->Draw();
+        break;
+    case HMI_EV_CHG_SCREEN:
+		//Trace("Get change screen event. (screen_id = %d)\n", screen_id);
+        ChangeScreen(screen_id, event);
 		m_screen->Draw();
         break;
     case HMI_EV_MOUSE_DOWN:
@@ -126,27 +134,27 @@ void EHmiMain::eventHandler(EHmiEvent& ev)
     }
 }
 
-/// function	startScreen
+/// function	StartScreen
 /// brief		initialize default screen
 ///
 /// param		none
 /// return		none
-void EHmiMain::startScreen(void)
+void EHmiMain::StartScreen(void)
 {
 	EHmiEvent ev(HMI_EV_CHG_SCREEN);
 
-	changeScreen(SCREEN_TEST1, ev);
+	ChangeScreen(SCREEN_TEST1, ev);
 }
 
-/// function	changeScreen
+/// function	ChangeScreen
 /// brief		send change screen message
 ///
 /// param		id		screen ID
 /// param		ev		event message
 /// return		none
-void EHmiMain::changeScreen(const short id, const EHmiEvent& ev)
+void EHmiMain::ChangeScreen(const short id, const EHmiEvent& ev)
 {
-	// destory old screen
+	// destroy old screen
 	if(m_screen != NULL) {
 		delete m_screen;
 		m_screen = NULL;
@@ -157,8 +165,11 @@ void EHmiMain::changeScreen(const short id, const EHmiEvent& ev)
 	switch(id) {
 		default:
 		case SCREEN_TEST1:
-			 m_screen = new PICTest1(area, id);
-			 break;
+			m_screen = new PICTest1(area, id);
+			break;
+		case SCREEN_TEST2:
+			m_screen = new PICTest2(area, id);
+			break;
 	}
 }
 

@@ -39,7 +39,6 @@ public :
 	virtual void	TMove(const SCPoint& point);
 	void			AddCallback(SCCallback* cb); // TODO : ?
 	void			DoCallback(const int type);
-	void			RemoveAllCallbacks(void);
 
 	SCBoard*		Parent(void) const {return(m_parent);}
 	void			Parent(SCBoard* parent) {m_parent = parent;}
@@ -52,6 +51,9 @@ public :
 	void			SetVisible(bool visible) {m_visible = visible;}
 	bool			GetPushed(void) const {return(m_pushed);}
 	void			SetPushed(bool pushed) {m_pushed = pushed;}
+	
+protected :
+	void			removeAllCallbacks(void);
 
 protected :
 	short			m_id;			// part ID

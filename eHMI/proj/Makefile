@@ -6,6 +6,7 @@ TARGET		:= ehmi
 
 GPP			= g++
 GCCFLAGS 	= -g -Wall -pthread -lX11 -DDEBUG -I inc/
+#GCCFLAGS 	= -g -Wall -pthread -lX11 -I inc/
 GPPFLAGS	= -std=c++11 $(GCCFLAGS)
 
 #---- rule ----
