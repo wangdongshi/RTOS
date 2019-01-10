@@ -36,6 +36,7 @@ public :
 	virtual bool	DrawBackground(void);
 	virtual void	TDown(const SCPoint& point);
 	virtual void	TUp(const SCPoint& point);
+	virtual void	TMove(const SCPoint& point);
 	SCParts*		GetChild(void) const {return(m_child);}
 	SCParts*		GetChild(const unsigned short x, const unsigned short y) const;
 	SCParts*		GetChild(const SCPoint& point) const;

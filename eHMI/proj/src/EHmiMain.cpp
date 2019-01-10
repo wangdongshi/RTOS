@@ -66,7 +66,7 @@ void EHmiMain::main(void)
 
         // command process
         while(true) {
-			sleep(1);
+			usleep(10);
             {
                 lock_guard<mutex> lock(mtx);
                 if(deq.empty()) {
@@ -91,30 +91,35 @@ void EHmiMain::main(void)
 /// return		none
 void EHmiMain::eventHandler(EHmiEvent& ev)
 {
-    EHmiEventType type = HMI_EV_NONE;
+    EHmiEventType	type = HMI_EV_NONE;
 	//unsigned long param;
-	unsigned int  x, y;
+	unsigned int	x, y;
 	
     // get event type & param
 	type = ev.GetEvent();
+	ev.GetParam(&x, &y);
+	SCPoint point(x, y);
+	
+	// dispatch event
     switch(type) {
     case HMI_EV_WINDOW_INIT:
-		Trace("Get window init event.\n");
+		Trace("Get window initialization event.\n");
         break;
     case HMI_EV_EXPOSE:
 		Trace("Get window expose event.\n");
-		//MakeRect(10, 30, 300, 80, COLOR(Blue), COLOR(Green));
-		//MakeString(35, 75, "Welcome to this embedded HMI sample!", COLOR(Black), COLOR(Yellow));
 		m_screen->Draw();
         break;
-///
     case HMI_EV_MOUSE_DOWN:
-		ev.GetParam(&x, &y);
-		Trace("Get mouse down event. X=%d, Y=%d\n", x, y);
+		Trace("Get mouse down event. X=%d, Y=%d\n", point.x, point.y);
+		m_screen->TDown(point);
         break;
     case HMI_EV_MOUSE_UP:
-		ev.GetParam(&x, &y);
-		Trace("Get mouse up   event. X=%d, Y=%d\n", x, y);
+		Trace("Get mouse up   event. X=%d, Y=%d\n", point.x, point.y);
+		m_screen->TUp(point);
+        break;
+	case HMI_EV_MOUSE_MOVE:
+		Trace("Get mouse move event. X=%d, Y=%d\n", point.x, point.y);
+		m_screen->TMove(point);
         break;
     default: // HMI_EV_NONE or not defined
         break;

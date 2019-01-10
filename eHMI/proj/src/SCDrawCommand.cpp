@@ -8,6 +8,7 @@
 ///
 #include <math.h>
 #include <string>
+#include "debug.h"
 #include "SCDrawCommand.h"
 
 using namespace std;
@@ -33,9 +34,9 @@ int SCDrawCommand::GetStringWidth(const unsigned short* str)
 {
 	int width = 0;
 
-	do {
+	while (*str++) {
 		width += 7;
-	} while (*str++);
+	}
 
 	return width;
 }
@@ -78,8 +79,8 @@ bool SCDrawCommand::DrawLine(
 	} else {
 		unsigned int x = min(x1, x2);
 		unsigned int y = min(y1, y2);
-		unsigned int width  = fabs(x1 - x2);
-		unsigned int height = fabs(y1 - y2);
+		unsigned int width  = intABS(x1 - x2);
+		unsigned int height = intABS(y1 - y2);
 		if (width  == 0) ++width;
 		if (height == 0) ++height;
 		res = drawRect(x, y, width, height, color);

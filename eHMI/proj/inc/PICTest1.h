@@ -22,6 +22,10 @@ public :
 	virtual ~PICTest1();
 
 	void InitScreen(void);
+
+private :
+	static const SCRect		area_label;
+	static const SCRect		area_button;
 };
 
 #endif // __PIC_TEST1_H__

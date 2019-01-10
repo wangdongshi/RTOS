@@ -29,10 +29,12 @@ public :
 	virtual bool	DrawBackground(void);
     virtual void    TDown(const SCPoint& point);
     virtual void	TUp(const SCPoint& point);
+    virtual void	TMove(const SCPoint& point);
 	
 protected:
     virtual XColor getButtonColor(void);
     virtual bool drawUnderLine(void);
+	virtual bool drawRightLine(void);
 };
 
 #endif // __SCL_BUTTON_H__

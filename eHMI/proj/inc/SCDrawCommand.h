@@ -22,6 +22,8 @@
 
 #define ClearRect(r)	SCDrawCommand::FillRect(r)
 
+#define intABS(x)		(((int)(x) > 0) ? ((int)(x)) : (-(int)(x)))
+
 class SCDrawCommand : public SCDrawContext {
 public:
 	SCDrawCommand();

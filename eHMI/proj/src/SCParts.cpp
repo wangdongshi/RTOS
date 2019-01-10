@@ -80,6 +80,20 @@ void SCParts::TUp(const SCPoint& point)
 	}
 }
 
+/// function	TMove
+/// brief		process when mouse move on screen
+///
+/// param		point	the position of the mouse's movement
+/// return		none
+void SCParts::TMove(const SCPoint& point)
+{
+	bool next = m_area.Contains(point);
+
+	if(m_pushed != next) {
+		m_pushed = next;
+	}
+}
+
 /// function	AddCallback
 /// brief		register the specified type call back function
 ///

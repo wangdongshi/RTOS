@@ -39,6 +39,7 @@ bool SCButton::Draw(void)
     {
 		res &= DrawBackground();
 		res &= drawUnderLine();
+		res &= drawRightLine();
 		res &= drawString();
     }
 	
@@ -81,6 +82,21 @@ void SCButton::TUp(const SCPoint& point)
     }
 }
 
+/// function	TMove
+/// brief		the point when mouse is moved
+///
+/// param		point		the point when mouse is moved
+/// return		none
+void SCButton::TMove(const SCPoint& point)
+{
+    bool next = m_area.Contains(point);
+    if(GetPushed() != next)
+    {
+        SetPushed(next);
+		ReDraw();
+    }
+}
+
 /// function	getButtonColor
 /// brief		get button color
 ///
@@ -100,6 +116,19 @@ bool SCButton::drawUnderLine(void)
 {
 	SCPoint begin(m_area.x, m_area.y+m_area.height-2);
 	SCPoint end(m_area.x+m_area.width-1, m_area.y+m_area.height-2);
+	
+	return MakeLine(begin, end, m_fore_color);
+}
+
+/// function	drawRightLine
+/// brief		draw button right line
+///
+/// param		none
+/// return		success of failed
+bool SCButton::drawRightLine(void)
+{
+	SCPoint begin(m_area.x+m_area.width-2, m_area.y);
+	SCPoint end(m_area.x+m_area.width-2, m_area.y+m_area.height-1);
 	
 	return MakeLine(begin, end, m_fore_color);
 }

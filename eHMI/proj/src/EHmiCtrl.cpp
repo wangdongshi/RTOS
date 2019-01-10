@@ -14,9 +14,13 @@
 
 using namespace std;
 
+#define MOUSE_MOVE_ACT_COUNT	4
+
 /// function	EHmiCtrl
 /// brief		constructor
-EHmiCtrl::EHmiCtrl() 
+EHmiCtrl::EHmiCtrl() : 
+hmi(NULL),
+move_cnt(0)
 {
 }
 
@@ -25,7 +29,8 @@ EHmiCtrl::EHmiCtrl()
 /// param		pHmi
 /// brief		constructor
 EHmiCtrl::EHmiCtrl(EHmiMain* pHmi) : 
-hmi(pHmi)
+hmi(pHmi),
+move_cnt(0)
 {
 }
 
@@ -50,14 +55,14 @@ void EHmiCtrl::main(void)
 
 	// catch and process event created from screen
     while(true) {
-		sleep(1);
+		usleep(10);
 		// event get from mouse
 		XEvent win_ev;
 		XNextEvent(disp, (XEvent *)&win_ev);
 		// send event
 		switch(win_ev.type) 
 		{
-			case Expose: // window init event
+			case Expose: // window initialization event
 			{
 				EHmiEvent hmi_ev(HMI_EV_EXPOSE);
 				send2HMI(hmi_ev);
@@ -75,6 +80,19 @@ void EHmiCtrl::main(void)
 				XButtonEvent xbutton = win_ev.xbutton;
 				EHmiEvent hmi_ev(HMI_EV_MOUSE_UP, xbutton.x, xbutton.y);
 				send2HMI(hmi_ev);
+			}
+				break;
+			case MotionNotify: // mouse move
+			{
+				// the mouse movement sampling rate can adjust by the MOUSE_MOVE_ACT_COUNT
+				if (move_cnt >= MOUSE_MOVE_ACT_COUNT) {
+					XButtonEvent xbutton = win_ev.xbutton;
+					EHmiEvent hmi_ev(HMI_EV_MOUSE_MOVE, xbutton.x, xbutton.y);
+					send2HMI(hmi_ev);
+					move_cnt = 0;
+				} else {
+					++move_cnt;
+				}
 			}
 				break;
 			default:

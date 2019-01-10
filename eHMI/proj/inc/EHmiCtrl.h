@@ -32,6 +32,7 @@ private :
 
 private :
 	EHmiMain*				hmi;
+	unsigned int			move_cnt;
 };
 
 #endif // __EHMI_CTRL_H__

@@ -7,7 +7,11 @@
 /// date		2018/12/24
 ///
 #include "SCLabel.h"
+#include "SCButton.h"
 #include "PICTest1.h"
+
+const SCRect PICTest1::area_label(10, 30, 300, 80);
+const SCRect PICTest1::area_button(130, 150, 60, 30);
 
 /// function	PICTest1
 /// brief		constructor
@@ -30,10 +34,15 @@ PICTest1::~PICTest1()
 /// return		none
 void PICTest1::InitScreen(void)
 {
-	SCRect		area(10, 30, 300, 80);
-	SCLabel* 	label = new SCLabel(1, area, COLOR(Red));
+	SCLabel* 	label	= new SCLabel(1, area_label, COLOR(Red));
+	SCButton* 	button	= new SCButton(2, area_button);
 
+	// top label
 	label->SetStr("Welcome to Test1 screen!");
 	RegistParts(static_cast<SCParts*>(label));
+	
+	// bottom button
+	button->SetStr("Next");
+	RegistParts(static_cast<SCButton*>(button));
 }
 

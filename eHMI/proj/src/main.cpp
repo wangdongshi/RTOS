@@ -58,7 +58,7 @@ int main( void )
 	Window win = XCreateSimpleWindow(disp, DefaultRootWindow(disp),
 			0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, 0, background);
 	// select draw event
-	XSelectInput(disp, win, ExposureMask | ButtonPressMask | ButtonReleaseMask);
+	XSelectInput(disp, win, ExposureMask | ButtonPressMask | ButtonReleaseMask | ButtonMotionMask);
 	// map window
 	XMapWindow(disp, win);
 	// create GC

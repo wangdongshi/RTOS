@@ -36,6 +36,7 @@ public :
 	//virtual int		Update(const int updateType, unsigned short* para);
 	virtual void	TDown(const SCPoint& point);
 	virtual void	TUp(const SCPoint& point);
+	virtual void	TMove(const SCPoint& point);
 	void			AddCallback(SCCallback* cb); // TODO : ?
 	void			DoCallback(const int type);
 	void			RemoveAllCallbacks(void);

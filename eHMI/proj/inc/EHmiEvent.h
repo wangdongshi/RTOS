@@ -26,6 +26,7 @@ typedef enum {
 	HMI_EV_WINDOW_INIT,
     HMI_EV_MOUSE_DOWN,
     HMI_EV_MOUSE_UP,
+    HMI_EV_MOUSE_MOVE,
 	HMI_EV_CHG_SCREEN,
 } EHmiEventType;
 

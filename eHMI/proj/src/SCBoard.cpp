@@ -184,6 +184,18 @@ void SCBoard::TUp(const SCPoint& point)
 	}
 }
 
+/// function	TMove
+/// brief		process when mouse move on screen
+///
+/// param		point	the position of the mouse's movement
+/// return		none
+void SCBoard::TMove(const SCPoint& point)
+{
+	if(m_captured) {
+		m_captured->TMove(point);
+	}
+}
+
 /// function	GetChild
 /// brief		get child parts by it's coordinate
 ///
