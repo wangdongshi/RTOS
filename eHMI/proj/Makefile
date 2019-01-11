@@ -5,8 +5,11 @@ OBJS		:= $(patsubst src/%,obj/%,$(OBJS))
 TARGET		:= ehmi
 
 GPP			= g++
-GCCFLAGS 	= -g -Wall -pthread -lX11 -DDEBUG -I inc/
-#GCCFLAGS 	= -g -Wall -pthread -lX11 -I inc/
+#debug mode:
+#GCCFLAGS 	= -g -Wall -pthread -lX11 -DDEBUG -I inc/
+#release mode:
+GCCFLAGS 	= -g -Wall -pthread -lX11 -I inc/
+
 GPPFLAGS	= -std=c++11 $(GCCFLAGS)
 
 #---- rule ----

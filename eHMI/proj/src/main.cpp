@@ -49,6 +49,8 @@ void hmiMain(EHmiMain* pHmi)
 /// return		error code
 int main( void )
 {
+	// multi-thread initialization
+	if (!XInitThreads()) Trace( "XInitThreads failed, trouble ahead\n" );
 	// create panel with touch(mouse) event
 	// link to X server
 	Display* disp = XOpenDisplay(NULL);
