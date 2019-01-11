@@ -27,6 +27,7 @@ public :
 
 	virtual bool	Draw(void);
 	virtual bool	DrawBackground(void);
+	virtual bool	Update(void){return true;}
     virtual void    TDown(const SCPoint& point);
     virtual void	TUp(const SCPoint& point);
     virtual void	TMove(const SCPoint& point);

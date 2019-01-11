@@ -32,8 +32,8 @@ public :
 	virtual void	Initialize() {}
 	virtual bool	Draw(void) = 0;
 	virtual bool	DrawBackground(void);
-	virtual void	ReDraw(void);
-	//virtual int		Update(const int updateType, unsigned short* para);
+	virtual bool	ReDraw(void);
+	virtual bool	Update(void);
 	virtual void	TDown(const SCPoint& point);
 	virtual void	TUp(const SCPoint& point);
 	virtual void	TMove(const SCPoint& point);

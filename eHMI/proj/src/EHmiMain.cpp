@@ -40,7 +40,7 @@ EHmiMain::~EHmiMain()
 /// return		none
 void EHmiMain::run(void)
 {
-	// initialize hmi resource
+	// initialize HMI resource
 	
 	// create default screen
 	StartScreen();
@@ -92,7 +92,7 @@ void EHmiMain::main(void)
 /// return		none
 void EHmiMain::eventHandler(EHmiEvent& ev)
 {
-	// get event type & param
+	// get event type & parameter
     EHmiEventType type = HMI_EV_NONE;
 	type = ev.GetEvent();
 	
@@ -105,17 +105,30 @@ void EHmiMain::eventHandler(EHmiEvent& ev)
 	
 	// dispatch event
     switch(type) {
-    case HMI_EV_WINDOW_INIT:
-		//Trace("Get window initialization event.\n");
-        break;
     case HMI_EV_EXPOSE:
 		//Trace("Get window expose event.\n");
 		m_screen->Draw();
         break;
-    case HMI_EV_CHG_SCREEN:
-		//Trace("Get change screen event. (screen_id = %d)\n", screen_id);
-        ChangeScreen(screen_id, event);
-		m_screen->Draw();
+    case HMI_EV_WINDOW_INIT:
+		//Trace("Get window initialization event.\n");
+        break;
+    case HMI_EV_TIMER_1S:
+#if 0
+	{
+		time_t tt = GetTime();
+		tm* t= gmtime(&tt);
+
+		Trace("Current Time is %d-%02d-%02d %02d:%02d:%02d.\n",
+				t->tm_year + 1900,
+				t->tm_mon + 1,
+				t->tm_mday,
+				t->tm_hour,
+				t->tm_min,
+				t->tm_sec);
+		
+	}
+#endif
+		m_screen->Update();
         break;
     case HMI_EV_MOUSE_DOWN:
 		Trace("Get mouse down event. X=%d, Y=%d\n", point.x, point.y);
@@ -128,6 +141,11 @@ void EHmiMain::eventHandler(EHmiEvent& ev)
 	case HMI_EV_MOUSE_MOVE:
 		Trace("Get mouse move event. X=%d, Y=%d\n", point.x, point.y);
 		m_screen->TMove(point);
+        break;
+    case HMI_EV_CHG_SCREEN:
+		//Trace("Get change screen event. (screen_id = %d)\n", screen_id);
+        ChangeScreen(screen_id, event);
+		m_screen->Draw();
         break;
     default: // HMI_EV_NONE or not defined
         break;

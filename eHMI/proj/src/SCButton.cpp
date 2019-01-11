@@ -37,7 +37,6 @@ bool SCButton::Draw(void)
 	
     if(GetVisible())
     {
-		res &= DrawBackground();
 		res &= drawUnderLine();
 		res &= drawRightLine();
 		res &= drawString();

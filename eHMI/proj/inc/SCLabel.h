@@ -29,9 +29,10 @@ public :
 	virtual ~SCLabel();
 
 	virtual bool	Draw(void);
+	virtual bool	Update(void){return true;}
 	void			SetStr(const char* mes);
 	void			SetStr(const unsigned short* mes);
-	void			Arrangement(int arr){this->m_arrangement = arr;}
+	void			Arrangement(int arr){m_arrangement = arr;}
 
 protected :	
 	virtual bool	drawString(void);

@@ -25,8 +25,9 @@ public :
 	void ButtonPushed(const int id);
 
 private :
-	static const SCRect		area_label;
+	static const SCRect		area_top_label;
 	static const SCRect		area_button;
+	static const SCRect		area_time_label;
 };
 
 #endif // __PIC_TEST2_H__

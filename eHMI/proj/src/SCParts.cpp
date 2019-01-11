@@ -50,11 +50,29 @@ bool SCParts::DrawBackground(void)
 /// brief		redraw the part include background
 ///
 /// param		none
-/// return		none
-void SCParts::ReDraw(void)
+/// return		success or failed
+bool SCParts::ReDraw(void)
 {
-	DrawBackground();
-	Draw();
+	bool res = true;
+	
+	res &= DrawBackground();
+	res &= Draw();
+	
+	return res;
+}
+
+/// function	Update
+/// brief		update part by cycle
+///
+/// param		none
+/// return		success or failed
+bool SCParts::Update(void)
+{
+	if(GetVisible()) {
+		return ReDraw();
+	} else {
+		return true;
+	}
 }
 
 /// function	TDown

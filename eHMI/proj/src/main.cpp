@@ -82,7 +82,9 @@ int main( void )
 	hmi_ctrl.detach();
 
 	while(1) {
-		sleep(100);
+		sleep(1);
+		EHmiEvent hmi_ev(HMI_EV_TIMER_1S);
+		SendMassage(hmi_ev);
 		/*	
 		int in;
 		struct termios new_settings;

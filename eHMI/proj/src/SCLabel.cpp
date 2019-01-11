@@ -37,7 +37,6 @@ bool SCLabel::Draw(void)
 {
 	bool res = true;
 
-	res &= DrawBackground();
 	res &= drawString();
 	
 	return res;

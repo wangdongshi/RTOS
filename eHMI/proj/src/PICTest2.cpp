@@ -8,11 +8,13 @@
 ///
 #include "EHmiCtrl.h"
 #include "SCLabel.h"
+#include "SCTimeLabel.h"
 #include "SCButton.h"
 #include "PICTest2.h"
 
-const SCRect PICTest2::area_label(10, 30, 300, 80);
+const SCRect PICTest2::area_top_label(10, 30, 300, 80);
 const SCRect PICTest2::area_button(130, 150, 60, 30);
+const SCRect PICTest2::area_time_label(10, 200, 300, 20);
 
 /// function	ButtonPushed
 /// brief		button callback
@@ -46,9 +48,10 @@ PICTest2::~PICTest2()
 /// return		none
 void PICTest2::InitScreen(void)
 {
-	SCLabel* 	label		= new SCLabel(1, area_label, COLOR(Blue));
-	SCButton* 	button		= new SCButton(2, area_button);
-	SCCallback*	callback	= new SCCallback(SCCallbackTypeTAP, cbButtonPushed, 0);
+	SCLabel*		label		= new SCLabel(1, area_top_label, COLOR(Blue));
+	SCButton* 		button		= new SCButton(2, area_button);
+	SCTimeLabel*	moment		= new SCTimeLabel(1, area_time_label, COLOR(DarkGray), COLOR(LightGray));
+	SCCallback*		callback	= new SCCallback(SCCallbackTypeTAP, cbButtonPushed, 0);
 
 	// top label
 	label->SetStr("Welcome to Test2 screen!");
@@ -58,6 +61,9 @@ void PICTest2::InitScreen(void)
 	button->SetStr("Back");
 	button->AddCallback(callback); // add button push callback
 	RegistParts(static_cast<SCButton*>(button));
+	
+	// bottom time label
+	RegistParts(static_cast<SCParts*>(moment));
 }
 
 /// function	ButtonPushed

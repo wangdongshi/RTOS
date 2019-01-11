@@ -25,6 +25,21 @@ SCDrawCommand::~SCDrawCommand()
 {
 }
 
+/// function	GetSysTime
+/// brief		get current time
+///
+/// param		none
+/// return		string's width (by pixel)
+time_t SCDrawCommand::GetSysTime()
+{
+	time_t sys_time;
+	
+    time(&sys_time);
+    sys_time += 8*3600;  // transform the time zone
+	
+    return sys_time;
+}
+
 /// function	GetStringWidth
 /// brief		get width of string
 ///

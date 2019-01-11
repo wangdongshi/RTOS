@@ -137,7 +137,7 @@ bool SCBoard::Draw(void)
 	if(m_child) {
 		SCParts* child = m_child;
 		do {
-			res &= child->Draw();
+			res &= child->ReDraw();
 			child = child->Next();
 		} while(child);
 	}
@@ -155,10 +155,28 @@ bool SCBoard::DrawBackground(void)
 	return PaintRect(m_area, COLOR(LightGray));
 }
 
-/// function	TDown
-/// brief		process when mouse click is catched on screen
+/// function	Update
+/// brief		update screen by cycle
 ///
-/// param		point	the position of the mouse pointer when it's catched
+/// param		none
+/// return		success or failed
+bool SCBoard::Update(void)
+{
+	bool res = true;
+	
+	SCParts* child = m_child;
+	while(child) {
+		res &= child->Update();
+		child = child->Next();
+	}
+	
+	return res;
+}
+
+/// function	TDown
+/// brief		process when mouse click is caught on screen
+///
+/// param		point	the position of the mouse pointer when it's caught
 /// return		none
 void SCBoard::TDown(const SCPoint& point)
 {

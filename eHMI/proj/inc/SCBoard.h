@@ -31,9 +31,9 @@ public :
 	
 	void			Initialize(void);
 	virtual bool	Draw(void);
-	//virtual int		Update(const int updateType, unsigned short* com);
-	
 	virtual bool	DrawBackground(void);
+	virtual bool	Update(void);
+	
 	virtual void	TDown(const SCPoint& point);
 	virtual void	TUp(const SCPoint& point);
 	virtual void	TMove(const SCPoint& point);
