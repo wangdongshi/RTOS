@@ -10,24 +10,24 @@ typedef unsigned int	uint32_t;
 #define PLLP					((uint32_t)(  2 << 16))
 #define PLLQ					((uint32_t)(  9 << 24))
 
-#define GPIOI_MODER_IN			(0x0)
-#define GPIOI_MODER_OUT			(0x1)
-#define GPIOI_MODER_MULTI		(0x2)
-#define GPIOI_MODER_SIM			(0x3)
-#define GPIOI_OTYPER_PUSH_PULL	(0x0)
-#define GPIOI_OTYPER_OPEN_DRAIN	(0x1)
-#define GPIOI_OSPEEDR_LOW		(0x0)
-#define GPIOI_OSPEEDR_MID		(0x1)
-#define GPIOI_OSPEEDR_HIGH		(0x2)
-#define GPIOI_OSPEEDR_FULL		(0x3)
-#define GPIOI_PUPDR_NONE		(0x0)
-#define GPIOI_PUPDR_PULL_UP		(0x1)
-#define GPIOI_PUPDR_PULL_DOWN	(0x2)
-#define GPIOI_PUPDR_RESERVE		(0x3)
+#define GPIO_MODER_IN			(0x0)
+#define GPIO_MODER_OUT			(0x1)
+#define GPIO_MODER_MULTI		(0x2)
+#define GPIO_MODER_SIM			(0x3)
+#define GPIO_OTYPER_PP			(0x0)
+#define GPIO_OTYPER_OD			(0x1)
+#define GPIO_OSPEEDR_LOW		(0x0)
+#define GPIO_OSPEEDR_MID		(0x1)
+#define GPIO_OSPEEDR_HIGH		(0x2)
+#define GPIO_OSPEEDR_FULL		(0x3)
+#define GPIO_PUPDR_NONE			(0x0)
+#define GPIO_PUPDR_UP			(0x1)
+#define GPIO_PUPDR_DOWN			(0x2)
+#define GPIO_PUPDR_RESERVE		(0x3)
 
 void delay(unsigned int count);
 void initSystemClock(void);
-void initGPIOI(uint32_t pin);
+void initGPIOI1(uint32_t pin);
 void toggleLED1(void);
 
 // main function for LED test
@@ -35,7 +35,7 @@ int main(void)
 {
 	// initialize board
 	initSystemClock();
-	initGPIOI(LED1_GPIO_SHIFT);
+	initGPIOI1(LED1_GPIO_SHIFT);
 
 	// flick LED1 proclaim starting the demo
     for (uint32_t i = 0; i < 6; i++) {
@@ -91,7 +91,8 @@ void initSystemClock(void)
 	*((uint32_t *)RCC_CFGR) |= (uint32_t)0x00008000; // Set PPRE2 (APB2 pre-scaler) to 2
 }
 
-void initGPIOI(uint32_t pin)
+// for LED1
+void initGPIOI1(uint32_t pin)
 {
 	uint32_t temp;
 
@@ -101,25 +102,58 @@ void initGPIOI(uint32_t pin)
 	// set GPIO MODER register
 	temp = *((uint32_t *)GPIOI_MODER_ADDR);
 	temp &= ~(0x3 << (pin * 2)); // clear bits
-	temp |= (GPIOI_MODER_OUT << (pin * 2)); // set bits
+	temp |= (GPIO_MODER_OUT << (pin * 2)); // set bits
 	*((uint32_t *)GPIOI_MODER_ADDR) = temp;
 
 	// set GPIO OTYPER register
 	temp = *((uint32_t *)GPIOI_OTYPER_ADDR);
 	temp &= ~(0x1 << pin);
-	temp |= (GPIOI_OTYPER_PUSH_PULL << pin);
+	temp |= (GPIO_OTYPER_PP << pin);
 	*((uint32_t *)GPIOI_OTYPER_ADDR) = temp;
 
 	// set GPIO OSPEEDR register
 	temp = *((uint32_t *)GPIOI_OSPEEDR_ADDR);
 	temp &= ~(0x3 << (pin * 2));
-	temp |= (GPIOI_OSPEEDR_FULL << (pin * 2));
+	temp |= (GPIO_OSPEEDR_FULL << (pin * 2));
 	*((uint32_t *)GPIOI_OSPEEDR_ADDR) = temp;
 
 	// set GPIO PUPDR register
 	temp = *((uint32_t *)GPIOI_PUPDR_ADDR);
 	temp &= ~(0x3 << (pin * 2));
-	temp |= (GPIOI_PUPDR_PULL_UP << (pin * 2));
+	temp |= (GPIO_PUPDR_UP << (pin * 2));
+	*((uint32_t *)GPIOI_PUPDR_ADDR) = temp;
+}
+
+// for UART TX
+void initGPIOA9(uint32_t pin)
+{
+	uint32_t temp;
+
+	// enable AHB1 GPIOI
+	*((uint32_t *)RCC_AHB1ENR) |= 0x00000100;
+
+	// set GPIO MODER register
+	temp = *((uint32_t *)GPIOI_MODER_ADDR);
+	temp &= ~(0x3 << (pin * 2)); // clear bits
+	temp |= (GPIO_MODER_OUT << (pin * 2)); // set bits
+	*((uint32_t *)GPIOI_MODER_ADDR) = temp;
+
+	// set GPIO OTYPER register
+	temp = *((uint32_t *)GPIOI_OTYPER_ADDR);
+	temp &= ~(0x1 << pin);
+	temp |= (GPIO_OTYPER_PP << pin);
+	*((uint32_t *)GPIOI_OTYPER_ADDR) = temp;
+
+	// set GPIO OSPEEDR register
+	temp = *((uint32_t *)GPIOI_OSPEEDR_ADDR);
+	temp &= ~(0x3 << (pin * 2));
+	temp |= (GPIO_OSPEEDR_FULL << (pin * 2));
+	*((uint32_t *)GPIOI_OSPEEDR_ADDR) = temp;
+
+	// set GPIO PUPDR register
+	temp = *((uint32_t *)GPIOI_PUPDR_ADDR);
+	temp &= ~(0x3 << (pin * 2));
+	temp |= (GPIO_PUPDR_UP << (pin * 2));
 	*((uint32_t *)GPIOI_PUPDR_ADDR) = temp;
 }
 
