@@ -3,7 +3,7 @@
 typedef unsigned int	uint32_t;
 
 #define LED1_GPIO_SHIFT	(1) // PI1
-#define DELAY_COUNT		(100000)
+#define DELAY_COUNT		(10000000) // 10 seconds
 
 // delay time is depend on system clock
 void delay(unsigned int count)

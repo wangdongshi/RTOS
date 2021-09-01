@@ -57,6 +57,19 @@
 #define RCC_DCKCF_GR1 			(RCC_BASE + 0x8CUL)
 #define RCC_DCKCF_GR2 			(RCC_BASE + 0x90UL)
 
+// USART1 register definition
+#define USART1_CR1				(USART1_BASE + 0x00UL)
+#define USART1_CR2				(USART1_BASE + 0x04UL)
+#define USART1_CR3				(USART1_BASE + 0x08UL)
+#define USART1_BRR				(USART1_BASE + 0x0CUL)
+#define USART1_GTPR				(USART1_BASE + 0x10UL)
+#define USART1_RTOR				(USART1_BASE + 0x14UL)
+#define USART1_RQR				(USART1_BASE + 0x18UL)
+#define USART1_ISR				(USART1_BASE + 0x1CUL)
+#define USART1_ICR				(USART1_BASE + 0x20UL)
+#define USART1_RDR				(USART1_BASE + 0x24UL)
+#define USART1_TDR				(USART1_BASE + 0x28UL)
+
 // GPIOA register definition
 #define GPIOA_MODER_ADDR		(GPIOA_BASE + 0x00UL)
 #define GPIOA_OTYPER_ADDR		(GPIOA_BASE + 0x04UL)
