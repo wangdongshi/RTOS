@@ -31,9 +31,10 @@ void initSystemClock(void);
 void initLED1(void);
 void initUSART1(void);
 
-void delay(unsigned int count);
+void delay(const unsigned int count);
 void toggleLED1(void);
-void usart1SendChar(char character);
+void usart1SendChar(const char character);
+void usart1SendBuffer(const char* message);
 
 static void initGPIOA9(void);
 static void initGPIOB7(void);
@@ -42,7 +43,7 @@ static void initGPIOI1(void);
 // main function for LED test
 int main(void)
 {
-	char banner[] = "Hello STM32F746G-DISCO!\n";
+	char banner[] = "Welcome to STM32F746G-DISCO !\r\n";
 
 	// initialize board
 	initSystemClock();
@@ -50,9 +51,7 @@ int main(void)
 	initUSART1();
 
     // print banner by USART1
-    for (uint32_t i = 0; i < strlen(banner); i++) {
-    	usart1SendChar(banner[i]);
-    }
+	usart1SendBuffer(banner);
 
 	// flick LED1 proclaim starting the demo
     while(1) {
@@ -70,13 +69,13 @@ void initSystemClock(void)
 	// 1. Set HSE and reset RCC_CIR
 	*((uint32_t *)RCC_CR) |= (uint32_t)0x00040000; // set HSEBYP bit
 	*((uint32_t *)RCC_CR) |= (uint32_t)0x00010000; // set HSEON bit
-	while((*((uint32_t *)RCC_CR) & 0x00020000) == 0); // Wait for HSERDY
+	while((*((uint32_t *)RCC_CR) & 0x00020000) == 0); // wait HSERDY
 	*((uint32_t *)RCC_CIR) = (uint32_t)0x00000000; // disable all RCC interrupts
 
 	// 2. Set FLASH latency
-	//* ((uint32_t *)FLASH_ACR) &= 0xFFFFFFF0; // This register can not set twice continuously
 	*((uint32_t *)FLASH_ACR) |= 0x00000007; // must be set in 216MHz
-	//*((uint32_t *)FLASH_ACR) |= 0x00000300; // set ARTEN, PRFTEN
+	while((*((uint32_t *)FLASH_ACR) & 0x0000000F) != 7); // wait latency set to 7
+	// *((uint32_t *)FLASH_ACR) |= 0x00000300; // set ARTEN, PRFTEN
 	//*((uint32_t *)PWR_CR1) |= 0x0000C000; // PWR_VOS default value has set to 0x11 in reset
 
 	// 3. Enable PWR clock
@@ -84,7 +83,7 @@ void initSystemClock(void)
 
 	// 4. Activation OverDrive Mode
 	*((uint32_t *)PWR_CR1) |= 0x00010000; // set ODEN
-	while((*((uint32_t *)PWR_CSR1) & 0x00010000) == 0); // wait for ODRDY
+	while((*((uint32_t *)PWR_CSR1) & 0x00010000) == 0); // wait ODRDY
 
 	// 5. Activation OverDrive Switching
 	*((uint32_t *)PWR_CR1) |= 0x00020000; // set ODSWEN
@@ -119,10 +118,10 @@ void initUSART1(void)
 
 	// enable APB2 USART1 RCC
 	*((uint32_t *)RCC_APB2ENR) |= 0x00000010;
-	while((*((uint32_t *)RCC_APB2ENR) & 0x00000010) == 0); // wait for USART1 RCC
 
 	// set USART1 parameter
-	*((uint32_t *)USART1_BRR) |= 0x00002BF2; // baud rate = 9600(fCK=108MHz, CR1/OVER8=0, 0x2BF2 = 108000000/9600)
+	//*((uint32_t *)USART1_BRR) |= 0x00002BF2; // baud rate = 9600(fCK=108MHz, CR1/OVER8=0, 0x2BF2 = 108000000/9600)
+	*((uint32_t *)USART1_BRR) |= 0x000003AA; // baud rate = 115200(fCK=108MHz, CR1/OVER8=0, 0x3AA = 108000000/115200)
 	*((uint32_t *)USART1_CR1) |= 0x00000000; // data bits = 8
 	*((uint32_t *)USART1_CR2) |= 0x00000000; // stop bits = 1
 	*((uint32_t *)USART1_CR1) |= 0x00000000; // parity = none (odd:0x00000600, even:0x00000400)
@@ -133,7 +132,7 @@ void initUSART1(void)
 }
 
 // delay time is depend on system clock
-void delay(unsigned int count)
+void delay(const unsigned int count)
 {
 	for(uint32_t i = 0; i < count; i++);
 }
@@ -150,11 +149,22 @@ void toggleLED1(void)
 	*((uint32_t *)GPIOI_ODR_ADDR) = temp;
 }
 
-void usart1SendChar(char character)
+void usart1SendChar(const char character)
 {
-	*((uint32_t *)USART1_TDR) = (0x000000FF & character); // set character to TX buffer
 	*((uint32_t *)USART1_CR1) |= 0x00000008; // enable TE
-	while((*((uint32_t *)USART1_ISR) & 0x00000040) == 0); // Wait TC set
+	*((uint32_t *)USART1_TDR) = (0x000000FF & character); // set character to TX buffer
+	while((*((uint32_t *)USART1_ISR) & 0x00000040) == 0); // wait TC set
+	*((uint32_t *)USART1_CR1) &= ~0x00000008; // disable TE
+}
+
+void usart1SendBuffer(const char* message)
+{
+	*((uint32_t *)USART1_CR1) |= 0x00000008; // enable TE
+	for (uint32_t i = 0; i < strlen(message); i++) {
+		*((uint32_t *)USART1_TDR) = (0x000000FF & message[i]); // set character to TX buffer
+		while((*((uint32_t *)USART1_ISR) & 0x00000080) == 0); // wait TXE set
+	}
+	while((*((uint32_t *)USART1_ISR) & 0x00000040) == 0); // wait TC set
 	*((uint32_t *)USART1_CR1) &= ~0x00000008; // disable TE
 }
 
