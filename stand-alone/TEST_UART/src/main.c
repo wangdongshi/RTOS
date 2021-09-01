@@ -142,11 +142,11 @@ void toggleLED1(void)
 	uint32_t pin = 1;
 	uint32_t temp, data;
 
-	temp = *((uint32_t *)GPIOI_ODR_ADDR);
+	temp = *((uint32_t *)GPIOI_ODR);
 	data = !((temp & (0x1 << pin)) >> pin);
 	temp &= ~(0x1 << pin);
 	temp |= (data << pin);
-	*((uint32_t *)GPIOI_ODR_ADDR) = temp;
+	*((uint32_t *)GPIOI_ODR) = temp;
 }
 
 void usart1SendChar(const char character)
@@ -178,34 +178,34 @@ static void initGPIOA9(void)
 	*((uint32_t *)RCC_AHB1ENR) |= 0x00000001;
 
 	// set GPIO MODER register
-	temp = *((uint32_t *)GPIOA_MODER_ADDR);
+	temp = *((uint32_t *)GPIOA_MODER);
 	temp &= ~(0x3 << (pin * 2)); // clear bits
 	temp |= (GPIO_MODER_MULTI << (pin * 2)); // set bits
-	*((uint32_t *)GPIOA_MODER_ADDR) = temp;
+	*((uint32_t *)GPIOA_MODER) = temp;
 
 	// set GPIO OTYPER register
-	temp = *((uint32_t *)GPIOA_OTYPER_ADDR);
+	temp = *((uint32_t *)GPIOA_OTYPER);
 	temp &= ~(0x1 << pin);
 	temp |= (GPIO_OTYPER_PP << pin);
-	*((uint32_t *)GPIOA_OTYPER_ADDR) = temp;
+	*((uint32_t *)GPIOA_OTYPER) = temp;
 
 	// set GPIO OSPEEDR register
-	temp = *((uint32_t *)GPIOA_OSPEEDR_ADDR);
+	temp = *((uint32_t *)GPIOA_OSPEEDR);
 	temp &= ~(0x3 << (pin * 2));
 	temp |= (GPIO_OSPEEDR_FULL << (pin * 2));
-	*((uint32_t *)GPIOA_OSPEEDR_ADDR) = temp;
+	*((uint32_t *)GPIOA_OSPEEDR) = temp;
 
 	// set GPIO PUPDR register
-	temp = *((uint32_t *)GPIOA_PUPDR_ADDR);
+	temp = *((uint32_t *)GPIOA_PUPDR);
 	temp &= ~(0x3 << (pin * 2));
 	temp |= (GPIO_PUPDR_UP << (pin * 2));
-	*((uint32_t *)GPIOA_PUPDR_ADDR) = temp;
+	*((uint32_t *)GPIOA_PUPDR) = temp;
 
 	// set GPIO AFRH register
-	temp = *((uint32_t *)GPIOA_AFRH_ADDR);
+	temp = *((uint32_t *)GPIOA_AFRH);
 	temp &= ~(0x7 << ((pin - 8) * 4));
 	temp |= (GPIO_AFR_AF7 << ((pin - 8) * 4));
-	*((uint32_t *)GPIOA_AFRH_ADDR) = temp;
+	*((uint32_t *)GPIOA_AFRH) = temp;
 }
 
 // USART RX pin initialization
@@ -218,36 +218,36 @@ static void initGPIOB7(void)
 	*((uint32_t *)RCC_AHB1ENR) |= 0x00000002;
 
 	// set GPIO MODER register
-	temp = *((uint32_t *)GPIOB_MODER_ADDR);
+	temp = *((uint32_t *)GPIOB_MODER);
 	temp &= ~(0x3 << (pin * 2)); // clear bits
 	temp |= (GPIO_MODER_MULTI << (pin * 2)); // set bits
-	*((uint32_t *)GPIOB_MODER_ADDR) = temp;
+	*((uint32_t *)GPIOB_MODER) = temp;
 
 	/*
 	// set GPIO OTYPER register
-	temp = *((uint32_t *)GPIOB_OTYPER_ADDR);
+	temp = *((uint32_t *)GPIOB_OTYPER);
 	temp &= ~(0x1 << pin);
 	temp |= (GPIO_OTYPER_PP << pin);
-	*((uint32_t *)GPIOB_OTYPER_ADDR) = temp;
+	*((uint32_t *)GPIOB_OTYPER) = temp;
 
 	// set GPIO OSPEEDR register
-	temp = *((uint32_t *)GPIOB_OSPEEDR_ADDR);
+	temp = *((uint32_t *)GPIOB_OSPEEDR);
 	temp &= ~(0x3 << (pin * 2));
 	temp |= (GPIO_OSPEEDR_FULL << (pin * 2));
-	*((uint32_t *)GPIOB_OSPEEDR_ADDR) = temp;
+	*((uint32_t *)GPIOB_OSPEEDR) = temp;
 	*/
 
 	// set GPIO PUPDR register
-	temp = *((uint32_t *)GPIOB_PUPDR_ADDR);
+	temp = *((uint32_t *)GPIOB_PUPDR);
 	temp &= ~(0x3 << (pin * 2));
 	temp |= (GPIO_PUPDR_NONE << (pin * 2));
-	*((uint32_t *)GPIOB_PUPDR_ADDR) = temp;
+	*((uint32_t *)GPIOB_PUPDR) = temp;
 
 	// set GPIO AFRL register
-	temp = *((uint32_t *)GPIOB_AFRL_ADDR);
+	temp = *((uint32_t *)GPIOB_AFRL);
 	temp &= ~(0x7 << (pin * 4));
 	temp |= (GPIO_AFR_AF7 << (pin * 4));
-	*((uint32_t *)GPIOB_AFRL_ADDR) = temp;
+	*((uint32_t *)GPIOB_AFRL) = temp;
 }
 
 // LED1 pin initialization
@@ -260,26 +260,26 @@ static void initGPIOI1(void)
 	*((uint32_t *)RCC_AHB1ENR) |= 0x00000100;
 
 	// set GPIO MODER register
-	temp = *((uint32_t *)GPIOI_MODER_ADDR);
+	temp = *((uint32_t *)GPIOI_MODER);
 	temp &= ~(0x3 << (pin * 2)); // clear bits
 	temp |= (GPIO_MODER_OUT << (pin * 2)); // set bits
-	*((uint32_t *)GPIOI_MODER_ADDR) = temp;
+	*((uint32_t *)GPIOI_MODER) = temp;
 
 	// set GPIO OTYPER register
-	temp = *((uint32_t *)GPIOI_OTYPER_ADDR);
+	temp = *((uint32_t *)GPIOI_OTYPER);
 	temp &= ~(0x1 << pin);
 	temp |= (GPIO_OTYPER_PP << pin);
-	*((uint32_t *)GPIOI_OTYPER_ADDR) = temp;
+	*((uint32_t *)GPIOI_OTYPER) = temp;
 
 	// set GPIO OSPEEDR register
-	temp = *((uint32_t *)GPIOI_OSPEEDR_ADDR);
+	temp = *((uint32_t *)GPIOI_OSPEEDR);
 	temp &= ~(0x3 << (pin * 2));
 	temp |= (GPIO_OSPEEDR_FULL << (pin * 2));
-	*((uint32_t *)GPIOI_OSPEEDR_ADDR) = temp;
+	*((uint32_t *)GPIOI_OSPEEDR) = temp;
 
 	// set GPIO PUPDR register
-	temp = *((uint32_t *)GPIOI_PUPDR_ADDR);
+	temp = *((uint32_t *)GPIOI_PUPDR);
 	temp &= ~(0x3 << (pin * 2));
 	temp |= (GPIO_PUPDR_UP << (pin * 2));
-	*((uint32_t *)GPIOI_PUPDR_ADDR) = temp;
+	*((uint32_t *)GPIOI_PUPDR) = temp;
 }
