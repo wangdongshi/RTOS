@@ -11,6 +11,8 @@ typedef unsigned int			uint32_t;
 #define PLLSRC					((uint32_t)(  1 << 22))
 #define PLLQ					((uint32_t)(  9 << 24))
 
+#define USART1_IRQn				(37)
+
 #define GPIO_MODER_IN			(0x0)
 #define GPIO_MODER_OUT			(0x1)
 #define GPIO_MODER_MULTI		(0x2)
@@ -30,6 +32,7 @@ typedef unsigned int			uint32_t;
 void initSystemClock(void);
 void initLED1(void);
 void initUSART1(void);
+void nvicEnableUSART1(void);
 
 void delay(const unsigned int count);
 void toggleLED1(void);
@@ -103,6 +106,34 @@ void initSystemClock(void)
 	while((*((uint32_t *)RCC_CFGR) & 0x0000000C) != 0x00000008); // wait for system clock set to PLL
 }
 
+// NVIC initialization
+void nvicEnableUSART1(void)
+{
+	// 1. set interrupt priority group mode
+	*((uint32_t *)SCR_AIRCR) |= (uint32_t)0x00000700; // PRIGROUP = 0x111 (main priority = 0, sub priority = 16)
+
+	// 2. set USART1 priority
+	*((uint32_t *)NVIC_IPR9) |= (uint32_t)(0x1111 << 4); // main priority = None, sub priority = 16
+
+	// 3. enable USART1 global interrupt
+	*((uint32_t *)NVIC_ISPR1) |= (uint32_t)0x00000010; // enable USART1 global interrupt
+	/*
+	NVIC_InitTypeDef NVIC_InitStructure;
+	// 嵌套向量中断控制器组选择
+	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
+	// 配置USART为中断源
+	NVIC_InitStructure.NVIC_IRQChannel = DEBUG_USART_IRQ;
+	// 抢断优先级为1
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
+	// 子优先级为1
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 1;
+	// 使能中断
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	// 初始化配置NVIC
+	NVIC_Init(&NVIC_InitStructure);
+	*/
+}
+
 // LED1 initialization
 void initLED1(void)
 {
@@ -127,8 +158,17 @@ void initUSART1(void)
 	*((uint32_t *)USART1_CR1) |= 0x00000000; // parity = none (odd:0x00000600, even:0x00000400)
 	*((uint32_t *)USART1_CR3) |= 0x00000000; // disable CTS and RTS
 
+	// enable USART1 global interrupt
+	nvicEnableUSART1();
+
+	// enable RX interrupt
+	*((uint32_t *)USART1_CR1) |= 0x00000020; // set RXNEIE
+
 	// enable USART1
 	*((uint32_t *)USART1_CR1) |= 0x00000001; // enable USART1
+
+	// enable RE
+	*((uint32_t *)USART1_CR1) |= 0x00000004; // enable RE
 }
 
 // delay time is depend on system clock
@@ -160,12 +200,23 @@ void usart1SendChar(const char character)
 void usart1SendBuffer(const char* message)
 {
 	*((uint32_t *)USART1_CR1) |= 0x00000008; // enable TE
-	for (uint32_t i = 0; i < strlen(message); i++) {
+	for(uint32_t i = 0; i < strlen(message); i++) {
 		*((uint32_t *)USART1_TDR) = (0x000000FF & message[i]); // set character to TX buffer
 		while((*((uint32_t *)USART1_ISR) & 0x00000080) == 0); // wait TXE set
 	}
 	while((*((uint32_t *)USART1_ISR) & 0x00000040) == 0); // wait TC set
 	*((uint32_t *)USART1_CR1) &= ~0x00000008; // disable TE
+}
+
+// The following function is USART RX interrupt handler
+void USART1_IRQHandler(void)
+{
+	char character;
+
+	if((*((uint32_t *)USART1_ISR) & 0x00000020) == 0x00000020) { // is RXNE set?
+		character = *((uint32_t *)USART1_RDR) & 0x000000FF;
+		usart1SendChar(character);
+	}
 }
 
 // USART TX pin initialization
@@ -223,7 +274,6 @@ static void initGPIOB7(void)
 	temp |= (GPIO_MODER_MULTI << (pin * 2)); // set bits
 	*((uint32_t *)GPIOB_MODER) = temp;
 
-	/*
 	// set GPIO OTYPER register
 	temp = *((uint32_t *)GPIOB_OTYPER);
 	temp &= ~(0x1 << pin);
@@ -235,7 +285,6 @@ static void initGPIOB7(void)
 	temp &= ~(0x3 << (pin * 2));
 	temp |= (GPIO_OSPEEDR_FULL << (pin * 2));
 	*((uint32_t *)GPIOB_OSPEEDR) = temp;
-	*/
 
 	// set GPIO PUPDR register
 	temp = *((uint32_t *)GPIOB_PUPDR);
