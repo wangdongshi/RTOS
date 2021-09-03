@@ -4,6 +4,7 @@
 typedef unsigned int			uint32_t;
 
 #define DELAY_COUNT				(10000000) // delay should be smaller than 1 second
+#define BUF_SIZE				(1000)
 
 #define PLLM					((uint32_t)( 25 <<  0))
 #define PLLN					((uint32_t)(432 <<  6))
@@ -35,6 +36,7 @@ void initUSART1(void);
 void nvicEnableUSART1(void);
 
 void delay(const unsigned int count);
+void executeCmd(const char* cmd);
 void toggleLED1(void);
 void usart1SendChar(const char character);
 void usart1SendBuffer(const char* message);
@@ -43,26 +45,65 @@ static void initGPIOA9(void);
 static void initGPIOB7(void);
 static void initGPIOI1(void);
 
+static char character = 0;
+static char buffer[BUF_SIZE];
+
+// The following function is USART RX interrupt handler
+void USART1_IRQHandler(void)
+{
+	if((*((uint32_t *)USART1_ISR) & 0x00000020) == 0x00000020) { // is RXNE set?
+		character = (char)(*((uint32_t *)USART1_RDR) & 0x000000FF);
+		usart1SendChar(character); // echo received character
+	}
+}
+
 // main function for LED test
 int main(void)
 {
-	char banner[] = "Welcome to STM32F746G-DISCO !\r";
+	char banner[] = "Welcome to STM32F746G-DISCO !\r#";
 
 	// initialize board
 	initSystemClock();
 	initLED1();
 	initUSART1();
 
-    // print banner by USART1
+	// print banner by USART1
 	usart1SendBuffer(banner);
 
-	// flick LED1 proclaim starting the demo
-    while(1) {
-    	toggleLED1();
-		delay(DELAY_COUNT);
-    }
+	// command processing
+	uint32_t index = 0;
+	memset(buffer, 0x00, BUF_SIZE);
+	while(1) {
+		if (character != 0) { // character has been received
+			buffer[index++] = character;
+			if (character == '\r') {
+				char cmd[256] = "";
+				buffer[--index] = '\n';
+				strcpy(cmd, buffer); // copy command text
+				memset(buffer, 0x00, BUF_SIZE);
+				executeCmd(cmd);
+				usart1SendChar('#'); // print next prompt
+				index = 0;
+			}
+			character = 0;
+			// flick LED1
+			toggleLED1();
+			delay(1000000);
+			toggleLED1();
+		}
+	}
 
-    return 0;
+	return 0;
+}
+
+void executeCmd(const char* cmd)
+{
+	uint32_t len = strlen(cmd) - 1;
+	if (strncmp(cmd, "help", len) == 0) {
+		usart1SendBuffer("This is help command.\r\r");
+	} else {
+		usart1SendBuffer("This is a wrong command.\r\r");
+	}
 }
 
 // The following initialization process is write for STM32F746G
@@ -192,17 +233,6 @@ void usart1SendBuffer(const char* message)
 	}
 	while((*((uint32_t *)USART1_ISR) & 0x00000040) == 0); // wait TC set
 	*((uint32_t *)USART1_CR1) &= ~0x00000008; // disable TE
-}
-
-// The following function is USART RX interrupt handler
-void USART1_IRQHandler(void)
-{
-	char character;
-
-	if((*((uint32_t *)USART1_ISR) & 0x00000020) == 0x00000020) { // is RXNE set?
-		character = (char)(*((uint32_t *)USART1_RDR) & 0x000000FF);
-		usart1SendChar(character); // echo received character
-	}
 }
 
 // USART TX pin initialization
