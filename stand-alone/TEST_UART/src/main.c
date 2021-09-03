@@ -46,7 +46,7 @@ static void initGPIOI1(void);
 // main function for LED test
 int main(void)
 {
-	char banner[] = "Welcome to STM32F746G-DISCO !\r\n";
+	char banner[] = "Welcome to STM32F746G-DISCO !\r";
 
 	// initialize board
 	initSystemClock();
@@ -110,28 +110,14 @@ void initSystemClock(void)
 void nvicEnableUSART1(void)
 {
 	// 1. set interrupt priority group mode
-	*((uint32_t *)SCR_AIRCR) |= (uint32_t)0x00000700; // PRIGROUP = 0x111 (main priority = 0, sub priority = 16)
+	// "|=" can not be used here, because VECTKEY write key is "0x05FA" and "|=" will change it
+	*((uint32_t *)SCR_AIRCR) = (uint32_t)0x05FA0700; // PRIGROUP = 0b111 (main priority = 0, sub priority = 128)
 
 	// 2. set USART1 priority
-	*((uint32_t *)NVIC_IPR9) |= (uint32_t)(0x1111 << 4); // main priority = None, sub priority = 16
+	*((uint32_t *)NVIC_IPR9) |= (uint32_t)(0xFF << 8); // main priority = None, sub priority = 128
 
 	// 3. enable USART1 global interrupt
-	*((uint32_t *)NVIC_ISPR1) |= (uint32_t)0x00000010; // enable USART1 global interrupt
-	/*
-	NVIC_InitTypeDef NVIC_InitStructure;
-	// 嵌套向量中断控制器组选择
-	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
-	// 配置USART为中断源
-	NVIC_InitStructure.NVIC_IRQChannel = DEBUG_USART_IRQ;
-	// 抢断优先级为1
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
-	// 子优先级为1
-	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 1;
-	// 使能中断
-	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	// 初始化配置NVIC
-	NVIC_Init(&NVIC_InitStructure);
-	*/
+	*((uint32_t *)NVIC_ISER1) |= (uint32_t)0x00000020; // enable USART1 global interrupt
 }
 
 // LED1 initialization
@@ -152,7 +138,7 @@ void initUSART1(void)
 
 	// set USART1 parameter
 	//*((uint32_t *)USART1_BRR) |= 0x00002BF2; // baud rate = 9600(fCK=108MHz, CR1/OVER8=0, 0x2BF2 = 108000000/9600)
-	*((uint32_t *)USART1_BRR) |= 0x000003AA; // baud rate = 115200(fCK=108MHz, CR1/OVER8=0, 0x3AA = 108000000/115200)
+	*((uint32_t *)USART1_BRR) |= 0x000003AA; // baud rate = 115200(fCK=108MHz, CR1/OVER8=0, 0x03AA = 108000000/115200)
 	*((uint32_t *)USART1_CR1) |= 0x00000000; // data bits = 8
 	*((uint32_t *)USART1_CR2) |= 0x00000000; // stop bits = 1
 	*((uint32_t *)USART1_CR1) |= 0x00000000; // parity = none (odd:0x00000600, even:0x00000400)
@@ -214,8 +200,8 @@ void USART1_IRQHandler(void)
 	char character;
 
 	if((*((uint32_t *)USART1_ISR) & 0x00000020) == 0x00000020) { // is RXNE set?
-		character = *((uint32_t *)USART1_RDR) & 0x000000FF;
-		usart1SendChar(character);
+		character = (char)(*((uint32_t *)USART1_RDR) & 0x000000FF);
+		usart1SendChar(character); // echo received character
 	}
 }
 
@@ -280,23 +266,13 @@ static void initGPIOB7(void)
 	temp |= (GPIO_OTYPER_PP << pin);
 	*((uint32_t *)GPIOB_OTYPER) = temp;
 
-	// set GPIO OSPEEDR register
-	temp = *((uint32_t *)GPIOB_OSPEEDR);
-	temp &= ~(0x3 << (pin * 2));
-	temp |= (GPIO_OSPEEDR_FULL << (pin * 2));
-	*((uint32_t *)GPIOB_OSPEEDR) = temp;
-
-	// set GPIO PUPDR register
-	temp = *((uint32_t *)GPIOB_PUPDR);
-	temp &= ~(0x3 << (pin * 2));
-	temp |= (GPIO_PUPDR_NONE << (pin * 2));
-	*((uint32_t *)GPIOB_PUPDR) = temp;
-
 	// set GPIO AFRL register
 	temp = *((uint32_t *)GPIOB_AFRL);
 	temp &= ~(0x7 << (pin * 4));
 	temp |= (GPIO_AFR_AF7 << (pin * 4));
 	*((uint32_t *)GPIOB_AFRL) = temp;
+
+	// RX line need not to set OSPEEDR and PUPDR
 }
 
 // LED1 pin initialization
