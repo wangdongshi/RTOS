@@ -22,6 +22,10 @@
 #define SCR_BFAR			(0xE000ED38UL)
 #define SCR_ID_PFR0			(0xE000ED40UL)
 #define SCR_ID_PFR1			(0xE000ED44UL)
+#define SCR_CPACR			(0xE000ED88UL)
+#define SYST_CSR			(0xE000E010UL)
+#define SYST_RVR			(0xE000E014UL)
+#define SYST_CVR			(0xE000E018UL)
 
 // NVIC(Nested Vectored Interrupt Controller) registers
 #define NVIC_ISER0			(0XE000E100UL)

@@ -30,10 +30,14 @@ typedef unsigned int			uint32_t;
 #define GPIO_PUPDR_RESERVE		(0x3)
 #define GPIO_AFR_AF7			(0x7)
 
+void initFPU(void);
 void initSystemClock(void);
+void initNVICPriorityGroup(void);
+void initSystick(void);
 void initLED1(void);
 void initUSART1(void);
-void nvicEnableUSART1(void);
+void enableSystickInt(void);
+void enableUSART1Int(void);
 
 void delay(const unsigned int count);
 void executeCmd(const char* cmd);
@@ -45,10 +49,22 @@ static void initGPIOA9(void);
 static void initGPIOB7(void);
 static void initGPIOI1(void);
 
+static uint32_t count = 1;
 static char character = 0;
 static char buffer[BUF_SIZE];
 
-// The following function is USART RX interrupt handler
+// The following function is interrupt handler
+void SysTick_Handler(void)
+{
+	if (count % 501 == 0) {
+		toggleLED1();
+		count = 1;
+	} else {
+		count++;
+	}
+
+}
+
 void USART1_IRQHandler(void)
 {
 	if((*((uint32_t *)USART1_ISR) & 0x00000020) == 0x00000020) { // is RXNE set?
@@ -63,9 +79,12 @@ int main(void)
 	char banner[] = "Welcome to STM32F746G-DISCO !\r#";
 
 	// initialize board
+	initFPU();
+	initNVICPriorityGroup();
 	initSystemClock();
 	initLED1();
 	initUSART1();
+	initSystick();
 
 	// print banner by USART1
 	usart1SendBuffer(banner);
@@ -86,10 +105,12 @@ int main(void)
 				index = 0;
 			}
 			character = 0;
+			/*
 			// flick LED1
 			toggleLED1();
 			delay(1000000);
 			toggleLED1();
+			*/
 		}
 	}
 
@@ -107,6 +128,12 @@ void executeCmd(const char* cmd)
 }
 
 // The following initialization process is write for STM32F746G
+// FPU initialization
+void initFPU(void)
+{
+	*((uint32_t *)SCR_CPACR) |= (uint32_t)0x00F00000;
+}
+
 // System clock initialization
 void initSystemClock(void)
 {
@@ -147,18 +174,49 @@ void initSystemClock(void)
 	while((*((uint32_t *)RCC_CFGR) & 0x0000000C) != 0x00000008); // wait for system clock set to PLL
 }
 
-// NVIC initialization
-void nvicEnableUSART1(void)
+// set global NVIC priority group
+void initNVICPriorityGroup(void)
 {
-	// 1. set interrupt priority group mode
 	// "|=" can not be used here, because VECTKEY write key is "0x05FA" and "|=" will change it
-	*((uint32_t *)SCR_AIRCR) = (uint32_t)0x05FA0700; // PRIGROUP = 0b111 (main priority = 0, sub priority = 128)
+	*((uint32_t *)SCR_AIRCR) = (uint32_t)0x05FA0500; // PRIGROUP = 0b011 (main priority = 16, sub priority = 16)
+}
 
-	// 2. set USART1 priority
-	*((uint32_t *)NVIC_IPR9) |= (uint32_t)(0xFF << 8); // main priority = None, sub priority = 128
+// enable USART1 interrupt
+void enableUSART1Int(void)
+{
+	// set USART1 interrupt priority
+	*((uint32_t *)NVIC_IPR9) |= (uint32_t)(0xFE << 8); // main priority = None, sub priority = 127
 
-	// 3. enable USART1 global interrupt
+	// enable USART1 global interrupt
 	*((uint32_t *)NVIC_ISER1) |= (uint32_t)0x00000020; // enable USART1 global interrupt
+}
+
+// enable Systick interrupt
+void enableSystickInt(void)
+{
+	// set Systick interrupt priority
+	*((uint32_t *)SCR_SHPR3) |= (uint32_t)(0xFF << 24); // main priority = None, sub priority = 128
+
+	// enable Systick global interrupt
+	*((uint32_t *)SYST_CSR) |= (uint32_t)0x00000002; // enable Systick interrupt
+}
+
+// System tick initialization
+void initSystick(void)
+{
+	// enable Systick global interrupt
+	enableSystickInt();
+
+	// set RELOAD value (216000000 / 1000 = 216000)
+	*((uint32_t *)SYST_RVR) = (uint32_t)(0x00034BC0 - 1); // 1ms interrupt
+	while((*((uint32_t *)SYST_RVR) & 0x00FFFFFF) != (uint32_t)(0x00034BC0 - 1)); // wait for RELOAD value
+
+	// set current value
+	*((uint32_t *)SYST_CVR) = (uint32_t)0x00000000;
+
+	// set CLKSOURCE, ENABLE
+	*((uint32_t *)SYST_CSR) |= (uint32_t)0x00000005;
+	while((*((uint32_t *)SYST_CSR) & 0x00000007) != (uint32_t)(0x00000007)); // wait for enable
 }
 
 // LED1 initialization
@@ -176,6 +234,7 @@ void initUSART1(void)
 
 	// enable APB2 USART1 RCC
 	*((uint32_t *)RCC_APB2ENR) |= 0x00000010;
+	while((*((uint32_t *)RCC_APB2ENR) & 0x00000010) == 0); // wait APB2 USART1 RCC set
 
 	// set USART1 parameter
 	//*((uint32_t *)USART1_BRR) |= 0x00002BF2; // baud rate = 9600(fCK=108MHz, CR1/OVER8=0, 0x2BF2 = 108000000/9600)
@@ -186,7 +245,7 @@ void initUSART1(void)
 	*((uint32_t *)USART1_CR3) |= 0x00000000; // disable CTS and RTS
 
 	// enable USART1 global interrupt
-	nvicEnableUSART1();
+	enableUSART1Int();
 
 	// enable RX interrupt
 	*((uint32_t *)USART1_CR1) |= 0x00000020; // set RXNEIE
@@ -243,6 +302,7 @@ static void initGPIOA9(void)
 
 	// enable AHB1 GPIOA RCC
 	*((uint32_t *)RCC_AHB1ENR) |= 0x00000001;
+	while((*((uint32_t *)RCC_AHB1ENR) & 0x00000001) == 0); // wait AHB1 GPIOA RCC set
 
 	// set GPIO MODER register
 	temp = *((uint32_t *)GPIOA_MODER);
@@ -283,6 +343,7 @@ static void initGPIOB7(void)
 
 	// enable AHB1 GPIOB RCC
 	*((uint32_t *)RCC_AHB1ENR) |= 0x00000002;
+	while((*((uint32_t *)RCC_AHB1ENR) & 0x00000002) == 0); // wait AHB1 GPIOB RCC set
 
 	// set GPIO MODER register
 	temp = *((uint32_t *)GPIOB_MODER);
@@ -313,6 +374,7 @@ static void initGPIOI1(void)
 
 	// enable AHB1 GPIOI RCC
 	*((uint32_t *)RCC_AHB1ENR) |= 0x00000100;
+	while((*((uint32_t *)RCC_AHB1ENR) & 0x00000100) == 0); // wait AHB1 GPIOI RCC set
 
 	// set GPIO MODER register
 	temp = *((uint32_t *)GPIOI_MODER);
