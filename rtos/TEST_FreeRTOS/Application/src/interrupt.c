@@ -15,12 +15,6 @@ typedef unsigned int	uint32_t;
 
 extern char character;
 
-// systick 1ms interrupt
-void SysTick_Handler(void)
-{
-	// TODO : for RTOS
-}
-
 // timer7 500ms interrupt
 void TIM7_IRQHandler(void)
 {

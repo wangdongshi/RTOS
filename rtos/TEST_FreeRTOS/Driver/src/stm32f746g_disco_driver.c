@@ -160,6 +160,26 @@ static void enableUSART1Int(void)
 	*((uint32_t *)NVIC_ISER1) |= (uint32_t)0x00000020;
 }
 
+// enable SVCall interrupt
+static void enableSVCallInt(void)
+{
+	// set SVCall interrupt priority
+	*((uint32_t *)SCR_SHPR2) |= (uint32_t)(0xAF << 24); // main priority = 10, sub priority = 15, Systick IRQn = 15
+
+	// enable SVCall global interrupt
+	//*((uint32_t *)SYST_CSR) |= (uint32_t)0x00000002;
+}
+
+// enable PendSV interrupt
+static void enablePendSVInt(void)
+{
+	// set PendSV interrupt priority
+	*((uint32_t *)SCR_SHPR3) |= (uint32_t)(0xAF << 16); // main priority = 10, sub priority = 15, Systick IRQn = 15
+
+	// enable PendSV global interrupt
+	//*((uint32_t *)SYST_CSR) |= (uint32_t)0x00000002;
+}
+
 // enable Systick interrupt
 static void enableSystickInt(void)
 {
@@ -167,7 +187,7 @@ static void enableSystickInt(void)
 	*((uint32_t *)SCR_SHPR3) |= (uint32_t)(0xAF << 24); // main priority = 10, sub priority = 15, Systick IRQn = 15
 
 	// enable Systick global interrupt
-	*((uint32_t *)SYST_CSR) |= (uint32_t)0x00000002; // enable Systick interrupt
+	*((uint32_t *)SYST_CSR) |= (uint32_t)0x00000002;
 }
 
 // enable TIM7 interrupt
