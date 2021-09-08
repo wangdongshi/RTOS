@@ -11,6 +11,8 @@
 #ifndef STM32F746G_DISCO_DRIVER_H
 #define STM32F746G_DISCO_DRIVER_H
 
+#define LED1_FLICKER_IN_TASK
+
 void initBoard(void);
 void toggleLED1(void);
 void usart1SendChar(const char character);

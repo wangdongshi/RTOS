@@ -10,28 +10,69 @@
  **********************************************************************/
 #include <string.h>
 #include "stm32f746g_disco_driver.h"
+#include "FreeRTOS.h"
+#include "task.h"
 
 #define BUF_SIZE		(1000)
 
-typedef unsigned int	uint32_t;
+typedef unsigned long	uint32_t;
 
 char character = 0;
 static char buffer[BUF_SIZE];
+TaskHandle_t startTaskHandler;
 
+void startTask(void *pvParameters);
+void ledTask(void *pvParameters);
+void shellTask(void *pvParameters);
 void executeCmd(const char* cmd);
 
-// main function for LED test
+// Main function for LED test
 int main(void)
 {
-	// initialize board
+	// Initialize board
 	initBoard();
 
-	// print banner by USART1
+	// create start task
+	xTaskCreate(startTask,	"START_TASK",	400,	NULL,	2,	&startTaskHandler);
+
+	// start FreeRTOS kernel
+	vTaskStartScheduler();
+
+	// It should not execute to here
+	usart1SendBuffer("RTOS task schedule ERROR !!!\r#");
+
+	return 0;
+}
+
+void startTask(void *pvParameters)
+{
+	// create task
+	taskENTER_CRITICAL();
+	xTaskCreate(ledTask,	"LED_TASK",		400,	NULL,	2,	NULL);
+	xTaskCreate(shellTask,	"SHELL_TASK",	400,	NULL,	5,	NULL);
+	vTaskDelete(startTaskHandler);
+	taskEXIT_CRITICAL();
+}
+
+void ledTask(void *pvParameters)
+{
+	while(1) {
+		toggleLED1();
+		vTaskDelay(500);
+	}
+}
+
+void shellTask(void *pvParameters)
+{
+	uint32_t index = 0;
+
+	// print shell banner
 	usart1SendBuffer("Welcome to STM32F746G-DISCO !\r#");
 
-	// command processing
-	uint32_t index = 0;
+	// clear receive buffer
 	memset(buffer, 0x00, BUF_SIZE);
+
+	// command loop
 	while(1) {
 		if (character != 0) { // character has been received
 			buffer[index++] = character;
@@ -46,11 +87,11 @@ int main(void)
 			}
 			character = 0;
 		}
+		vTaskDelay(50);
 	}
-
-	return 0;
 }
 
+// Command processing function
 void executeCmd(const char* cmd)
 {
 	uint32_t len = strlen(cmd) - 1;

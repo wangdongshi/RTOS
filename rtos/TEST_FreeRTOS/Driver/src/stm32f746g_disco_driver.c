@@ -34,31 +34,42 @@
 #define GPIO_PUPDR_RESERVE		(0x3)
 #define GPIO_AFR_AF7			(0x7)
 
-typedef unsigned int			uint32_t;
+typedef unsigned long			uint32_t;
 
 static void initFPU(void);
 static void initSystemClock(void);
 static void initNVICPriorityGroup(void);
-static void enableSystickInt(void);
-static void enableUSART1Int(void);
+static void initSystickInt(void);
+static void initSVCallInt(void);
+static void initPendSVInt(void);
 static void initSystick(void);
+static void initUSART1Int(void);
 static void initLED1(void);
 static void initUSART1(void);
-static void initTIM7(void);
 static void initGPIOA9(void);
 static void initGPIOB7(void);
 static void initGPIOI1(void);
 
-// Driver API
+#ifndef LED1_FLICKER_IN_TASK
+static void initTIM7Int(void);
+static void initTIM7(void);
+#endif
+
+
+// Hardware driver API
 void initBoard(void)
 {
 	initFPU();
 	initNVICPriorityGroup();
+	initSVCallInt();
+	initPendSVInt();
 	initSystemClock();
 	initLED1();
 	initUSART1();
 	initSystick();
+#ifndef LED1_FLICKER_IN_TASK
 	initTIM7();
+#endif
 }
 
 void toggleLED1(void)
@@ -140,67 +151,72 @@ static void initSystemClock(void)
 	while((*((uint32_t *)RCC_CFGR) & 0x0000000C) != 0x00000008); // wait for system clock set to PLL
 }
 
-// set global NVIC priority group
+// Set global NVIC priority group
 static void initNVICPriorityGroup(void)
 {
+	// STM32F756XX-PM can not refer here, because ST has own design in interrupt priority.
+	// ST interrupt priority group setting can refer to the following.
+	//   IPR just use the higher 4 bit indicating priority, the lower 4 bit should be set to 0.
+	//   The assignment of AIRCR-PRIGROUP can be refer to the following rule.
+	//   ----------------|------------------------------------------------
+	//                   |                  IPRn / SHPRn
+	//    AIRCR-PRIGROUP |------------------------------------------------
+	//                   |  preemption priority  |    sub-priority
+	//   ----------------|------------------------------------------------
+	//     0xb011 :      |  [7:4], 16 level      |    None , None
+	//     0xb100 :      |  [7:5], 8 level       |    [4]  , 2 level
+	//     0xb011 :      |  [7:6], 4 level       |    [5:4], 4 level
+	//     0xb011 :      |  [7]  , 2 level       |    [6:4], 8 level
+	//     0xb011 :      |  None , None          |    [7:4], 16 level
+	//   ----------------|------------------------------------------------
+
 	// "|=" can not be used here, because VECTKEY write key is "0x05FA" and "|=" will change it
-	*((uint32_t *)SCR_AIRCR) = (uint32_t)0x05FA0500; // PRIGROUP = 0b011 (main priority = 16, sub priority = 16)
-	// global interrupt design
-	// USART1(for Debug)	: main Group = 15, sub priority = 15
-	// Systick				: main Group = 14, sub priority = 15
+	*((uint32_t *)SCR_AIRCR) = (uint32_t)0x05FA0300; // PRIGROUP = 0b011 (preemption:16, sub:0)
+
+	// Global interrupt design in sample project can refer to the following setting.
+	// SVC(FreeRTOS)		: preemption:10, IRQn:11
+	// PendSV(FreeRTOS)		: preemption:15, IRQn:14
+	// Systick(FreeRTOS)	: preemption:6,  IRQn:15
+	// USART1(Debug)		: preemption:14, IRQn:37
+	// TIMER7(LED1 flicker)	: preemption:14, IRQn:55
 }
 
-// enable USART1 interrupt
-static void enableUSART1Int(void)
+// Initialize USART1 interrupt (IRQn:37)
+static void initUSART1Int(void)
 {
-	// set USART1 interrupt priority
-	*((uint32_t *)NVIC_IPR9) |= (uint32_t)(0xFF << 8); // main priority = 15, sub priority = 15, USART IRQn = 37
+	// Set USART1 interrupt priority
+	*((uint32_t *)NVIC_IPR9) |= (uint32_t)(14 << (8 + 4));
 
-	// enable USART1 global interrupt
+	// Enable USART1 global interrupt
 	*((uint32_t *)NVIC_ISER1) |= (uint32_t)0x00000020;
 }
 
-// enable SVCall interrupt
-static void enableSVCallInt(void)
+// Initialize SVCall interrupt (IRQn:11)
+static void initSVCallInt(void)
 {
-	// set SVCall interrupt priority
-	*((uint32_t *)SCR_SHPR2) |= (uint32_t)(0xAF << 24); // main priority = 10, sub priority = 15, Systick IRQn = 15
+	// Set SVCall interrupt priority
+	*((uint32_t *)SCR_SHPR2) |= (uint32_t)(10 << (24 + 4));
 
-	// enable SVCall global interrupt
-	//*((uint32_t *)SYST_CSR) |= (uint32_t)0x00000002;
+	// SVC need not open. Executing SVC instrument will trigger SVC interrupt.
 }
 
-// enable PendSV interrupt
-static void enablePendSVInt(void)
+// Initialize PendSV interrupt (IRQn:14)
+static void initPendSVInt(void)
 {
-	// set PendSV interrupt priority
-	*((uint32_t *)SCR_SHPR3) |= (uint32_t)(0xAF << 16); // main priority = 10, sub priority = 15, Systick IRQn = 15
+	// Set PendSV interrupt priority
+	*((uint32_t *)SCR_SHPR3) |= (uint32_t)(15 << (16 + 4));
 
-	// enable PendSV global interrupt
-	//*((uint32_t *)SYST_CSR) |= (uint32_t)0x00000002;
+	// PendSV need not open. Setting ICSR the 28th bit will trigger pendSV interrupt.
 }
 
-// enable Systick interrupt
-static void enableSystickInt(void)
+// Initialize Systick interrupt (IRQn:15)
+static void initSystickInt(void)
 {
-	// set Systick interrupt priority
-	*((uint32_t *)SCR_SHPR3) |= (uint32_t)(0xAF << 24); // main priority = 10, sub priority = 15, Systick IRQn = 15
+	// Set Systick interrupt priority
+	*((uint32_t *)SCR_SHPR3) |= (uint32_t)(6 << (24 + 4));
 
-	// enable Systick global interrupt
+	// Enable Systick global interrupt
 	*((uint32_t *)SYST_CSR) |= (uint32_t)0x00000002;
-}
-
-// enable TIM7 interrupt
-static void enableTIM7Int(void)
-{
-	// set TIM7 interrupt priority for LED1 flicker
-	*((uint32_t *)NVIC_IPR13) |= (uint32_t)(0xEF << 24); // main priority = 14, sub priority = 15, TIM7 IRQn = 55
-
-	// enable TIM7 global interrupt
-	*((uint32_t *)NVIC_ISER1) |= (uint32_t)0x00800000;
-	
-	// enable TIM7 update interrupt
-	*((uint32_t *)TIM7_DIER) |= (uint32_t)0x00000001;
 }
 
 // LED1 initialization
@@ -212,15 +228,15 @@ static void initLED1(void)
 // USART1 initialization
 static void initUSART1(void)
 {
-	// initialize USART1 TX/RX pin
+	// Initialize USART1 TX/RX pin
 	initGPIOA9(); // TX
 	initGPIOB7(); // RX
 
-	// enable APB2 USART1 RCC
+	// Enable APB2 USART1 RCC
 	*((uint32_t *)RCC_APB2ENR) |= 0x00000010;
 	while((*((uint32_t *)RCC_APB2ENR) & 0x00000010) == 0); // wait APB2 USART1 RCC set
 
-	// set USART1 parameter
+	// Set USART1 parameter
 	//*((uint32_t *)USART1_BRR) |= 0x00002BF2; // baud rate = 9600(fCK=108MHz, CR1/OVER8=0, 0x2BF2 = 108000000/9600)
 	*((uint32_t *)USART1_BRR) |= 0x000003AA; // baud rate = 115200(fCK=108MHz, CR1/OVER8=0, 0x03AA = 108000000/115200)
 	*((uint32_t *)USART1_CR1) |= 0x00000000; // data bits = 8
@@ -228,67 +244,82 @@ static void initUSART1(void)
 	*((uint32_t *)USART1_CR1) |= 0x00000000; // parity = none (odd:0x00000600, even:0x00000400)
 	*((uint32_t *)USART1_CR3) |= 0x00000000; // disable CTS and RTS
 
-	// enable USART1 global interrupt
-	enableUSART1Int();
+	// Enable USART1 global interrupt
+	initUSART1Int();
 
-	// enable RX interrupt
+	// Enable RX interrupt
 	*((uint32_t *)USART1_CR1) |= 0x00000020; // set RXNEIE
 
-	// enable USART1
+	// Enable USART1
 	*((uint32_t *)USART1_CR1) |= 0x00000001; // enable USART1
 
-	// enable RE
+	// Enable RE
 	*((uint32_t *)USART1_CR1) |= 0x00000004; // enable RE
-}
-
-// TIM7 initialization for low speed timer(500ms)
-static void initTIM7(void)
-{
-	// enable APB1 TIM7 RCC
-	*((uint32_t *)RCC_APB1ENR) |= 0x00000020;
-	while((*((uint32_t *)RCC_APB1ENR) & 0x00000020) == 0); // wait APB1 TIM7 RCC set
-	
-	// enable TIM7 interrupt
-	enableTIM7Int();
-
-	// enable pre-load ARPE
-	*((uint32_t *)TIM7_CR1) |= (uint32_t)0x00000080;
-	
-	// set 4000 to pre-scale
-	*((uint32_t *)TIM7_PSC) = (uint32_t)(0x00000FA0 - 1); // timer frequency = 108MHz / 4000 = 27KHz (APB pre-sacle is not 1, so fCK_PSC = 54MHz * 2 = 108MHz)
-	while((*((uint32_t *)TIM7_PSC) & 0x0000FFFF) != (uint32_t)(0x00000FA0 - 1)); // wait PSC set
-	
-	// set 0 to CNT
-	//*((uint32_t *)TIM7_CNT) = (uint32_t)0x00000000; // reset CNT
-
-	// clear timer update interrupt flag
-	*((uint32_t *)TIM7_SR) &= (uint32_t)~0x00000001; // reset UIF
-	
-	// set 13500 to reload value
-	*((uint32_t *)TIM7_ARR) = (uint32_t)(0x000034BC - 1); // 500ms interrupt
-	while((*((uint32_t *)TIM7_ARR) & 0x0000FFFF) != (uint32_t)(0x000034BC - 1)); // wait ARR set
-	
-	// enable TIM7 CEN
-	*((uint32_t *)TIM7_CR1) |= (uint32_t)0x00000001;
 }
 
 // System tick initialization
 static void initSystick(void)
 {
-	// enable Systick global interrupt
-	enableSystickInt();
+	// Enable Systick global interrupt
+	initSystickInt();
 
-	// set RELOAD value (216000000 / 1000 = 216000)
+	// Set RELOAD value (216000000 / 1000 = 216000)
 	*((uint32_t *)SYST_RVR) = (uint32_t)(0x00034BC0 - 1); // 1ms interrupt
 	while((*((uint32_t *)SYST_RVR) & 0x00FFFFFF) != (uint32_t)(0x00034BC0 - 1)); // wait for RELOAD value
 
-	// set current value
+	// Set current value
 	*((uint32_t *)SYST_CVR) = (uint32_t)0x00000000;
 
-	// set CLKSOURCE, ENABLE
+	// Set CLKSOURCE, ENABLE
 	*((uint32_t *)SYST_CSR) |= (uint32_t)0x00000005;
 	while((*((uint32_t *)SYST_CSR) & 0x00000007) != (uint32_t)(0x00000007)); // wait for enable
 }
+
+#ifndef LED1_FLICKER_IN_TASK
+// Initialize TIM7 interrupt
+static void initTIM7Int(void)
+{
+	// Set TIM7 interrupt priority for LED1 flicker
+	*((uint32_t *)NVIC_IPR13) |= (uint32_t)(14 << (24 + 4));
+
+	// Enable TIM7 global interrupt
+	*((uint32_t *)NVIC_ISER1) |= (uint32_t)0x00800000;
+
+	// Enable TIM7 update interrupt
+	*((uint32_t *)TIM7_DIER) |= (uint32_t)0x00000001;
+}
+
+// TIM7 initialization for low speed timer(500ms)
+static void initTIM7(void)
+{
+	// Enable APB1 TIM7 RCC
+	*((uint32_t *)RCC_APB1ENR) |= 0x00000020;
+	while((*((uint32_t *)RCC_APB1ENR) & 0x00000020) == 0); // wait APB1 TIM7 RCC set
+	
+	// Enable TIM7 interrupt
+	initTIM7Int();
+
+	// Enable pre-load ARPE
+	*((uint32_t *)TIM7_CR1) |= (uint32_t)0x00000080;
+	
+	// Set 4000 to pre-scale
+	*((uint32_t *)TIM7_PSC) = (uint32_t)(0x00000FA0 - 1); // timer frequency = 108MHz / 4000 = 27KHz (APB pre-sacle is not 1, so fCK_PSC = 54MHz * 2 = 108MHz)
+	while((*((uint32_t *)TIM7_PSC) & 0x0000FFFF) != (uint32_t)(0x00000FA0 - 1)); // wait PSC set
+	
+	// Set 0 to CNT
+	//*((uint32_t *)TIM7_CNT) = (uint32_t)0x00000000; // reset CNT
+
+	// Clear timer update interrupt flag
+	*((uint32_t *)TIM7_SR) &= (uint32_t)~0x00000001; // reset UIF
+	
+	// Set 13500 to reload value
+	*((uint32_t *)TIM7_ARR) = (uint32_t)(0x000034BC - 1); // 500ms interrupt
+	while((*((uint32_t *)TIM7_ARR) & 0x0000FFFF) != (uint32_t)(0x000034BC - 1)); // wait ARR set
+	
+	// Enable TIM7 CEN
+	*((uint32_t *)TIM7_CR1) |= (uint32_t)0x00000001;
+}
+#endif
 
 // USART TX pin initialization
 static void initGPIOA9(void)
@@ -296,35 +327,35 @@ static void initGPIOA9(void)
 	uint32_t pin  = 9;
 	uint32_t temp = 0x00000000;
 
-	// enable AHB1 GPIOA RCC
+	// Enable AHB1 GPIOA RCC
 	*((uint32_t *)RCC_AHB1ENR) |= 0x00000001;
 	while((*((uint32_t *)RCC_AHB1ENR) & 0x00000001) == 0); // wait AHB1 GPIOA RCC set
 
-	// set GPIO MODER register
+	// Set GPIO MODER register
 	temp = *((uint32_t *)GPIOA_MODER);
 	temp &= ~(0x3 << (pin * 2)); // clear bits
 	temp |= (GPIO_MODER_MULTI << (pin * 2)); // set bits
 	*((uint32_t *)GPIOA_MODER) = temp;
 
-	// set GPIO OTYPER register
+	// Set GPIO OTYPER register
 	temp = *((uint32_t *)GPIOA_OTYPER);
 	temp &= ~(0x1 << pin);
 	temp |= (GPIO_OTYPER_PP << pin);
 	*((uint32_t *)GPIOA_OTYPER) = temp;
 
-	// set GPIO OSPEEDR register
+	// Set GPIO OSPEEDR register
 	temp = *((uint32_t *)GPIOA_OSPEEDR);
 	temp &= ~(0x3 << (pin * 2));
 	temp |= (GPIO_OSPEEDR_FULL << (pin * 2));
 	*((uint32_t *)GPIOA_OSPEEDR) = temp;
 
-	// set GPIO PUPDR register
+	// Set GPIO PUPDR register
 	temp = *((uint32_t *)GPIOA_PUPDR);
 	temp &= ~(0x3 << (pin * 2));
 	temp |= (GPIO_PUPDR_UP << (pin * 2));
 	*((uint32_t *)GPIOA_PUPDR) = temp;
 
-	// set GPIO AFRH register
+	// Set GPIO AFRH register
 	temp = *((uint32_t *)GPIOA_AFRH);
 	temp &= ~(0x7 << ((pin - 8) * 4));
 	temp |= (GPIO_AFR_AF7 << ((pin - 8) * 4));
@@ -337,23 +368,23 @@ static void initGPIOB7(void)
 	uint32_t pin  = 7;
 	uint32_t temp = 0x00000000;
 
-	// enable AHB1 GPIOB RCC
+	// Enable AHB1 GPIOB RCC
 	*((uint32_t *)RCC_AHB1ENR) |= 0x00000002;
 	while((*((uint32_t *)RCC_AHB1ENR) & 0x00000002) == 0); // wait AHB1 GPIOB RCC set
 
-	// set GPIO MODER register
+	// Set GPIO MODER register
 	temp = *((uint32_t *)GPIOB_MODER);
 	temp &= ~(0x3 << (pin * 2)); // clear bits
 	temp |= (GPIO_MODER_MULTI << (pin * 2)); // set bits
 	*((uint32_t *)GPIOB_MODER) = temp;
 
-	// set GPIO OTYPER register
+	// Set GPIO OTYPER register
 	temp = *((uint32_t *)GPIOB_OTYPER);
 	temp &= ~(0x1 << pin);
 	temp |= (GPIO_OTYPER_PP << pin);
 	*((uint32_t *)GPIOB_OTYPER) = temp;
 
-	// set GPIO AFRL register
+	// Set GPIO AFRL register
 	temp = *((uint32_t *)GPIOB_AFRL);
 	temp &= ~(0x7 << (pin * 4));
 	temp |= (GPIO_AFR_AF7 << (pin * 4));
@@ -368,29 +399,29 @@ static void initGPIOI1(void)
 	uint32_t pin  = 1;
 	uint32_t temp = 0x00000000;
 
-	// enable AHB1 GPIOI RCC
+	// Enable AHB1 GPIOI RCC
 	*((uint32_t *)RCC_AHB1ENR) |= 0x00000100;
 	while((*((uint32_t *)RCC_AHB1ENR) & 0x00000100) == 0); // wait AHB1 GPIOI RCC set
 
-	// set GPIO MODER register
+	// Set GPIO MODER register
 	temp = *((uint32_t *)GPIOI_MODER);
 	temp &= ~(0x3 << (pin * 2)); // clear bits
 	temp |= (GPIO_MODER_OUT << (pin * 2)); // set bits
 	*((uint32_t *)GPIOI_MODER) = temp;
 
-	// set GPIO OTYPER register
+	// Set GPIO OTYPER register
 	temp = *((uint32_t *)GPIOI_OTYPER);
 	temp &= ~(0x1 << pin);
 	temp |= (GPIO_OTYPER_PP << pin);
 	*((uint32_t *)GPIOI_OTYPER) = temp;
 
-	// set GPIO OSPEEDR register
+	// Set GPIO OSPEEDR register
 	temp = *((uint32_t *)GPIOI_OSPEEDR);
 	temp &= ~(0x3 << (pin * 2));
 	temp |= (GPIO_OSPEEDR_FULL << (pin * 2));
 	*((uint32_t *)GPIOI_OSPEEDR) = temp;
 
-	// set GPIO PUPDR register
+	// Set GPIO PUPDR register
 	temp = *((uint32_t *)GPIOI_PUPDR);
 	temp &= ~(0x3 << (pin * 2));
 	temp |= (GPIO_PUPDR_UP << (pin * 2));

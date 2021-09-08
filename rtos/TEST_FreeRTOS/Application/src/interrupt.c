@@ -11,19 +11,21 @@
 #include "stm32f746g_register.h"
 #include "stm32f746g_disco_driver.h"
 
-typedef unsigned int	uint32_t;
+typedef unsigned long	uint32_t;
 
 extern char character;
 
-// timer7 500ms interrupt
+#ifndef LED1_FLICKER_IN_TASK
+// Timer7 500ms interrupt
 void TIM7_IRQHandler(void)
 {
 	*((uint32_t *)TIM7_SR) &= (uint32_t)~0x00000001; // attention : here must reset UIF !!!!
 
-	toggleLED1(); // toggle LED1
+	toggleLED1();
 }
+#endif
 
-// uart1 receive interrupt for debug
+// UART1 receive interrupt for debug
 void USART1_IRQHandler(void)
 {
 	if((*((uint32_t *)USART1_ISR) & 0x00000020) == 0x00000020) { // is RXNE set?
