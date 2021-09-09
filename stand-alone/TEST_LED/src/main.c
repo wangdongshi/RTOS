@@ -2,78 +2,77 @@
 
 typedef unsigned int	uint32_t;
 
-#define LED1_GPIO_SHIFT	(1) // PI1
-#define DELAY_COUNT		(10000000) // 10 seconds
+#define LED1_GPIO_SHIFT	(1)			// PI1
+#define DELAY_COUNT		(10000000)	// 5s
 
 // delay time is depend on system clock
 void delay(unsigned int count)
 {
-	for (int i = 0; i < count; i++);
+	for (volatile int i = 0; i < count; i++);
+}
+
+void setRegister(uint32_t* addr, uint32_t data, uint32_t shift, uint32_t len)
+{
+	volatile uint32_t* reg = addr;
+	volatile uint32_t  val = *reg; // read from register
+	uint32_t mask = 0x00000000;
+
+	// set mask
+	for (uint32_t i = 0; i < 32; i++) {
+		if (i >= shift && i < shift + len)
+			mask |= (1 << i);
+	}
+	mask = ~mask;
+
+	// set data
+	val &= mask;					// clear bits
+	val |= (data << shift) & ~mask; // set bits
+	*reg = val;						// write back to register
+	while(*reg != val);				// wait for set complete
+}
+
+void setRegMask(uint32_t* addr, uint32_t mask, uint32_t data)
+{
+	volatile uint32_t* reg = addr;
+	volatile uint32_t  val = *reg; // read from register
+
+	// set data
+	val &= mask;			// clear bits
+	val |= data & ~mask;	// set bits
+	*reg = val;				// write back to register
+	while(*reg != val);		// wait for set complete
 }
 
 // The following initialization process is write for STM32F746G
 void initSystemClock(void)
 {
-	*((uint32_t *)RCC_CR)		|= (uint32_t)0x00000001; // Set HSION bit
-	*((uint32_t *)RCC_CFGR)		=  (uint32_t)0x00000000; // Reset CFGR register
-	*((uint32_t *)RCC_CR)		&= (uint32_t)0xFEF6FFFF; // Reset HSEON, CSSON and PLLON bits
-	*((uint32_t *)RCC_PLLCFGR)	=  (uint32_t)0x00000000; // Reset PLLCFGR register
-	*((uint32_t *)RCC_CIR)		=  (uint32_t)0x00000000; // Disable all interrupts
+	// Reset HSEON, CSSON and PLLON bits with default value
+	setRegister(RCC_CR, 1, 0, 1);					// Set HSION bit
+	setRegister(RCC_CFGR, 0x00000000, 0, 32);		// Reset CFGR register
+	setRegister(RCC_PLLCFGR, 0x00000000, 0, 32);	// Reset PLLCFGR register
+	setRegister(RCC_CIR, 0x00000000, 0, 32);		// Disable all interrupts
 }
 
 void initGPIOI(uint32_t pin)
 {
-	uint32_t  temp;
+	setRegister(RCC_AHB1ENR, 1, 8, 1);
 
-	// enable AHB1 GPIOI
-	*((uint32_t *)RCC_AHB1ENR) |= 0x00000100;
-
-	// set GPIO MODER register
-	temp = *((uint32_t *)GPIOI_MODER_ADDR);
-	temp &= ~(0x3 << (pin * 2)); // clear bits
-	temp |= (GPIOI_MODER_OUT << (pin * 2)); // set bits
-	*((uint32_t *)GPIOI_MODER_ADDR) = temp;
-
-	// set GPIO OTYPER register
-	temp = *((uint32_t *)GPIOI_OTYPER_ADDR);
-	temp &= ~(0x1 << pin);
-	temp |= (GPIOI_OTYPER_PUSH_PULL << pin);
-	*((uint32_t *)GPIOI_OTYPER_ADDR) = temp;
-
-	// set GPIO OSPEEDR register
-	temp = *((uint32_t *)GPIOI_OSPEEDR_ADDR);
-	temp &= ~(0x3 << (pin * 2));
-	temp |= (GPIOI_OSPEEDR_FULL << (pin * 2));
-	*((uint32_t *)GPIOI_OSPEEDR_ADDR) = temp;
-
-	// set GPIO PUPDR register
-	temp = *((uint32_t *)GPIOI_PUPDR_ADDR);
-	temp &= ~(0x3 << (pin * 2));
-	temp |= (GPIOI_PUPDR_PULL_UP << (pin * 2));
-	*((uint32_t *)GPIOI_PUPDR_ADDR) = temp;
+	setRegister(GPIOI_MODER, GPIOI_MODER_OUT, pin*2, 2);
+	setRegister(GPIOI_OTYPER, GPIOI_OTYPER_PUSH_PULL, pin, 1);
+	setRegister(GPIOI_OSPEEDR, GPIOI_OSPEEDR_FULL, pin*2, 2);
+	setRegister(GPIOI_PUPDR, GPIOI_PUPDR_PULL_UP, pin*2, 2);
 }
 
 // main function for LED test
 int main(void)
 {
-	uint32_t  temp;
-
 	initSystemClock();
 	initGPIOI(LED1_GPIO_SHIFT);
 
     while (1) {
-		// set GPIO ODR register
-		temp = *((uint32_t *)GPIOI_ODR_ADDR);
-		temp &= ~(0x1 << LED1_GPIO_SHIFT);
-		temp |= (0x1 << LED1_GPIO_SHIFT);
-		*((uint32_t *)GPIOI_ODR_ADDR) = temp;
+		setRegister(GPIOI_ODR, 1, LED1_GPIO_SHIFT, 1);
 		delay(DELAY_COUNT);
-
-		// set GPIO ODR register
-		temp = *((uint32_t *)GPIOI_ODR_ADDR);
-		temp &= ~(0x1 << LED1_GPIO_SHIFT);
-		temp |= (0x0 << LED1_GPIO_SHIFT);
-		*((uint32_t *)GPIOI_ODR_ADDR) = temp;
+		setRegister(GPIOI_ODR, 0, LED1_GPIO_SHIFT, 1);
 		delay(DELAY_COUNT);
     }
 
