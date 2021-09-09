@@ -9,7 +9,6 @@
  *
  **********************************************************************/
 #include <string.h>
-#include "stm32f746g_register.h"
 #include "stm32f746g_disco_driver.h"
 
 #define PLLM					((uint32_t)( 25 <<  0))
@@ -34,8 +33,6 @@
 #define GPIO_PUPDR_RESERVE		(0x3)
 #define GPIO_AFR_AF7			(0x7)
 
-typedef unsigned long			uint32_t;
-
 static void initFPU(void);
 static void initSystemClock(void);
 static void initNVICPriorityGroup(void);
@@ -50,7 +47,7 @@ static void initGPIOA9(void);
 static void initGPIOB7(void);
 static void initGPIOI1(void);
 
-#ifndef LED1_FLICKER_IN_TASK
+#ifdef MODE_STAND_ALONE
 static void initTIM7Int(void);
 static void initTIM7(void);
 #endif
@@ -67,7 +64,7 @@ void initBoard(void)
 	initLED1();
 	initUSART1();
 	initSystick();
-#ifndef LED1_FLICKER_IN_TASK
+#ifdef MODE_STAND_ALONE
 	initTIM7();
 #endif
 }
@@ -84,18 +81,22 @@ void toggleLED1(void)
 	*((uint32_t *)GPIOI_ODR) = temp;
 }
 
-void usart1SendChar(const char character)
+void usart1SendChar(const uint8_t character)
 {
-	*((uint32_t *)USART1_CR1) |= 0x00000008; // enable TE
-	*((uint32_t *)USART1_TDR) = (0x000000FF & character); // set character to TX buffer
 	while((*((uint32_t *)USART1_ISR) & 0x00000040) == 0); // wait TC set
-	*((uint32_t *)USART1_CR1) &= ~0x00000008; // disable TE
+	*((uint32_t *)USART1_TDR) = (uint32_t)character; // set character to TX buffer
 }
 
-void usart1SendBuffer(const char* message)
+uint8_t usart1ReceiveChar(void)
+{
+	while((*((uint32_t *)USART1_ISR) & 0x00000020) == 0); // wait RXNE set
+	return (uint8_t)(*((uint32_t *)USART1_RDR) & 0x000000FF);
+}
+
+void usart1SendBuffer(const uint8_t* message)
 {
 	*((uint32_t *)USART1_CR1) |= 0x00000008; // enable TE
-	for(uint32_t i = 0; i < strlen(message); i++) {
+	for(uint32_t i = 0; i < strlen((const char*)message); i++) {
 		*((uint32_t *)USART1_TDR) = (0x000000FF & message[i]); // set character to TX buffer
 		while((*((uint32_t *)USART1_ISR) & 0x00000080) == 0); // wait TXE set
 	}
@@ -247,14 +248,14 @@ static void initUSART1(void)
 	// Enable USART1 global interrupt
 	initUSART1Int();
 
-	// Enable RX interrupt
-	*((uint32_t *)USART1_CR1) |= 0x00000020; // set RXNEIE
+	// Disable RX interrupt in terminal log mode
+	//*((uint32_t *)USART1_CR1) |= 0x00000020; // set RXNEIE
 
 	// Enable USART1
-	*((uint32_t *)USART1_CR1) |= 0x00000001; // enable USART1
+	*((uint32_t *)USART1_CR1) |= 0x00000001;
 
-	// Enable RE
-	*((uint32_t *)USART1_CR1) |= 0x00000004; // enable RE
+	// Enable TX and RE
+	*((uint32_t *)USART1_CR1) |= 0x0000000C;
 }
 
 // System tick initialization
@@ -275,7 +276,7 @@ static void initSystick(void)
 	while((*((uint32_t *)SYST_CSR) & 0x00000007) != (uint32_t)(0x00000007)); // wait for enable
 }
 
-#ifndef LED1_FLICKER_IN_TASK
+#ifdef MODE_STAND_ALONE
 // Initialize TIM7 interrupt
 static void initTIM7Int(void)
 {

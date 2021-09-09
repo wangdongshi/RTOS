@@ -11,11 +11,15 @@
 #ifndef STM32F746G_DISCO_DRIVER_H
 #define STM32F746G_DISCO_DRIVER_H
 
-#define LED1_FLICKER_IN_TASK
+#include "stm32f746g_type.h"
+#include "stm32f746g_register.h"
+
+//#define MODE_STAND_ALONE
 
 void initBoard(void);
 void toggleLED1(void);
-void usart1SendChar(const char character);
-void usart1SendBuffer(const char* message);
+uint8_t usart1ReceiveChar(void);
+void usart1SendChar(const uint8_t character);
+void usart1SendBuffer(const uint8_t* message);
 
 #endif

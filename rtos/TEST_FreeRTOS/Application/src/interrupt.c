@@ -8,14 +8,11 @@
  * Author:    Wang Yu
  *
  **********************************************************************/
-#include "stm32f746g_register.h"
 #include "stm32f746g_disco_driver.h"
 
-typedef unsigned long	uint32_t;
-
+#ifdef MODE_STAND_ALONE
 extern char character;
 
-#ifndef LED1_FLICKER_IN_TASK
 // Timer7 500ms interrupt
 void TIM7_IRQHandler(void)
 {
@@ -23,7 +20,6 @@ void TIM7_IRQHandler(void)
 
 	toggleLED1();
 }
-#endif
 
 // UART1 receive interrupt for debug
 void USART1_IRQHandler(void)
@@ -33,3 +29,4 @@ void USART1_IRQHandler(void)
 		usart1SendChar(character); // echo received character
 	}
 }
+#endif

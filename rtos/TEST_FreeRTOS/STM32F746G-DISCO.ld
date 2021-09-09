@@ -43,8 +43,8 @@ RAM (xrw)      : ORIGIN = 0x20000000, LENGTH = 320K
 _estack = ORIGIN(RAM) + LENGTH(RAM); /* end of RAM addr. of Main Stack */
 
 /* Generate a link error if heap and stack don't fit into RAM (Only use in this file) */
-_Min_Heap_Size	= 0x200; /* required amount of heap  */
-_Min_Stack_Size	= 0x400; /* required amount of stack */
+_Min_Heap_Size	= 0x400; /* required amount of heap  (1K) */
+_Min_Stack_Size	= 0x400; /* required amount of stack (1K) */
 
 /* Define output sections */
 SECTIONS

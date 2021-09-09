@@ -9,22 +9,20 @@
  *
  **********************************************************************/
 #include <string.h>
-#include "stm32f746g_disco_driver.h"
+#include <stdio.h>
+#include <assert.h>
 #include "FreeRTOS.h"
 #include "task.h"
-
-#define BUF_SIZE		(1000)
-
-typedef unsigned long	uint32_t;
-
-char character = 0;
-static char buffer[BUF_SIZE];
-TaskHandle_t startTaskHandler;
+#include "stm32f746g_disco_driver.h"
 
 void startTask(void *pvParameters);
-void ledTask(void *pvParameters);
-void shellTask(void *pvParameters);
+void mainTask(void *pvParameters);
+void led1Task(void *pvParameters);
+#ifdef MODE_STAND_ALONE
 void executeCmd(const char* cmd);
+#endif
+
+TaskHandle_t startTaskHandler;
 
 // Main function for LED test
 int main(void)
@@ -33,13 +31,15 @@ int main(void)
 	initBoard();
 
 	// create start task
-	xTaskCreate(startTask,	"START_TASK",	400,	NULL,	2,	&startTaskHandler);
+	//xTaskCreate(startTask,	"START_TASK",	400,	NULL,	2,	&startTaskHandler);
+	xTaskCreate(led1Task,	"LED1_TASK",	400,	NULL,	2,	NULL);
+	xTaskCreate(mainTask,	"MAIN_TASK",	400,	NULL,	5,	NULL);
 
 	// start FreeRTOS kernel
 	vTaskStartScheduler();
 
 	// It should not execute to here
-	usart1SendBuffer("RTOS task schedule ERROR !!!\r#");
+	printf("RTOS task schedule ERROR !!!\n");
 
 	return 0;
 }
@@ -48,13 +48,13 @@ void startTask(void *pvParameters)
 {
 	// create task
 	taskENTER_CRITICAL();
-	xTaskCreate(ledTask,	"LED_TASK",		400,	NULL,	2,	NULL);
-	xTaskCreate(shellTask,	"SHELL_TASK",	400,	NULL,	5,	NULL);
+	xTaskCreate(led1Task,	"LED1_TASK",	400,	NULL,	2,	NULL);
+	xTaskCreate(mainTask,	"MAIN_TASK",	400,	NULL,	5,	NULL);
 	vTaskDelete(startTaskHandler);
 	taskEXIT_CRITICAL();
 }
 
-void ledTask(void *pvParameters)
+void led1Task(void *pvParameters)
 {
 	while(1) {
 		toggleLED1();
@@ -62,7 +62,24 @@ void ledTask(void *pvParameters)
 	}
 }
 
-void shellTask(void *pvParameters)
+void mainTask(void *pvParameters)
+{
+	// print shell banner
+	printf("Welcome to STM32F746G-DISCO !\r\n");
+	printf("Test FPU function with float value(%.4f). \r\n", 99.99f);
+
+	while(1) {
+		vTaskDelay(50);
+	}
+}
+
+#ifdef MODE_STAND_ALONE
+
+#define BUF_SIZE		(1000)
+char character = 0;
+static char buffer[BUF_SIZE];
+
+void main(void)
 {
 	uint32_t index = 0;
 
@@ -82,12 +99,10 @@ void shellTask(void *pvParameters)
 				strcpy(cmd, buffer); // copy command text
 				memset(buffer, 0x00, BUF_SIZE);
 				executeCmd(cmd);
-				usart1SendChar('#'); // print next prompt
 				index = 0;
 			}
 			character = 0;
 		}
-		vTaskDelay(50);
 	}
 }
 
@@ -96,8 +111,9 @@ void executeCmd(const char* cmd)
 {
 	uint32_t len = strlen(cmd) - 1;
 	if (strncmp(cmd, "help", len) == 0) {
-		usart1SendBuffer("This is help command.\r\r");
+		usart1SendBuffer("This is help command.\r\r#");
 	} else {
-		usart1SendBuffer("This is a wrong command.\r\r");
+		usart1SendBuffer("This is a wrong command.\r\r#");
 	}
 }
+#endif
