@@ -10,7 +10,7 @@
  **********************************************************************/
 #include <string.h>
 #include <stdio.h>
-#include <assert.h>
+#include "assert_param.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "stm32f746g_disco_driver.h"
@@ -64,10 +64,14 @@ void led1Task(void *pvParameters)
 
 void mainTask(void *pvParameters)
 {
+	// test assert
+	assert_param(100 == 100);
+
 	// print shell banner
 	printf("Welcome to STM32F746G-DISCO !\r\n");
-	printf("Test FPU function with float value(%.4f). \r\n", 99.99f);
+	//printf("Test FPU function with float value(%.4f). \r\n", 99.99f);
 
+	// main loop
 	while(1) {
 		vTaskDelay(50);
 	}

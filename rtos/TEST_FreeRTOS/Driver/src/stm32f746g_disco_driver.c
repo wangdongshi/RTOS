@@ -40,7 +40,7 @@ static void writeRegMask(uint32_t* addr, uint32_t mask, uint32_t data);
 static void writeRegMaskThenWait(uint32_t* addr, uint32_t mask, uint32_t data);
 static void waitValueSet(uint32_t* addr, uint32_t mask, uint32_t data);
 static void waitBitsSet(uint32_t* addr, uint32_t mask);
-static void waitBitsClear(uint32_t* addr, uint32_t mask);
+static __attribute__((unused)) void waitBitsClear(uint32_t* addr, uint32_t mask);
 
 static void initFPU(void);
 static void initSystemClock(void);
