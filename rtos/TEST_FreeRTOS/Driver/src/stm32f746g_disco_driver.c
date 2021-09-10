@@ -17,21 +17,30 @@
 #define PLLSRC					((uint32_t)(  1 << 22))
 #define PLLQ					((uint32_t)(  9 << 24))
 
-#define GPIO_MODER_IN			(0x0)
-#define GPIO_MODER_OUT			(0x1)
-#define GPIO_MODER_MULTI		(0x2)
-#define GPIO_MODER_SIM			(0x3)
-#define GPIO_OTYPER_PP			(0x0)
-#define GPIO_OTYPER_OD			(0x1)
-#define GPIO_OSPEEDR_LOW		(0x0)
-#define GPIO_OSPEEDR_MID		(0x1)
-#define GPIO_OSPEEDR_HIGH		(0x2)
-#define GPIO_OSPEEDR_FULL		(0x3)
-#define GPIO_PUPDR_NONE			(0x0)
-#define GPIO_PUPDR_UP			(0x1)
-#define GPIO_PUPDR_DOWN			(0x2)
-#define GPIO_PUPDR_RESERVE		(0x3)
-#define GPIO_AFR_AF7			(0x7)
+#define GPIO_MODER_IN			(0b0)
+#define GPIO_MODER_OUT			(0b1)
+#define GPIO_MODER_MULTI		(0b10)
+#define GPIO_MODER_SIM			(0b11)
+#define GPIO_OTYPER_PP			(0b0)
+#define GPIO_OTYPER_OD			(0b1)
+#define GPIO_OSPEEDR_LOW		(0b00)
+#define GPIO_OSPEEDR_MID		(0b01)
+#define GPIO_OSPEEDR_HIGH		(0b10)
+#define GPIO_OSPEEDR_FULL		(0b11)
+#define GPIO_PUPDR_NONE			(0b00)
+#define GPIO_PUPDR_UP			(0b01)
+#define GPIO_PUPDR_DOWN			(0b10)
+#define GPIO_PUPDR_RESERVE		(0b11)
+#define GPIO_AFR_AF7			(0b0111)
+
+static uint32_t readRegister(uint32_t* addr, uint32_t shift, uint32_t len);
+static void writeRegister(uint32_t* addr, uint32_t data, uint32_t shift, uint32_t len);
+static void writeRegThenWait(uint32_t* addr, uint32_t data, uint32_t shift, uint32_t len);
+static void writeRegMask(uint32_t* addr, uint32_t mask, uint32_t data);
+static void writeRegMaskThenWait(uint32_t* addr, uint32_t mask, uint32_t data);
+static void waitValueSet(uint32_t* addr, uint32_t mask, uint32_t data);
+static void waitBitsSet(uint32_t* addr, uint32_t mask);
+static void waitBitsClear(uint32_t* addr, uint32_t mask);
 
 static void initFPU(void);
 static void initSystemClock(void);
@@ -71,30 +80,27 @@ void initBoard(void)
 
 void toggleLED1(void)
 {
-	uint32_t pin = 1;
-	uint32_t temp, data;
+	uint32_t data = readRegister(GPIOI_ODR, 1, 1);
 
-	temp = *((uint32_t *)GPIOI_ODR);
-	data = !((temp & (0x1 << pin)) >> pin);
-	temp &= ~(0x1 << pin);
-	temp |= (data << pin);
-	*((uint32_t *)GPIOI_ODR) = temp;
+	data = (!data) & 0x00000001;
+	writeRegThenWait(GPIOI_ODR, data, 1, 1);
 }
 
 void usart1SendChar(const uint8_t character)
 {
-	while((*((uint32_t *)USART1_ISR) & 0x00000040) == 0); // wait TC set
-	*((uint32_t *)USART1_TDR) = (uint32_t)character; // set character to TX buffer
+	waitBitsSet(USART1_ISR, ~0x00000040); // wait TC set
+	writeRegThenWait(USART1_TDR, (uint32_t)character, 0, 8);
 }
 
 uint8_t usart1ReceiveChar(void)
 {
-	while((*((uint32_t *)USART1_ISR) & 0x00000020) == 0); // wait RXNE set
-	return (uint8_t)(*((uint32_t *)USART1_RDR) & 0x000000FF);
+	waitBitsSet(USART1_ISR, ~0x00000020); // wait RXNE set
+	return (uint8_t)((readRegister(USART1_ISR, 0, 8) & 0x000000FF));
 }
 
 void usart1SendBuffer(const uint8_t* message)
 {
+	/*
 	*((uint32_t *)USART1_CR1) |= 0x00000008; // enable TE
 	for(uint32_t i = 0; i < strlen((const char*)message); i++) {
 		*((uint32_t *)USART1_TDR) = (0x000000FF & message[i]); // set character to TX buffer
@@ -102,54 +108,162 @@ void usart1SendBuffer(const uint8_t* message)
 	}
 	while((*((uint32_t *)USART1_ISR) & 0x00000040) == 0); // wait TC set
 	*((uint32_t *)USART1_CR1) &= ~0x00000008; // disable TE
+	*/
+	writeRegThenWait(USART1_CR1, 1, 3, 1); // enable TE
+	for(uint32_t i = 0; i < strlen((const char*)message); i++) {
+		writeRegThenWait(USART1_TDR, message[i], 0, 8); // set character to TX buffer
+		waitBitsSet(USART1_ISR, ~0x00000080); // wait TXE set
+	}
+	waitBitsSet(USART1_ISR, ~0x00000040); // wait TC set
+	writeRegThenWait(USART1_CR1, 0, 3, 1); // disable TE
+}
+
+// General register(4 bytes) operation function
+static uint32_t readRegister(uint32_t* addr, uint32_t shift, uint32_t len)
+{
+	uint32_t* reg = addr;
+	uint32_t  val = *reg; // read from register
+	uint32_t  mask = 0x00000000;
+
+	// set mask
+	for (uint32_t i = 0; i < 32; i++) {
+		if (i >= shift && i < shift + len)
+			mask |= (1 << i);
+	}
+	mask = ~mask;
+
+	// set data
+	val = (val & ~mask) >> shift;
+	return val;
+}
+
+static void writeRegister(uint32_t* addr, uint32_t data, uint32_t shift, uint32_t len)
+{
+	uint32_t* reg = addr;
+	uint32_t  val = *reg; // read from register
+	uint32_t  mask = 0x00000000;
+
+	// set mask
+	for (uint32_t i = 0; i < 32; i++) {
+		if (i >= shift && i < shift + len)
+			mask |= (1 << i);
+	}
+	mask = ~mask;
+
+	// set data
+	val &= mask;					// clear bits
+	val |= (data << shift) & ~mask; // set bits
+	*reg = val;						// write back to register
+}
+
+static void writeRegThenWait(uint32_t* addr, uint32_t data, uint32_t shift, uint32_t len)
+{
+	uint32_t* reg = addr;
+	uint32_t  val = *reg; // read from register
+	uint32_t  mask = 0x00000000;
+
+	// set mask
+	for (uint32_t i = 0; i < 32; i++) {
+		if (i >= shift && i < shift + len)
+			mask |= (1 << i);
+	}
+	mask = ~mask;
+
+	// set data
+	val &= mask;					// clear bits
+	val |= (data << shift) & ~mask; // set bits
+	*reg = val;						// write back to register
+	while(*reg != val);				// wait for set complete
+}
+
+static void writeRegMask(uint32_t* addr, uint32_t mask, uint32_t data)
+{
+	volatile uint32_t* reg = addr;
+	uint32_t val = *reg; 	// read from register
+
+	// set data
+	val &= mask;			// clear bits
+	val |= data & (~mask);	// set bits
+	*reg = val;				// write back to register
+}
+
+static void writeRegMaskThenWait(uint32_t* addr, uint32_t mask, uint32_t data)
+{
+	volatile uint32_t* reg = addr;
+	uint32_t val = *reg; 	// read from register
+
+	// set data
+	val &= mask;			// clear bits
+	val |= data & (~mask);	// set bits
+	*reg = val;				// write back to register
+	while(*reg != val);		// wait for set complete
+}
+
+static void waitValueSet(uint32_t* addr, uint32_t mask, uint32_t data)
+{
+	volatile uint32_t* reg = addr;
+	while((*reg & ~mask) != data);
+
+}
+
+static void waitBitsSet(uint32_t* addr, uint32_t mask)
+{
+	volatile uint32_t* reg = addr;
+	while((*reg & ~mask) == 0);
+}
+
+static void waitBitsClear(uint32_t* addr, uint32_t mask)
+{
+	volatile uint32_t* reg = addr;
+	while((*reg & ~mask) != 0);
 }
 
 // The following initialization process is write for STM32F746G-DISCO
 // FPU initialization
 static void initFPU(void)
 {
-	// open CP10 & CP11
-	*((uint32_t *)SCR_CPACR) |= (uint32_t)0x00F00000;
+	writeRegThenWait(SCR_CPACR, 0b1111, 20, 4); // open CP10 & CP11
 }
 
 // System clock initialization
 static void initSystemClock(void)
 {
 	// 1. Set HSE and reset RCC_CIR
-	*((uint32_t *)RCC_CR) |= (uint32_t)0x00040000; // set HSEBYP bit
-	*((uint32_t *)RCC_CR) |= (uint32_t)0x00010000; // set HSEON bit
-	while((*((uint32_t *)RCC_CR) & 0x00020000) == 0); // wait HSERDY
-	*((uint32_t *)RCC_CIR) = (uint32_t)0x00000000; // disable all RCC interrupts
+	writeRegThenWait(RCC_CR, 0b1, 18, 1); // set HSEBYP bit
+	writeRegThenWait(RCC_CR, 0b1, 16, 1); // set HSEON bit
+	waitBitsSet(RCC_CR, ~0x00020000); // wait HSERDY set
+	writeRegThenWait(RCC_CIR, 0x00000000, 0, 32); // disable all RCC interrupts
 
 	// 2. Set FLASH latency
-	*((uint32_t *)FLASH_ACR) |= 0x00000007; // must be set in 216MHz
-	while((*((uint32_t *)FLASH_ACR) & 0x0000000F) != 7); // wait latency set to 7
-	// *((uint32_t *)FLASH_ACR) |= 0x00000300; // set ARTEN, PRFTEN
-	//*((uint32_t *)PWR_CR1) |= 0x0000C000; // PWR_VOS default value has set to 0x11 in reset
+	writeRegThenWait(FLASH_ACR, 7, 0, 4); // need be set in 216MHz
+	//writeRegThenWait(FLASH_ACR, 0b11, 8, 2); // set ARTEN, PRFTEN
+	//writeRegThenWait(PWR_CR1, 0b11, 14, 2); // PWR_VOS default value has set to 0b11 in reset
 
 	// 3. Enable PWR clock
-	*((uint32_t *)RCC_APB1ENR) |= 0x10000000;
+	writeRegThenWait(RCC_APB1ENR, 0b1, 28, 1);
+	//*((uint32_t *)RCC_APB1ENR) |= 0x10000000;
 
 	// 4. Activation OverDrive Mode
-	*((uint32_t *)PWR_CR1) |= 0x00010000; // set ODEN
-	while((*((uint32_t *)PWR_CSR1) & 0x00010000) == 0); // wait ODRDY
+	writeRegThenWait(PWR_CR1, 0b1, 16, 1); // set ODEN
+	waitBitsSet(PWR_CSR1, ~0x00010000); // wait ODRDY
 
 	// 5. Activation OverDrive Switching
-	*((uint32_t *)PWR_CR1) |= 0x00020000; // set ODSWEN
-	while((*((uint32_t *)PWR_CSR1) & 0x00020000) == 0); // wait for ODSWRDY
+	writeRegThenWait(PWR_CR1, 0b1, 17, 1); // set ODEN
+	waitBitsSet(PWR_CSR1, ~0x00020000); // wait ODRDY
 
 	// 6. Main PLL configuration and activation
-	*((uint32_t *)RCC_PLLCFGR) = PLLM | PLLN | PLLP | PLLSRC | PLLQ; // reset PLLCFGR register
-	*((uint32_t *)RCC_CR) |= (uint32_t)0x01000000; // set PLLON
-	while((*((uint32_t *)RCC_CR) & 0x02000000) == 0); // wait for PLLRDY
+	writeRegThenWait(RCC_PLLCFGR, (PLLM | PLLN | PLLP | PLLSRC | PLLQ), 0, 32); // reset PLLCFGR register
+	writeRegThenWait(RCC_CR, 0b1, 24, 1); // set PLLON
+	waitBitsSet(RCC_CR, ~0x02000000); // wait for PLLRDY
 
 	// 7. System clock activation on the main PLL
-	*((uint32_t *)RCC_CFGR) |= (uint32_t)0x00000000; // set HPRE  (AHB  pre-scaler) to 1 (216 MHz)
-	*((uint32_t *)RCC_CFGR) |= (uint32_t)0x00001400; // set PPRE1 (APB1 pre-scaler) to 4 (54  MHz)
-	*((uint32_t *)RCC_CFGR) |= (uint32_t)0x00008000; // set PPRE2 (APB2 pre-scaler) to 2 (108 MHz)
-	while((*((uint32_t *)RCC_CFGR) & 0x0000FC00) != 0x00009400); // Before switching System clock to PLL, it must wait pre-scale value set to CFGR.
-	*((uint32_t *)RCC_CFGR) |= (uint32_t)0x00000002; // set SW to PLL
-	while((*((uint32_t *)RCC_CFGR) & 0x0000000C) != 0x00000008); // wait for system clock set to PLL
+
+	writeRegThenWait(RCC_CFGR, 0b0000, 4, 4); // set HPRE  (AHB  pre-scaler) to 1 (216 MHz)
+	writeRegThenWait(RCC_CFGR, 0b101, 10, 3); // set PPRE1 (APB1 pre-scaler) to 4 (54  MHz)
+	writeRegThenWait(RCC_CFGR, 0b100, 13, 3); // set PPRE2 (APB2 pre-scaler) to 2 (108 MHz)
+	waitValueSet(RCC_CFGR, ~0x0000FC00, 0x00009400); // Attention : before switching System clock to PLL, it must wait all pre-scale value set to CFGR.
+	writeRegister(RCC_CFGR, 0b10, 0, 2); // set SW to PLL
+	waitValueSet(RCC_CFGR, ~0x0000000C, 0x00000008); // wait for system clock set to PLL
 }
 
 // Set global NVIC priority group
@@ -172,7 +286,8 @@ static void initNVICPriorityGroup(void)
 	//   ----------------|------------------------------------------------
 
 	// "|=" can not be used here, because VECTKEY write key is "0x05FA" and "|=" will change it
-	*((uint32_t *)SCR_AIRCR) = (uint32_t)0x05FA0300; // PRIGROUP = 0b011 (preemption:16, sub:0)
+	writeRegister(SCR_AIRCR, 0x05FA0300, 0, 32); // PRIGROUP = 0b011 (preemption:16, sub:0)
+	waitValueSet(SCR_AIRCR, ~0x00000700, 0x00000300);
 
 	// Global interrupt design in sample project can refer to the following setting.
 	// SVC(FreeRTOS)		: preemption:10, IRQn:11
@@ -182,21 +297,21 @@ static void initNVICPriorityGroup(void)
 	// TIMER7(LED1 flicker)	: preemption:14, IRQn:55
 }
 
-// Initialize USART1 interrupt (IRQn:37)
+// Initialize USART1 interrupt
 static void initUSART1Int(void)
 {
 	// Set USART1 interrupt priority
-	*((uint32_t *)NVIC_IPR9) |= (uint32_t)(14 << (8 + 4));
+	writeRegThenWait(NVIC_IPR9, 14, (8+4), 4);
 
-	// Enable USART1 global interrupt
-	*((uint32_t *)NVIC_ISER1) |= (uint32_t)0x00000020;
+	// Enable USART1 global interrupt (IRQn=37)
+	writeRegThenWait(NVIC_ISER1, 0b1, (37-32), 1);
 }
 
 // Initialize SVCall interrupt (IRQn:11)
 static void initSVCallInt(void)
 {
 	// Set SVCall interrupt priority
-	*((uint32_t *)SCR_SHPR2) |= (uint32_t)(10 << (24 + 4));
+	writeRegThenWait(SCR_SHPR2, 10, (24+4), 4);
 
 	// SVC need not open. Executing SVC instrument will trigger SVC interrupt.
 }
@@ -205,7 +320,7 @@ static void initSVCallInt(void)
 static void initPendSVInt(void)
 {
 	// Set PendSV interrupt priority
-	*((uint32_t *)SCR_SHPR3) |= (uint32_t)(15 << (16 + 4));
+	writeRegThenWait(SCR_SHPR3, 15, (16+4), 4);
 
 	// PendSV need not open. Setting ICSR the 28th bit will trigger pendSV interrupt.
 }
@@ -214,10 +329,10 @@ static void initPendSVInt(void)
 static void initSystickInt(void)
 {
 	// Set Systick interrupt priority
-	*((uint32_t *)SCR_SHPR3) |= (uint32_t)(6 << (24 + 4));
+	writeRegThenWait(SCR_SHPR3, 6, (24+4), 4);
 
 	// Enable Systick global interrupt
-	*((uint32_t *)SYST_CSR) |= (uint32_t)0x00000002;
+	writeRegThenWait(SYST_CSR, 0b1, 1, 1);
 }
 
 // LED1 initialization
@@ -234,28 +349,27 @@ static void initUSART1(void)
 	initGPIOB7(); // RX
 
 	// Enable APB2 USART1 RCC
-	*((uint32_t *)RCC_APB2ENR) |= 0x00000010;
-	while((*((uint32_t *)RCC_APB2ENR) & 0x00000010) == 0); // wait APB2 USART1 RCC set
+	writeRegThenWait(RCC_APB2ENR, 0b1, 4, 1);
 
 	// Set USART1 parameter
-	//*((uint32_t *)USART1_BRR) |= 0x00002BF2; // baud rate = 9600(fCK=108MHz, CR1/OVER8=0, 0x2BF2 = 108000000/9600)
-	*((uint32_t *)USART1_BRR) |= 0x000003AA; // baud rate = 115200(fCK=108MHz, CR1/OVER8=0, 0x03AA = 108000000/115200)
-	*((uint32_t *)USART1_CR1) |= 0x00000000; // data bits = 8
-	*((uint32_t *)USART1_CR2) |= 0x00000000; // stop bits = 1
-	*((uint32_t *)USART1_CR1) |= 0x00000000; // parity = none (odd:0x00000600, even:0x00000400)
-	*((uint32_t *)USART1_CR3) |= 0x00000000; // disable CTS and RTS
+	//writeRegThenWait(USART1_BRR, 0x2BF2, 0, 16); // baud rate = 9600(fCK=108MHz, CR1/OVER8=0, 0x2BF2 = 108000000/9600)
+	writeRegThenWait(USART1_BRR, 0x03AA, 0, 16); // baud rate = 115200(fCK=108MHz, CR1/OVER8=0, 0x03AA = 108000000/115200)
+	writeRegMaskThenWait(USART1_CR1, 0x10001000, 0x00000000);	// data bits = 8(M[1:0]=00)
+	writeRegThenWait(USART1_CR2, 0b00, 12, 2);					// stop bits = 1(STOP[1:0]=00)
+	writeRegThenWait(USART1_CR1, 0b0, 10, 1);					// parity = off(parity = on, odd:0x00000600, even:0x00000400)
+	writeRegThenWait(USART1_CR3, 0b00, 8, 2);					// disable CTS and RTS
 
 	// Enable USART1 global interrupt
 	initUSART1Int();
 
-	// Disable RX interrupt in terminal log mode
-	//*((uint32_t *)USART1_CR1) |= 0x00000020; // set RXNEIE
+	// Disable RX interrupt in console log mode
+	//writeRegThenWait(USART1_CR1, 0b1, 5, 1); // set RXNEIE
 
 	// Enable USART1
-	*((uint32_t *)USART1_CR1) |= 0x00000001;
+	writeRegThenWait(USART1_CR1, 0b1, 0, 1);
 
 	// Enable TX and RE
-	*((uint32_t *)USART1_CR1) |= 0x0000000C;
+	writeRegThenWait(USART1_CR1, 0b11, 2, 2);
 }
 
 // System tick initialization
@@ -265,15 +379,14 @@ static void initSystick(void)
 	initSystickInt();
 
 	// Set RELOAD value (216000000 / 1000 = 216000)
-	*((uint32_t *)SYST_RVR) = (uint32_t)(0x00034BC0 - 1); // 1ms interrupt
-	while((*((uint32_t *)SYST_RVR) & 0x00FFFFFF) != (uint32_t)(0x00034BC0 - 1)); // wait for RELOAD value
+	writeRegThenWait(SYST_RVR, (0x00034BC0-1), 0, 32);
 
-	// Set current value
-	*((uint32_t *)SYST_CVR) = (uint32_t)0x00000000;
+	// Set current value by default value
+	//writeRegThenWait(SYST_CVR, 0x00000000, 0, 32);
 
 	// Set CLKSOURCE, ENABLE
-	*((uint32_t *)SYST_CSR) |= (uint32_t)0x00000005;
-	while((*((uint32_t *)SYST_CSR) & 0x00000007) != (uint32_t)(0x00000007)); // wait for enable
+	writeRegThenWait(SYST_CSR, 0b1, 2, 1); // clk-source : processor clock
+	writeRegThenWait(SYST_CSR, 0b1, 0, 1); // enable systick counter
 }
 
 #ifdef MODE_STAND_ALONE
@@ -281,150 +394,85 @@ static void initSystick(void)
 static void initTIM7Int(void)
 {
 	// Set TIM7 interrupt priority for LED1 flicker
-	*((uint32_t *)NVIC_IPR13) |= (uint32_t)(14 << (24 + 4));
+	writeRegThenWait(NVIC_IPR13, 14, (24+4), 4);
 
-	// Enable TIM7 global interrupt
-	*((uint32_t *)NVIC_ISER1) |= (uint32_t)0x00800000;
+	// Enable TIM7 global interrupt (IRQn=55)
+	writeRegThenWait(NVIC_ISER1, 0b1, (55-32), 4);
 
 	// Enable TIM7 update interrupt
-	*((uint32_t *)TIM7_DIER) |= (uint32_t)0x00000001;
+	writeRegThenWait(TIM7_DIER, 0b1, 0, 1);
 }
 
 // TIM7 initialization for low speed timer(500ms)
 static void initTIM7(void)
 {
 	// Enable APB1 TIM7 RCC
-	*((uint32_t *)RCC_APB1ENR) |= 0x00000020;
-	while((*((uint32_t *)RCC_APB1ENR) & 0x00000020) == 0); // wait APB1 TIM7 RCC set
+	writeRegThenWait(RCC_APB1ENR, 0b1, 5, 1);
 	
 	// Enable TIM7 interrupt
 	initTIM7Int();
 
 	// Enable pre-load ARPE
-	*((uint32_t *)TIM7_CR1) |= (uint32_t)0x00000080;
+	writeRegThenWait(TIM7_CR1, 0b1, 7, 1);
 	
 	// Set 4000 to pre-scale
-	*((uint32_t *)TIM7_PSC) = (uint32_t)(0x00000FA0 - 1); // timer frequency = 108MHz / 4000 = 27KHz (APB pre-sacle is not 1, so fCK_PSC = 54MHz * 2 = 108MHz)
-	while((*((uint32_t *)TIM7_PSC) & 0x0000FFFF) != (uint32_t)(0x00000FA0 - 1)); // wait PSC set
+	writeRegThenWait(TIM7_PSC, (4000-1), 0, 16); // timer frequency = 108MHz / 4000 = 27KHz (APB pre-sacle is not 1, so fCK_PSC = 54MHz * 2 = 108MHz)
 	
 	// Set 0 to CNT
-	//*((uint32_t *)TIM7_CNT) = (uint32_t)0x00000000; // reset CNT
+	//writeRegThenWait(TIM7_CNT, 0, 0, 16); // reset CNT
 
 	// Clear timer update interrupt flag
-	*((uint32_t *)TIM7_SR) &= (uint32_t)~0x00000001; // reset UIF
+	writeRegThenWait(TIM7_SR, 0b0, 0, 1); // reset UIF
 	
 	// Set 13500 to reload value
-	*((uint32_t *)TIM7_ARR) = (uint32_t)(0x000034BC - 1); // 500ms interrupt
-	while((*((uint32_t *)TIM7_ARR) & 0x0000FFFF) != (uint32_t)(0x000034BC - 1)); // wait ARR set
+	writeRegThenWait(TIM7_ARR, (13500-1), 0, 16);
 	
 	// Enable TIM7 CEN
-	*((uint32_t *)TIM7_CR1) |= (uint32_t)0x00000001;
+	writeRegThenWait(TIM7_CR1, 0b1, 0, 1);
 }
 #endif
 
 // USART TX pin initialization
 static void initGPIOA9(void)
 {
-	uint32_t pin  = 9;
-	uint32_t temp = 0x00000000;
-
-	// Enable AHB1 GPIOA RCC
-	*((uint32_t *)RCC_AHB1ENR) |= 0x00000001;
-	while((*((uint32_t *)RCC_AHB1ENR) & 0x00000001) == 0); // wait AHB1 GPIOA RCC set
-
-	// Set GPIO MODER register
-	temp = *((uint32_t *)GPIOA_MODER);
-	temp &= ~(0x3 << (pin * 2)); // clear bits
-	temp |= (GPIO_MODER_MULTI << (pin * 2)); // set bits
-	*((uint32_t *)GPIOA_MODER) = temp;
-
-	// Set GPIO OTYPER register
-	temp = *((uint32_t *)GPIOA_OTYPER);
-	temp &= ~(0x1 << pin);
-	temp |= (GPIO_OTYPER_PP << pin);
-	*((uint32_t *)GPIOA_OTYPER) = temp;
-
-	// Set GPIO OSPEEDR register
-	temp = *((uint32_t *)GPIOA_OSPEEDR);
-	temp &= ~(0x3 << (pin * 2));
-	temp |= (GPIO_OSPEEDR_FULL << (pin * 2));
-	*((uint32_t *)GPIOA_OSPEEDR) = temp;
-
-	// Set GPIO PUPDR register
-	temp = *((uint32_t *)GPIOA_PUPDR);
-	temp &= ~(0x3 << (pin * 2));
-	temp |= (GPIO_PUPDR_UP << (pin * 2));
-	*((uint32_t *)GPIOA_PUPDR) = temp;
-
-	// Set GPIO AFRH register
-	temp = *((uint32_t *)GPIOA_AFRH);
-	temp &= ~(0x7 << ((pin - 8) * 4));
-	temp |= (GPIO_AFR_AF7 << ((pin - 8) * 4));
-	*((uint32_t *)GPIOA_AFRH) = temp;
+	/*
+	writeRegThenWait(RCC_AHB1ENR, 1, 0, 1);
+	writeRegThenWait(GPIOA_MODER,	GPIO_MODER_MULTI,	9*2,		2);
+	writeRegThenWait(GPIOA_OTYPER,	GPIO_OTYPER_PP,		9,			1);
+	writeRegThenWait(GPIOA_OSPEEDR,	GPIO_OSPEEDR_FULL,	9*2,		2);
+	writeRegThenWait(GPIOA_PUPDR,	GPIO_PUPDR_UP,		9*2,		2);
+	writeRegThenWait(GPIOA_AFRH,	GPIO_AFR_AF7,		(9-8)*4,	4);
+	*/
+	writeRegMask(RCC_AHB1ENR,	~0x00000001,	0x00000001);
+	writeRegMask(GPIOA_MODER,	~0x000C0000,	0x00080000);
+	writeRegMask(GPIOA_OTYPER,	~0x00000200,	0x00000000);
+	writeRegMask(GPIOA_OSPEEDR,	~0x000C0000,	0x000C0000);
+	writeRegMask(GPIOA_PUPDR,	~0x000C0000,	0x00040000);
+	writeRegMask(GPIOA_AFRH,	~0x000000F0,	0x00000070);
 }
 
 // USART RX pin initialization
 static void initGPIOB7(void)
 {
-	uint32_t pin  = 7;
-	uint32_t temp = 0x00000000;
-
-	// Enable AHB1 GPIOB RCC
-	*((uint32_t *)RCC_AHB1ENR) |= 0x00000002;
-	while((*((uint32_t *)RCC_AHB1ENR) & 0x00000002) == 0); // wait AHB1 GPIOB RCC set
-
-	// Set GPIO MODER register
-	temp = *((uint32_t *)GPIOB_MODER);
-	temp &= ~(0x3 << (pin * 2)); // clear bits
-	temp |= (GPIO_MODER_MULTI << (pin * 2)); // set bits
-	*((uint32_t *)GPIOB_MODER) = temp;
-
-	// Set GPIO OTYPER register
-	temp = *((uint32_t *)GPIOB_OTYPER);
-	temp &= ~(0x1 << pin);
-	temp |= (GPIO_OTYPER_PP << pin);
-	*((uint32_t *)GPIOB_OTYPER) = temp;
-
-	// Set GPIO AFRL register
-	temp = *((uint32_t *)GPIOB_AFRL);
-	temp &= ~(0x7 << (pin * 4));
-	temp |= (GPIO_AFR_AF7 << (pin * 4));
-	*((uint32_t *)GPIOB_AFRL) = temp;
-
+	/*
+	writeRegThenWait(RCC_AHB1ENR, 1, 1, 1);
+	writeRegThenWait(GPIOB_MODER,	GPIO_MODER_MULTI,	7*2,		2);
+	writeRegThenWait(GPIOB_OTYPER,	GPIO_OTYPER_PP,		7,			1);
+	writeRegThenWait(GPIOB_AFRL,	GPIO_AFR_AF7,		7*4,		4);
+	*/
+	writeRegMask(RCC_AHB1ENR,	~0x00000002,	0x00000002);
+	writeRegMask(GPIOB_MODER,	~0x000C0000,	0x00080000);
+	writeRegMask(GPIOB_OTYPER,	~0x00000200,	0x00000000);
 	// RX line need not to set OSPEEDR and PUPDR
+	writeRegMask(GPIOB_AFRL,	~0xF0000000,	0x70000000);
 }
 
 // LED1 pin initialization
 static void initGPIOI1(void)
 {
-	uint32_t pin  = 1;
-	uint32_t temp = 0x00000000;
-
-	// Enable AHB1 GPIOI RCC
-	*((uint32_t *)RCC_AHB1ENR) |= 0x00000100;
-	while((*((uint32_t *)RCC_AHB1ENR) & 0x00000100) == 0); // wait AHB1 GPIOI RCC set
-
-	// Set GPIO MODER register
-	temp = *((uint32_t *)GPIOI_MODER);
-	temp &= ~(0x3 << (pin * 2)); // clear bits
-	temp |= (GPIO_MODER_OUT << (pin * 2)); // set bits
-	*((uint32_t *)GPIOI_MODER) = temp;
-
-	// Set GPIO OTYPER register
-	temp = *((uint32_t *)GPIOI_OTYPER);
-	temp &= ~(0x1 << pin);
-	temp |= (GPIO_OTYPER_PP << pin);
-	*((uint32_t *)GPIOI_OTYPER) = temp;
-
-	// Set GPIO OSPEEDR register
-	temp = *((uint32_t *)GPIOI_OSPEEDR);
-	temp &= ~(0x3 << (pin * 2));
-	temp |= (GPIO_OSPEEDR_FULL << (pin * 2));
-	*((uint32_t *)GPIOI_OSPEEDR) = temp;
-
-	// Set GPIO PUPDR register
-	temp = *((uint32_t *)GPIOI_PUPDR);
-	temp &= ~(0x3 << (pin * 2));
-	temp |= (GPIO_PUPDR_UP << (pin * 2));
-	*((uint32_t *)GPIOI_PUPDR) = temp;
+	writeRegThenWait(RCC_AHB1ENR,	0b1, 8, 1);
+	writeRegThenWait(GPIOI_MODER,	GPIO_MODER_OUT,		1*2,		2);
+	writeRegThenWait(GPIOI_OTYPER,	GPIO_OTYPER_PP,		1,			1);
+	writeRegThenWait(GPIOI_OSPEEDR,	GPIO_OSPEEDR_FULL,	1*2,		2);
+	writeRegThenWait(GPIOI_PUPDR,	GPIO_PUPDR_UP,		1*2,		2);
 }
