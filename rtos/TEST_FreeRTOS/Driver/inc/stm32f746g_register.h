@@ -95,6 +95,7 @@
 #define GPIOK_BASE			(AHB1PERIPH_BASE + 0x2800UL)
 #define RCC_BASE			(AHB1PERIPH_BASE + 0x3800UL)
 #define FLASH_BASE			(AHB1PERIPH_BASE + 0x3C00UL)
+#define FMC_BASE			(AHB3PERIPH_BASE + 0x40000000UL)
 #define PWR_BASE			(APB1PERIPH_BASE + 0x7000UL)
 #define TIM7_BASE			(APB1PERIPH_BASE + 0x1400UL)
 #define USART1_BASE			(APB2PERIPH_BASE + 0x1000UL)
@@ -140,6 +141,15 @@
 #define RCC_PLLSAI_CFGR		((uint32_t *)(RCC_BASE + 0x88UL))
 #define RCC_DCKCF_GR1 		((uint32_t *)(RCC_BASE + 0x8CUL))
 #define RCC_DCKCF_GR2 		((uint32_t *)(RCC_BASE + 0x90UL))
+
+// FMC(Flexible Memory Control) register definition
+#define FMC_SDCR1			((uint32_t *)(FMC_BASE + 0x140UL))
+#define FMC_SDCR2			((uint32_t *)(FMC_BASE + 0x144UL))
+#define FMC_SDTR1			((uint32_t *)(FMC_BASE + 0x148UL))
+#define FMC_SDTR2			((uint32_t *)(FMC_BASE + 0x14CUL))
+#define FMC_SDCMR			((uint32_t *)(FMC_BASE + 0x150UL))
+#define FMC_SDRTR			((uint32_t *)(FMC_BASE + 0x154UL))
+#define FMC_SDSR			((uint32_t *)(FMC_BASE + 0x158UL))
 
 // USART1 register definition
 #define USART1_CR1			((uint32_t *)(USART1_BASE + 0x00UL))
