@@ -52,9 +52,9 @@ static void initSystick(void);
 static void initUSART1Int(void);
 static void initLED1(void);
 static void initUSART1(void);
-static void initGPIOA9(void);
-static void initGPIOB7(void);
-static void initGPIOI1(void);
+static void initUartGPIO(void);
+static void initLED1GPIO(void);
+static void initSDRAMGPIO(void);
 
 #ifdef MODE_STAND_ALONE
 static void initTIM7Int(void);
@@ -257,7 +257,6 @@ static void initSystemClock(void)
 	waitBitsSet(RCC_CR, ~0x02000000); // wait for PLLRDY
 
 	// 7. System clock activation on the main PLL
-
 	writeRegThenWait(RCC_CFGR, 0b0000, 4, 4); // set HPRE  (AHB  pre-scaler) to 1 (216 MHz)
 	writeRegThenWait(RCC_CFGR, 0b101, 10, 3); // set PPRE1 (APB1 pre-scaler) to 4 (54  MHz)
 	writeRegThenWait(RCC_CFGR, 0b100, 13, 3); // set PPRE2 (APB2 pre-scaler) to 2 (108 MHz)
@@ -338,15 +337,14 @@ static void initSystickInt(void)
 // LED1 initialization
 static void initLED1(void)
 {
-	initGPIOI1();
+	initLED1GPIO();
 }
 
 // USART1 initialization
 static void initUSART1(void)
 {
 	// Initialize USART1 TX/RX pin
-	initGPIOA9(); // TX
-	initGPIOB7(); // RX
+	initUartGPIO();
 
 	// Enable APB2 USART1 RCC
 	writeRegThenWait(RCC_APB2ENR, 0b1, 4, 1);
@@ -432,8 +430,8 @@ static void initTIM7(void)
 }
 #endif
 
-// USART TX pin initialization
-static void initGPIOA9(void)
+// USART TX pin initialization (TX:GPIOA9, RX:GPIOB7)
+static void initUartGPIO(void)
 {
 	/*
 	writeRegThenWait(RCC_AHB1ENR, 1, 0, 1);
@@ -442,6 +440,11 @@ static void initGPIOA9(void)
 	writeRegThenWait(GPIOA_OSPEEDR,	GPIO_OSPEEDR_FULL,	9*2,		2);
 	writeRegThenWait(GPIOA_PUPDR,	GPIO_PUPDR_UP,		9*2,		2);
 	writeRegThenWait(GPIOA_AFRH,	GPIO_AFR_AF7,		(9-8)*4,	4);
+
+	writeRegThenWait(RCC_AHB1ENR, 1, 1, 1);
+	writeRegThenWait(GPIOB_MODER,	GPIO_MODER_MULTI,	7*2,		2);
+	writeRegThenWait(GPIOB_OTYPER,	GPIO_OTYPER_PP,		7,			1);
+	writeRegThenWait(GPIOB_AFRL,	GPIO_AFR_AF7,		7*4,		4);
 	*/
 	writeRegMask(RCC_AHB1ENR,	~0x00000001,	0x00000001);
 	writeRegMask(GPIOA_MODER,	~0x000C0000,	0x00080000);
@@ -449,17 +452,7 @@ static void initGPIOA9(void)
 	writeRegMask(GPIOA_OSPEEDR,	~0x000C0000,	0x000C0000);
 	writeRegMask(GPIOA_PUPDR,	~0x000C0000,	0x00040000);
 	writeRegMask(GPIOA_AFRH,	~0x000000F0,	0x00000070);
-}
 
-// USART RX pin initialization
-static void initGPIOB7(void)
-{
-	/*
-	writeRegThenWait(RCC_AHB1ENR, 1, 1, 1);
-	writeRegThenWait(GPIOB_MODER,	GPIO_MODER_MULTI,	7*2,		2);
-	writeRegThenWait(GPIOB_OTYPER,	GPIO_OTYPER_PP,		7,			1);
-	writeRegThenWait(GPIOB_AFRL,	GPIO_AFR_AF7,		7*4,		4);
-	*/
 	writeRegMask(RCC_AHB1ENR,	~0x00000002,	0x00000002);
 	writeRegMask(GPIOB_MODER,	~0x000C0000,	0x00080000);
 	writeRegMask(GPIOB_OTYPER,	~0x00000200,	0x00000000);
@@ -467,12 +460,205 @@ static void initGPIOB7(void)
 	writeRegMask(GPIOB_AFRL,	~0xF0000000,	0x70000000);
 }
 
-// LED1 pin initialization
-static void initGPIOI1(void)
+// LED1 pin initialization (GPIOI1)
+static void initLED1GPIO(void)
 {
 	writeRegThenWait(RCC_AHB1ENR,	0b1, 8, 1);
 	writeRegThenWait(GPIOI_MODER,	GPIO_MODER_OUT,		1*2,		2);
 	writeRegThenWait(GPIOI_OTYPER,	GPIO_OTYPER_PP,		1,			1);
 	writeRegThenWait(GPIOI_OSPEEDR,	GPIO_OSPEEDR_FULL,	1*2,		2);
 	writeRegThenWait(GPIOI_PUPDR,	GPIO_PUPDR_UP,		1*2,		2);
+
+}
+
+// SDRAM pin initialization
+//  FMC_SDCLK
+//  FMC_NBL0   / FMC_NBL1
+//  FMC_SDNRAS / FMC_SDNCAS
+//  FMC_SDCKE0
+//  FMC_SDNE0
+//  FMC_SDNWE
+//  FMC_BA[0:1]
+//  FMC_A[0:11]
+//  FMC_D[0:15]
+static void initSDRAMGPIO(void)
+{
+	// GPIOC
+	// PC3  --> FMC_SDCKE0
+	writeRegMask(RCC_AHB1ENR,		~0x00000004,	0x00000004);
+	writeRegMask(GPIO_MODER(C),		~0x000000C0,	0x00000080); // MODER = 10(Multiple)
+	writeRegMask(GPIO_OTYPER(C),	~0x00000010,	0x00000000); // OTYPER = PP
+	writeRegMask(GPIO_OSPEEDR(C),	~0x000000C0,	0x000000C0); // OSPEEDR = Full
+	writeRegMask(GPIO_PUPDR(C),		~0x000000C0,	0x00000000); // PUPDR = No Pull
+	writeRegMask(GPIO_AFRL(C),		~0x0000F000,	0x0000C000); // AF = AF12
+
+	// GPIOD
+	// PD0  --> FMC_D2
+	// PD1  --> FMC_D3
+	// PD8  --> FMC_D13
+	// PD9  --> FMC_D14
+	// PD10 --> FMC_D15
+	// PD14 --> FMC_D0
+	// PD15 --> FMC_D1
+	writeRegMask(RCC_AHB1ENR,		~0x00000008,	0x00000008);
+	writeRegMask(GPIO_MODER(D),		~0xF03F000F,	0xA02A000A); // MODER = 10(Multiple)
+	writeRegMask(GPIO_OTYPER(D),	~0x0000C703,	0x00000000); // OTYPER = PP
+	writeRegMask(GPIO_OSPEEDR(D),	~0xF03F000F,	0xF03F000F); // OSPEEDR = Full
+	writeRegMask(GPIO_PUPDR(D),		~0xF03F000F,	0x00000000); // PUPDR = No Pull
+	writeRegMask(GPIO_AFRL(D),		~0x000000FF,	0x000000CC); // AF = AF12
+	writeRegMask(GPIO_AFRH(D),		~0xFF000FFF,	0xCC000CCC); // AF = AF12
+
+	// GPIOE
+	// PE0  --> FMC_NBL0
+	// PE1  --> FMC_NBL1
+	// PE7  --> FMC_D4
+	// PE8  --> FMC_D5
+	// PE9  --> FMC_D6
+	// PE10 --> FMC_D7
+	// PE11 --> FMC_D8
+	// PE12 --> FMC_D9
+	// PE13 --> FMC_D10
+	// PE14 --> FMC_D11
+	// PE15 --> FMC_D12
+	writeRegMask(RCC_AHB1ENR,		~0x00000010,	0x00000010);
+	writeRegMask(GPIO_MODER(E),		~0xFFFFC00F,	0xAAAA800A); // MODER = 10(Multiple)
+	writeRegMask(GPIO_OTYPER(E),	~0x0000FF83,	0x00000000); // OTYPER = PP
+	writeRegMask(GPIO_OSPEEDR(E),	~0xFFFFC00F,	0xFFFFC00F); // OSPEEDR = Full
+	writeRegMask(GPIO_PUPDR(E),		~0xFFFFC00F,	0x00000000); // PUPDR = No Pull
+	writeRegMask(GPIO_AFRL(E),		~0xF00000FF,	0xC00000CC); // AF = AF12
+	writeRegMask(GPIO_AFRH(E),		~0xFFFFFFFF,	0xCCCCCCCC); // AF = AF12
+
+	// GPIOF
+	// PF0  --> FMC_A0
+	// PF1  --> FMC_A1
+	// PF2  --> FMC_A2
+	// PF3  --> FMC_A3
+	// PF4  --> FMC_A4
+	// PF5  --> FMC_A5
+	// PF11 --> FMC_SDNRAS
+	// PF12 --> FMC_A6
+	// PF13 --> FMC_A7
+	// PF14 --> FMC_A8
+	// PF15 --> FMC_A9
+	writeRegMask(RCC_AHB1ENR,		~0x00000020,	0x00000020);
+	writeRegMask(GPIO_MODER(F),		~0xFFC00FFF,	0xAA800AAA); // MODER = 10(Multiple)
+	writeRegMask(GPIO_OTYPER(F),	~0x0000F83F,	0x00000000); // OTYPER = PP
+	writeRegMask(GPIO_OSPEEDR(F),	~0xFFC00FFF,	0xFFC00FFF); // OSPEEDR = Full
+	writeRegMask(GPIO_PUPDR(F),		~0xFFC00FFF,	0x00000000); // PUPDR = No Pull
+	writeRegMask(GPIO_AFRL(F),		~0x00FFFFFF,	0x00CCCCCC); // AF = AF12
+	writeRegMask(GPIO_AFRH(F),		~0xFFFFF000,	0xCCCCC000); // AF = AF12
+
+	// GPIOG
+	// PG0  --> FMC_A10
+	// PG1  --> FMC_A11
+	// PG4  --> FMC_BA0
+	// PG5  --> FMC_BA1
+	// PG8  --> FMC_SDCLK
+	// PG15 --> FMC_SDNCAS
+	writeRegMask(RCC_AHB1ENR,		~0x00000040,	0x00000040);
+	writeRegMask(GPIO_MODER(G),		~0xC0030F0F,	0x80020A0A); // MODER = 10(Multiple)
+	writeRegMask(GPIO_OTYPER(G),	~0x00008133,	0x00000000); // OTYPER = PP
+	writeRegMask(GPIO_OSPEEDR(G),	~0xC0030F0F,	0xC0030F0F); // OSPEEDR = Full
+	writeRegMask(GPIO_PUPDR(G),		~0xC0030F0F,	0x00000000); // PUPDR = No Pull
+	writeRegMask(GPIO_AFRL(G),		~0x00FF00FF,	0x00CC00CC); // AF = AF12
+	writeRegMask(GPIO_AFRH(G),		~0xF000000F,	0xC000000C); // AF = AF12
+
+	// GPIOH
+	// PH3  --> FMC_SDNE0
+	// PH5  --> FMC_SDNWE
+	writeRegMask(RCC_AHB1ENR,		~0x00000080,	0x00000080);
+	writeRegMask(GPIO_MODER(H),		~0x00000CC0,	0x00000880); // MODER = 10(Multiple)
+	writeRegMask(GPIO_OTYPER(H),	~0x00000028,	0x00000000); // OTYPER = PP
+	writeRegMask(GPIO_OSPEEDR(H),	~0x00000CC0,	0x00000CC0); // OSPEEDR = Full
+	writeRegMask(GPIO_PUPDR(H),		~0x00000CC0,	0x00000000); // PUPDR = No Pull
+	writeRegMask(GPIO_AFRL(H),		~0x00F0F000,	0x00C0C000); // AF = AF12
+}
+
+/*
+ * The following description is copied from MT48LC4M32B data-sheet.
+ * The recommended power-up sequence for SDRAM:
+ * 1.  Simultaneously apply power to VDD and VDDQ.
+ * 2.  Assert and hold CKE at a LVTTL logic LOW since all inputs and outputs are
+ *     LVTTL compatible.
+ * 3.  Provide stable CLOCK signal. Stable clock is defined as a signal cycling
+ *     within timing constraints specified for the clock pin.
+ * 4.  Wait at least 100˩s prior to issuing any command other than a
+ *     COMMAND INHIBIT or NOP.
+ * 5.  Starting at some point during this 100us period, bring CKE HIGH.
+ *     Continuing at least through the end of this period, 1 or more
+ *     COMMAND INHIBIT or NOP commands must be applied.
+ * 6.  Perform a PRECHARGE ALL command.
+ * 7.  Wait at least tRP time; during this time NOPs or DESELECT commands must
+ *     be given. All banks will complete their pre-charge, thereby placing
+ *     the device in the all banks idle state.
+ * 8.  Issue an AUTO REFRESH command.
+ * 9.  Wait at least tRFC time, during which only NOPs or COMMAND INHIBIT
+ *     commands are allowed.
+ * 10. Issue an AUTO REFRESH command.
+ * 11. Wait at least tRFC time, during which only NOPs or COMMAND INHIBIT
+ *     commands are allowed.
+ * 12. The SDRAM is now ready for mode register programming. Because the mode
+ *     register will power up in an unknown state, it should be loaded with
+ *     desired bit values prior to applying any operational command.
+ *     Using the LMR command, program the mode register.
+ *     The mode register is programmed via the MODE REGISTER SET command
+ *     with BA1 = 0, BA0 = 0 and retains the stored information until it is
+ *     programmed again or the device loses power.
+ *     Not programming the mode register upon initialization will result in
+ *     default settings which may not be desired. Outputs are guaranteed High-Z
+ *     after the LMR command is issued. Outputs should be High-Z already
+ *     before the LMR command is issued.
+ * 13. Wait at least tMRD time, during which only NOP or DESELECT commands
+ *     are allowed.
+ * At this point the DRAM is ready for any valid command.
+ *
+ */
+// SDRAM initialization
+static void initSDRAM(void)
+{
+	// Initialize GPIO for FMC
+	initSDRAMGPIO();
+
+	// Enable FMC RCC
+	writeRegMaskThenWait(RCC_AHB3ENR, ~0x00000001, 0x00000001);
+
+	// The following comment is copied from STM32F746G data-sheet FMC-SDRAM chapter.
+	// 1. Program the memory device features into the FMC_SDCRx register.
+	//    The SDRAM clock frequency, RBURST and RPIPE must be programmed in
+	//    the FMC_SDCR1 register.
+
+	// 2. Program the memory device timing into the FMC_SDTRx register.
+	//    The TRP and TRC timings must be programmed in the FMC_SDTR1 register.
+
+	// 3. Set MODE bits to ‘001’ and configure the Target Bank bits
+	//    (CTB1 and/or CTB2) in the	FMC_SDCMR register to start delivering
+	//    the clock to the memory (SDCKE is driven high).
+
+	// 4. Wait during the prescribed delay period. Typical delay is around
+	//    100 us (refer to the SDRAM datasheet for the required delay after power-up).
+
+	// 5. Set MODE bits to ‘010’ and configure the Target Bank bits
+	//    (CTB1 and/or CTB2) in the FMC_SDCMR register to issue a “Precharge All” command.
+
+	// 6. Set MODE bits to ‘011’, and configure the Target Bank bits
+	//    (CTB1 and/or CTB2) as well as the number of consecutive Auto-refresh
+	//    commands (NRFS) in the FMC_SDCMR register.
+	//    Refer to the SDRAM datasheet for the number of Auto-refresh commands
+	//    that should be issued. Typical number is 8.
+
+	// 7. Configure the MRD field according to the SDRAM device, set the MODE bits
+	//    to '100', and configure the Target Bank bits (CTB1 and/or CTB2) in
+	//    the FMC_SDCMR register to issue a "Load Mode Register" command in order to
+	//    program the SDRAM device. In particular:
+	//    a) the CAS latency must be selected following configured value in
+	//       FMC_SDCR1/2 registers
+	//    b) the Burst Length (BL) of 1 must be selected by configuring the
+	//       M[2:0] bits to 000 in the mode register. Refer to SDRAM device datasheet.
+	//    If the Mode Register is not the same for both SDRAM banks,
+	//    this step has to be repeated twice, once for each bank,
+	//    and the Target Bank bits set accordingly.
+
+	// 8. Program the refresh rate in the FMC_SDRTR register
+	//    The refresh rate corresponds to the delay between refresh cycles.
+	//    Its value must be adapted to SDRAM devices.
 }

@@ -200,4 +200,16 @@
 #define GPIOI_AFRL			((uint32_t *)(GPIOI_BASE + 0x20UL))
 #define GPIOI_AFRH			((uint32_t *)(GPIOI_BASE + 0x24UL))
 
+// GPIO register definition
+#define GPIO_MODER(group)	((uint32_t *)(GPIO##group_BASE + 0x00UL))
+#define GPIO_OTYPER(group)	((uint32_t *)(GPIO##group_BASE + 0x04UL))
+#define GPIO_OSPEEDR(group)	((uint32_t *)(GPIO##group_BASE + 0x08UL))
+#define GPIO_PUPDR(group)	((uint32_t *)(GPIO##group_BASE + 0x0CUL))
+#define GPIO_IDR(group)		((uint32_t *)(GPIO##group_BASE + 0x10UL))
+#define GPIO_ODR(group)		((uint32_t *)(GPIO##group_BASE + 0x14UL))
+#define GPIO_BSRR(group)	((uint32_t *)(GPIO##group_BASE + 0x18UL))
+#define GPIO_LCKR(group)	((uint32_t *)(GPIO##group_BASE + 0x1CUL))
+#define GPIO_AFRL(group)	((uint32_t *)(GPIO##group_BASE + 0x20UL))
+#define GPIO_AFRH(group)	((uint32_t *)(GPIO##group_BASE + 0x24UL))
+
 #endif
