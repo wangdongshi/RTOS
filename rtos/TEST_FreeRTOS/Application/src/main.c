@@ -15,9 +15,12 @@
 #include "task.h"
 #include "stm32f746g_disco_driver.h"
 
+#define SDRAM_SIZE			(0x800000UL)
+
 void startTask(void *pvParameters);
 void mainTask(void *pvParameters);
 void led1Task(void *pvParameters);
+bool checkSDRAM(void);
 #ifdef MODE_STAND_ALONE
 void executeCmd(const char* cmd);
 #endif
@@ -64,17 +67,44 @@ void led1Task(void *pvParameters)
 
 void mainTask(void *pvParameters)
 {
-	// test assert
-	assert_param(100 == 100);
-
 	// print shell banner
 	printf("Welcome to STM32F746G-DISCO !\r\n");
 	//printf("Test FPU function with float value(%.4f). \r\n", 99.99f);
+
+	// test SDRAM
+	//assert_param(checkSDRAM());
+	if (checkSDRAM()) {
+		printf("SDRAM initialization is finished !\r\n");
+	}
 
 	// main loop
 	while(1) {
 		vTaskDelay(50);
 	}
+}
+
+bool checkSDRAM(void)
+{
+	uint8_t* p;
+
+	// check after write
+	for (p = (uint8_t *)SDRAM_BANK1; (uint32_t)p < SDRAM_BANK1 + SDRAM_SIZE; p += 0x100000) {
+		*p = 0xA5;
+		if ((*p) != 0xA5) return FALSE;
+	}
+	p = (uint8_t *)(SDRAM_BANK1 + SDRAM_SIZE - 1);
+	*p = 0x5A;
+	if ((*p) != 0x5A) return FALSE;
+
+	// check delay
+	for (volatile uint32_t i = 0; i < 1000000; i++);
+	for (p = (uint8_t *)SDRAM_BANK1; (uint32_t)p < SDRAM_BANK1 + SDRAM_SIZE; p += 0x100000) {
+		if ((*p) != 0xA5) return FALSE;
+	}
+	p = (uint8_t *)(SDRAM_BANK1 + SDRAM_SIZE - 1);
+	if ((*p) != 0x5A) return FALSE;
+
+	return TRUE;
 }
 
 #ifdef MODE_STAND_ALONE

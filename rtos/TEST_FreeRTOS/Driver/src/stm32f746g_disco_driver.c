@@ -43,6 +43,7 @@ static void waitBitsSet(uint32_t* addr, uint32_t mask);
 static __attribute__((unused)) void waitBitsClear(uint32_t* addr, uint32_t mask);
 
 static void initFPU(void);
+static void initSDRAM(void);
 static void initSystemClock(void);
 static void initNVICPriorityGroup(void);
 static void initSystickInt(void);
@@ -66,10 +67,11 @@ static void initTIM7(void);
 void initBoard(void)
 {
 	initFPU();
+	initSystemClock();
+	initSDRAM();
 	initNVICPriorityGroup();
 	initSVCallInt();
 	initPendSVInt();
-	initSystemClock();
 	initLED1();
 	initUSART1();
 	initSystick();
@@ -623,28 +625,70 @@ static void initSDRAM(void)
 	writeRegMaskThenWait(RCC_AHB3ENR, ~0x00000001, 0x00000001);
 
 	// The following comment is copied from STM32F746G data-sheet FMC-SDRAM chapter.
+	// Set MCU-FMC register
 	// 1. Program the memory device features into the FMC_SDCRx register.
 	//    The SDRAM clock frequency, RBURST and RPIPE must be programmed in
 	//    the FMC_SDCR1 register.
+	uint32_t NC     = 0b00 << 0;	// 8 bits
+	uint32_t NR     = 0b01 << 2;	// 12 bits
+	uint32_t NWID   = 0b01 << 4;	// 16 bits
+	uint32_t NB     = 0b1 << 6;		// 4 banks
+	uint32_t CAS    = 0b11 << 7;	// 3 cycles
+	uint32_t WP     = 0b0 << 9;		// enable write operation
+	uint32_t SDCLK  = 0b10 << 10;	// HCLK x 2 = 108MHz = 9.26ns
+	uint32_t RBURST = 0b1 << 12;	// enable burst mode
+	uint32_t RPIPE  = 0b0 << 13;	// 0 latency after CAS
+	uint32_t SDCR   = NC | NR | NWID | NB | CAS | WP | SDCLK | RBURST | RPIPE;
+	writeRegMaskThenWait(FMC_SDCR1, ~0x00007FFF, SDCR);
 
 	// 2. Program the memory device timing into the FMC_SDTRx register.
 	//    The TRP and TRC timings must be programmed in the FMC_SDTR1 register.
+	uint32_t TMRD	= 1 << 0;		// 1 cycle : uncertain !
+	uint32_t TXSR	= 8 << 4;		// 8 x 9.26 = 74.08ns > tXSR(70ns)
+	uint32_t TRAS	= 3 << 8;		// 3 x 9.26 = 27.78ns < tRFC(70ns) : uncertain !
+	uint32_t TRC	= 8 << 12;		// 8 x 9.26 = 74.08ns > tRC(70ns)
+	uint32_t TWR	= 3 << 16;		// 3 x 9.26 = 27.78ns > tWR(1CLK+7ns or 14ns) : uncertain !
+	uint32_t TRP	= 3 << 20;		// 3 x 9.26 = 27.78ns > tRP(20ns)
+	uint32_t TRCD	= 3 << 24;		// 3 x 9.26 = 27.78ns < tRCD(20ns)
+	uint32_t SDTR	= TMRD | TXSR | TRAS | TRC | TWR | TRP | TRCD;
+	writeRegMaskThenWait(FMC_SDTR1, ~0x0FFFFFFF, SDTR);
 
+	// Set SDRAM-MODE register
+	uint32_t MODE, CTB1, NRFS, MRD, SDCMR;
 	// 3. Set MODE bits to ‘001’ and configure the Target Bank bits
 	//    (CTB1 and/or CTB2) in the	FMC_SDCMR register to start delivering
 	//    the clock to the memory (SDCKE is driven high).
+	MODE	= 0b001 << 0;	// clock assign enable
+	CTB1	= 0b1 << 4;		// CTB1 enable
+	NRFS	= 0 << 5;		// not use
+	MRD		= 0 << 9;		// not use
+	SDCMR	= MODE | CTB1 | NRFS | MRD;
+	writeRegMask(FMC_SDCMR, ~0x003FFFFF, SDCMR);
 
 	// 4. Wait during the prescribed delay period. Typical delay is around
 	//    100 us (refer to the SDRAM datasheet for the required delay after power-up).
+	for (volatile uint32_t i = 0; i < 50000; i++); // at least 100 us delay here, (216MHz = 4.63ns, 100us / 2.63ns = 21598)
 
 	// 5. Set MODE bits to ‘010’ and configure the Target Bank bits
 	//    (CTB1 and/or CTB2) in the FMC_SDCMR register to issue a “Precharge All” command.
+	MODE	= 0b010 << 0;	// pre-charge all
+	CTB1	= 0b1 << 4;		// CTB1 enable
+	NRFS	= 0 << 5;		// not use
+	MRD		= 0 << 9;		// not use
+	SDCMR	= MODE | CTB1 | NRFS | MRD;
+	writeRegMask(FMC_SDCMR, ~0x003FFFFF, SDCMR);
 
 	// 6. Set MODE bits to ‘011’, and configure the Target Bank bits
 	//    (CTB1 and/or CTB2) as well as the number of consecutive Auto-refresh
 	//    commands (NRFS) in the FMC_SDCMR register.
 	//    Refer to the SDRAM datasheet for the number of Auto-refresh commands
 	//    that should be issued. Typical number is 8.
+	MODE	= 0b011 << 0;	// auto-refresh
+	CTB1	= 0b1 << 4;		// CTB1 enable
+	NRFS	= 8 << 5;		// typical number is 8.
+	MRD		= 0 << 9;		// not use
+	SDCMR	= MODE | CTB1 | NRFS | MRD;
+	writeRegMask(FMC_SDCMR, ~0x003FFFFF, SDCMR);
 
 	// 7. Configure the MRD field according to the SDRAM device, set the MODE bits
 	//    to '100', and configure the Target Bank bits (CTB1 and/or CTB2) in
@@ -658,7 +702,27 @@ static void initSDRAM(void)
 	//    this step has to be repeated twice, once for each bank,
 	//    and the Target Bank bits set accordingly.
 
+	// The mode register of MT48LC4M32B can refer to following definition.
+	//  -|---------------|----|---------|--------------|----|--------------|-
+	//   | 12 | 11 | 10  |  9 |  8 |  7 |  6 |  5 |  4 |  3 |  2 |  1 |  0 |
+	//  -|---------------|----|---------|--------------|----|--------------|-
+	//   |  Reserved     | WB | Op Mode | CAS Latency  | BT | Burst Length |
+	//  -|---------------|----|---------|--------------|----|--------------|-
+	uint16_t MODEREG_BURST_LENGTH	= 0b000 << 0;	// length = 1
+	uint16_t MODEREG_BURST_TYPE		= 0b0 << 3;		// sequential
+	uint16_t MODEREG_CAS_LATENCY	= 0b011 << 4;	// latency = 3
+	uint16_t MODEREG_OP_MODE		= 0b00 << 7;	// standard
+	uint16_t MODEREG_WRITE_BURST	= 0b1 << 9;		// single
+	uint16_t MODEREG = MODEREG_BURST_LENGTH | MODEREG_BURST_TYPE | MODEREG_CAS_LATENCY | MODEREG_OP_MODE | MODEREG_WRITE_BURST;
+	MODE	= 0b100 << 0;	// load mode register
+	CTB1	= 0b1 << 4;		// CTB1 enable
+	NRFS	= 0 << 5;		// not use
+	MRD		= MODEREG << 9;	// mode register
+	SDCMR	= MODE | CTB1 | NRFS | MRD;
+	writeRegMask(FMC_SDCMR, ~0x003FFFFF, SDCMR);
+
 	// 8. Program the refresh rate in the FMC_SDRTR register
 	//    The refresh rate corresponds to the delay between refresh cycles.
 	//    Its value must be adapted to SDRAM devices.
+	writeRegMaskThenWait(FMC_SDRTR, ~0x00003FFE, 1600 << 1);
 }

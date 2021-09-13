@@ -75,6 +75,7 @@
 // The following registers definition are refer to STM32F746G
 #define FLASH_AXIM_BASE		(0x08000000UL)
 #define PERIPH_BASE			(0x40000000UL)
+#define SDRAM_BANK1			(0xC0000000UL)
 
 #define APB1PERIPH_BASE		(PERIPH_BASE + 0x00000000UL)
 #define APB2PERIPH_BASE		(PERIPH_BASE + 0x00010000UL)
@@ -201,15 +202,15 @@
 #define GPIOI_AFRH			((uint32_t *)(GPIOI_BASE + 0x24UL))
 
 // GPIO register definition
-#define GPIO_MODER(group)	((uint32_t *)(GPIO##group_BASE + 0x00UL))
-#define GPIO_OTYPER(group)	((uint32_t *)(GPIO##group_BASE + 0x04UL))
-#define GPIO_OSPEEDR(group)	((uint32_t *)(GPIO##group_BASE + 0x08UL))
-#define GPIO_PUPDR(group)	((uint32_t *)(GPIO##group_BASE + 0x0CUL))
-#define GPIO_IDR(group)		((uint32_t *)(GPIO##group_BASE + 0x10UL))
-#define GPIO_ODR(group)		((uint32_t *)(GPIO##group_BASE + 0x14UL))
-#define GPIO_BSRR(group)	((uint32_t *)(GPIO##group_BASE + 0x18UL))
-#define GPIO_LCKR(group)	((uint32_t *)(GPIO##group_BASE + 0x1CUL))
-#define GPIO_AFRL(group)	((uint32_t *)(GPIO##group_BASE + 0x20UL))
-#define GPIO_AFRH(group)	((uint32_t *)(GPIO##group_BASE + 0x24UL))
+#define GPIO_MODER(group)	((uint32_t *)(GPIO##group##_BASE + 0x00UL))
+#define GPIO_OTYPER(group)	((uint32_t *)(GPIO##group##_BASE + 0x04UL))
+#define GPIO_OSPEEDR(group)	((uint32_t *)(GPIO##group##_BASE + 0x08UL))
+#define GPIO_PUPDR(group)	((uint32_t *)(GPIO##group##_BASE + 0x0CUL))
+#define GPIO_IDR(group)		((uint32_t *)(GPIO##group##_BASE + 0x10UL))
+#define GPIO_ODR(group)		((uint32_t *)(GPIO##group##_BASE + 0x14UL))
+#define GPIO_BSRR(group)	((uint32_t *)(GPIO##group##_BASE + 0x18UL))
+#define GPIO_LCKR(group)	((uint32_t *)(GPIO##group##_BASE + 0x1CUL))
+#define GPIO_AFRL(group)	((uint32_t *)(GPIO##group##_BASE + 0x20UL))
+#define GPIO_AFRH(group)	((uint32_t *)(GPIO##group##_BASE + 0x24UL))
 
 #endif
