@@ -40,18 +40,19 @@
  * See http://www.freertos.org/a00110.html
  *----------------------------------------------------------*/
 
-#define configUSE_PREEMPTION		1
-#define configUSE_IDLE_HOOK			0
-#define configUSE_TICK_HOOK			0
-#define configCPU_CLOCK_HZ			( ( unsigned long ) 216000000 )
-#define configTICK_RATE_HZ			( ( TickType_t ) 1000 )
-#define configMAX_PRIORITIES		( 5 )
-#define configMINIMAL_STACK_SIZE	( ( unsigned short ) 120 )
-#define configTOTAL_HEAP_SIZE		( ( size_t ) ( 18 * 1024 ) )
-#define configMAX_TASK_NAME_LEN		( 16 )
-#define configUSE_TRACE_FACILITY	1
-#define configUSE_16_BIT_TICKS		0
-#define configIDLE_SHOULD_YIELD		1
+#define configUSE_PREEMPTION				1
+#define configUSE_IDLE_HOOK					0
+#define configUSE_TICK_HOOK					0
+#define configCPU_CLOCK_HZ					( ( unsigned long ) 216000000 )
+#define configTICK_RATE_HZ					( ( TickType_t ) 1000 )
+#define configMAX_PRIORITIES				( 5 )
+#define configMINIMAL_STACK_SIZE			( ( unsigned short ) 120 )
+#define configAPPLICATION_ALLOCATED_HEAP	1
+#define configTOTAL_HEAP_SIZE				( ( size_t ) ( 1 * 1024 * 1024 ) )
+#define configMAX_TASK_NAME_LEN				( 16 )
+#define configUSE_TRACE_FACILITY			1
+#define configUSE_16_BIT_TICKS				0
+#define configIDLE_SHOULD_YIELD				1
 
 /* Co-routine definitions. */
 #define configUSE_CO_ROUTINES 		0

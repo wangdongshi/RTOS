@@ -134,6 +134,8 @@ static void vPortEnableVFP( void ) __attribute__( ( naked ) );
 static void prvTaskExitError( void );
 
 /*-----------------------------------------------------------*/
+/* User define heap in SDRAM. */
+uint8_t __attribute__((section(".sdram"))) ucHeap[ configTOTAL_HEAP_SIZE ];
 
 /* Each task maintains its own interrupt status in the critical nesting
  * variable. */
