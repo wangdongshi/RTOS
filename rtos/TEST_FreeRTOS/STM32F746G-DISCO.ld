@@ -5,7 +5,7 @@
 **  File        : LinkerScript.ld
 **
 **  Abstract    : Linker script for STM32F746NGHx Device with
-**                1024KByte FLASH, 320KByte RAM
+**                1024KByte FLASH, 320KByte SRAM
 **
 **                Set heap size, stack size and stack location according
 **                to application requirements.
@@ -36,13 +36,14 @@ ENTRY(Reset_Handler)
 MEMORY
 {
 FLASH (rx)     : ORIGIN = 0x08000000, LENGTH = 1024K
-RAM (xrw)      : ORIGIN = 0x20000000, LENGTH = 320K
+SRAM (xrw)     : ORIGIN = 0x20000000, LENGTH = 320K
+SDRAM (xrw)    : ORIGIN = 0xC0000000, LENGTH = 8M
 }
 
 /* Highest address of the user mode stack */
-_estack = ORIGIN(RAM) + LENGTH(RAM); /* end of RAM addr. of Main Stack */
+_estack = ORIGIN(SRAM) + LENGTH(SRAM); /* end of SRAM addr. of Main Stack */
 
-/* Generate a link error if heap and stack don't fit into RAM (Only use in this file) */
+/* Generate a link error if heap and stack don't fit into SRAM (Only use in this file) */
 _Min_Heap_Size	= 0x400; /* required amount of heap  (1K) */
 _Min_Stack_Size	= 0x400; /* required amount of stack (1K) */
 
@@ -114,7 +115,7 @@ SECTIONS
 	/* used by the startup to initialize data */
 	_sidata = LOADADDR(.data);
 
-	/* Initialized data sections goes into RAM, load LMA copy after code */
+	/* Initialized data sections goes into SRAM, load LMA copy after code */
 	.data : 
 	{
 		. = ALIGN(4);
@@ -124,7 +125,7 @@ SECTIONS
 
 		. = ALIGN(4);
 		 _edata = .;       /* define a global symbol at data end */
-	} > RAM AT > FLASH
+	} > SRAM AT > FLASH
 
   
 	/* Uninitialized data section */
@@ -141,9 +142,9 @@ SECTIONS
 		. = ALIGN(4);
 		_ebss = .;         /* define a global symbol at bss end */
 		__bss_end__ = _ebss;
-	} > RAM
+	} > SRAM
 
-	/* User_heap_stack section, used to check that there is enough RAM left */
+	/* User_heap_stack section, used to check that there is enough SRAM left */
 	._user_heap_stack :
 	{
 		. = ALIGN(8);
@@ -152,7 +153,16 @@ SECTIONS
 		. = . + _Min_Heap_Size;
 		. = . + _Min_Stack_Size;
 		. = ALIGN(8);
-	} > RAM
+	} > SRAM
+	
+	/* low speed data into SDRAM */
+	.sdram :
+	{
+		. = ALIGN(4);
+		*(.sdram)         /* .sdram  sections (low speed and user application data.) */
+		*(.sdram*)        /* .sdram* sections (low speed and user application data.) */
+		. = ALIGN(4);
+	} > SDRAM
 
 	/* Remove information from the standard libraries */
 	/DISCARD/ :

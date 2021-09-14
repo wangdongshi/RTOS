@@ -576,45 +576,6 @@ static void initSDRAMGPIO(void)
 	writeRegMask(GPIO_AFRL(H),		~0x00F0F000,	0x00C0C000); // AF = AF12
 }
 
-/*
- * The following description is copied from MT48LC4M32B data-sheet.
- * The recommended power-up sequence for SDRAM:
- * 1.  Simultaneously apply power to VDD and VDDQ.
- * 2.  Assert and hold CKE at a LVTTL logic LOW since all inputs and outputs are
- *     LVTTL compatible.
- * 3.  Provide stable CLOCK signal. Stable clock is defined as a signal cycling
- *     within timing constraints specified for the clock pin.
- * 4.  Wait at least 100˩s prior to issuing any command other than a
- *     COMMAND INHIBIT or NOP.
- * 5.  Starting at some point during this 100us period, bring CKE HIGH.
- *     Continuing at least through the end of this period, 1 or more
- *     COMMAND INHIBIT or NOP commands must be applied.
- * 6.  Perform a PRECHARGE ALL command.
- * 7.  Wait at least tRP time; during this time NOPs or DESELECT commands must
- *     be given. All banks will complete their pre-charge, thereby placing
- *     the device in the all banks idle state.
- * 8.  Issue an AUTO REFRESH command.
- * 9.  Wait at least tRFC time, during which only NOPs or COMMAND INHIBIT
- *     commands are allowed.
- * 10. Issue an AUTO REFRESH command.
- * 11. Wait at least tRFC time, during which only NOPs or COMMAND INHIBIT
- *     commands are allowed.
- * 12. The SDRAM is now ready for mode register programming. Because the mode
- *     register will power up in an unknown state, it should be loaded with
- *     desired bit values prior to applying any operational command.
- *     Using the LMR command, program the mode register.
- *     The mode register is programmed via the MODE REGISTER SET command
- *     with BA1 = 0, BA0 = 0 and retains the stored information until it is
- *     programmed again or the device loses power.
- *     Not programming the mode register upon initialization will result in
- *     default settings which may not be desired. Outputs are guaranteed High-Z
- *     after the LMR command is issued. Outputs should be High-Z already
- *     before the LMR command is issued.
- * 13. Wait at least tMRD time, during which only NOP or DESELECT commands
- *     are allowed.
- * At this point the DRAM is ready for any valid command.
- *
- */
 // SDRAM initialization
 static void initSDRAM(void)
 {
@@ -685,7 +646,7 @@ static void initSDRAM(void)
 	//    that should be issued. Typical number is 8.
 	MODE	= 0b011 << 0;	// auto-refresh
 	CTB1	= 0b1 << 4;		// CTB1 enable
-	NRFS	= 8 << 5;		// typical number is 8.
+	NRFS	= 8 << 5;		// typical number is 8, but according to following MT48LC4M32B manual it's at least 2 and must delay 100us between twice auto-refresh command.
 	MRD		= 0 << 9;		// not use
 	SDCMR	= MODE | CTB1 | NRFS | MRD;
 	writeRegMask(FMC_SDCMR, ~0x003FFFFF, SDCMR);
@@ -709,7 +670,7 @@ static void initSDRAM(void)
 	//   |  Reserved     | WB | Op Mode | CAS Latency  | BT | Burst Length |
 	//  -|---------------|----|---------|--------------|----|--------------|-
 	uint16_t MODEREG_BURST_LENGTH	= 0b000 << 0;	// length = 1
-	uint16_t MODEREG_BURST_TYPE		= 0b0 << 3;		// sequential
+	uint16_t MODEREG_BURST_TYPE		= 0b1 << 3;		// interleaved
 	uint16_t MODEREG_CAS_LATENCY	= 0b011 << 4;	// latency = 3
 	uint16_t MODEREG_OP_MODE		= 0b00 << 7;	// standard
 	uint16_t MODEREG_WRITE_BURST	= 0b1 << 9;		// single
@@ -725,4 +686,45 @@ static void initSDRAM(void)
 	//    The refresh rate corresponds to the delay between refresh cycles.
 	//    Its value must be adapted to SDRAM devices.
 	writeRegMaskThenWait(FMC_SDRTR, ~0x00003FFE, 1600 << 1);
+
+	// The above parameter can be optimized according to the recommendation in SDRAM technical manual below.
+	/*
+	 * The following description is copied from MT48LC4M32B data-sheet.
+	 * The recommended power-up sequence for SDRAM:
+	 * 1.  Simultaneously apply power to VDD and VDDQ.
+	 * 2.  Assert and hold CKE at a LVTTL logic LOW since all inputs and outputs are
+	 *     LVTTL compatible.
+	 * 3.  Provide stable CLOCK signal. Stable clock is defined as a signal cycling
+	 *     within timing constraints specified for the clock pin.
+	 * 4.  Wait at least 100˩s prior to issuing any command other than a
+	 *     COMMAND INHIBIT or NOP.
+	 * 5.  Starting at some point during this 100us period, bring CKE HIGH.
+	 *     Continuing at least through the end of this period, 1 or more
+	 *     COMMAND INHIBIT or NOP commands must be applied.
+	 * 6.  Perform a PRECHARGE ALL command.
+	 * 7.  Wait at least tRP time; during this time NOPs or DESELECT commands must
+	 *     be given. All banks will complete their pre-charge, thereby placing
+	 *     the device in the all banks idle state.
+	 * 8.  Issue an AUTO REFRESH command.
+	 * 9.  Wait at least tRFC time, during which only NOPs or COMMAND INHIBIT
+	 *     commands are allowed.
+	 * 10. Issue an AUTO REFRESH command.
+	 * 11. Wait at least tRFC time, during which only NOPs or COMMAND INHIBIT
+	 *     commands are allowed.
+	 * 12. The SDRAM is now ready for mode register programming. Because the mode
+	 *     register will power up in an unknown state, it should be loaded with
+	 *     desired bit values prior to applying any operational command.
+	 *     Using the LMR command, program the mode register.
+	 *     The mode register is programmed via the MODE REGISTER SET command
+	 *     with BA1 = 0, BA0 = 0 and retains the stored information until it is
+	 *     programmed again or the device loses power.
+	 *     Not programming the mode register upon initialization will result in
+	 *     default settings which may not be desired. Outputs are guaranteed High-Z
+	 *     after the LMR command is issued. Outputs should be High-Z already
+	 *     before the LMR command is issued.
+	 * 13. Wait at least tMRD time, during which only NOP or DESELECT commands
+	 *     are allowed.
+	 * At this point the DRAM is ready for any valid command.
+	 *
+	 */
 }

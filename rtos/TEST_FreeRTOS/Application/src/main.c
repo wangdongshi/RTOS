@@ -16,6 +16,8 @@
 #include "stm32f746g_disco_driver.h"
 
 #define SDRAM_SIZE			(0x800000UL)
+//#define TEST_SDRAM_SIZE		(0x100000UL)
+//uint8_t __attribute__((section(".sdram"))) RAM_TEST[TEST_SDRAM_SIZE];
 
 void startTask(void *pvParameters);
 void mainTask(void *pvParameters);
@@ -73,8 +75,9 @@ void mainTask(void *pvParameters)
 
 	// test SDRAM
 	//assert_param(checkSDRAM());
-	if (checkSDRAM()) {
-		printf("SDRAM initialization is finished !\r\n");
+	if (!checkSDRAM()) {
+		printf("SDRAM initialization Failure !\r\n");
+		return;
 	}
 
 	// main loop
@@ -106,6 +109,25 @@ bool checkSDRAM(void)
 
 	return TRUE;
 }
+
+#if 0
+bool checkSDRAM1(void)
+{
+	// check after write
+	for (uint32_t i = 0; i < 16; i++) {
+		RAM_TEST[i*0x10000] = 0xA5;
+		if (RAM_TEST[i*0x10000] != 0xA5) return FALSE;
+	}
+
+	// check delay
+	for (volatile uint32_t i = 0; i < 1000000; i++);
+	for (uint32_t i = 0; i < 16; i++) {
+		if (RAM_TEST[i*0x10000] != 0xA5) return FALSE;
+	}
+
+	return TRUE;
+}
+#endif
 
 #ifdef MODE_STAND_ALONE
 
