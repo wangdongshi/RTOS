@@ -35,9 +35,9 @@ ENTRY(Reset_Handler)
 /* Specify the memory areas */
 MEMORY
 {
-FLASH (rx)     : ORIGIN = 0x08000000, LENGTH = 1024K
+FLASH (rx)     : ORIGIN = 0x08000000, LENGTH = 1M
 SRAM (xrw)     : ORIGIN = 0x20000000, LENGTH = 320K
-SDRAM (xrw)    : ORIGIN = 0xC0000000, LENGTH = 8M
+SDRAM (rw)     : ORIGIN = 0xC0000000, LENGTH = 8M
 }
 
 /* Highest address of the user mode stack */

@@ -20,7 +20,7 @@
 void startTask(void *pvParameters);
 void mainTask(void *pvParameters);
 void led1Task(void *pvParameters);
-bool checkSDRAM(void);
+boolean checkSDRAM(void);
 #ifdef MODE_STAND_ALONE
 void executeCmd(const char* cmd);
 #endif
@@ -30,9 +30,6 @@ TaskHandle_t startTaskHandler;
 // Main function for LED test
 int main(void)
 {
-	// Initialize board
-	initBoard();
-
 	// create start task
 	//xTaskCreate(startTask,	"START_TASK",	400,	NULL,	2,	&startTaskHandler);
 	xTaskCreate(led1Task,	"LED1_TASK",	400,	NULL,	2,	NULL);
@@ -80,11 +77,12 @@ void mainTask(void *pvParameters)
 
 	// main loop
 	while(1) {
-		vTaskDelay(50);
+		printf("Main task is running !\r\n");
+		vTaskDelay(2000);
 	}
 }
 
-bool checkSDRAM(void)
+boolean checkSDRAM(void)
 {
 	uint8_t* p;
 

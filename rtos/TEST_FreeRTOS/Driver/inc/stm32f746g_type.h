@@ -20,7 +20,7 @@ typedef long			int32_t;
 typedef short			int16_t;
 //typedef char			int8_t;
 
-typedef int				bool;
+typedef int				boolean;
 #define TRUE			1
 #define FALSE			0
 

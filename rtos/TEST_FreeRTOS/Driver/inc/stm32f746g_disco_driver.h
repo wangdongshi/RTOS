@@ -16,10 +16,18 @@
 
 //#define MODE_STAND_ALONE
 
-void initBoard(void);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void SystemInit(void);
 void toggleLED1(void);
 uint8_t usart1ReceiveChar(void);
 void usart1SendChar(const uint8_t character);
 void usart1SendBuffer(const uint8_t* message);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

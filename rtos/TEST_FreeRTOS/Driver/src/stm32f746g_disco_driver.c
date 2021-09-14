@@ -64,7 +64,7 @@ static void initTIM7(void);
 
 
 // Hardware driver API
-void initBoard(void)
+void SystemInit(void)
 {
 	initFPU();
 	initSystemClock();

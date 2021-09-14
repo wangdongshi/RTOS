@@ -11,6 +11,10 @@
 #ifndef ASSERT_PARAM_H
 #define ASSERT_PARAM_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef  USE_FULL_ASSERT
   #define assert_param(expr) ((expr) ? (void)0U : assert_failed((uint8_t *)__FILE__, __LINE__))
 /* Exported functions ------------------------------------------------------- */
@@ -18,5 +22,9 @@
 #else
   #define assert_param(expr) ((void)0U)
 #endif /* USE_FULL_ASSERT */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
