@@ -25,6 +25,8 @@ void toggleLED1(void);
 uint8_t usart1ReceiveChar(void);
 void usart1SendChar(const uint8_t character);
 void usart1SendBuffer(const uint8_t* message);
+uint32_t getRandomData(void);
+uint32_t testMemoryDMA(uint16_t data);
 
 #ifdef __cplusplus
 }

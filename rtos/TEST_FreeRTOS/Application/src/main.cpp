@@ -40,7 +40,7 @@ int main(void)
 	vTaskStartScheduler();
 
 	// It should not execute to here
-	printf("RTOS task schedule ERROR !!!\n");
+	printf("RTOS task schedule ERROR!!!\n");
 
 	return 0;
 }
@@ -66,19 +66,28 @@ void led1Task(void *pvParameters)
 void mainTask(void *pvParameters)
 {
 	// print shell banner
-	printf("Welcome to STM32F746G-DISCO !\r\n");
+	printf("Welcome to STM32F746G-DISCO!\r\n");
 	//printf("Test FPU function with float value(%.4f). \r\n", 99.99f);
 
 	// test SDRAM
 	//assert_param(checkSDRAM());
 	if (!checkSDRAM()) {
-		printf("SDRAM initialization Failure !\r\n");
+		printf("SDRAM initialization Failure!\r\n");
 		return;
 	}
 
+#if 1
+	// test peripherals
+	uint32_t random = getRandomData();
+	if (!testMemoryDMA(random&0x0000FFFF)) {
+		printf("SDRAM DMA transfer Failure!\r\n");
+	}
+#endif
+
 	// main loop
+	unsigned int count = 0;
 	while(1) {
-		printf("Main task is running !\r\n");
+		printf("Mask count is %d.\r\n", count++);
 		vTaskDelay(2000);
 	}
 }
@@ -118,7 +127,7 @@ void main(void)
 	uint32_t index = 0;
 
 	// print shell banner
-	usart1SendBuffer("Welcome to STM32F746G-DISCO !\r#");
+	usart1SendBuffer("Welcome to STM32F746G-DISCO!\r#");
 
 	// clear receive buffer
 	memset(buffer, 0x00, BUF_SIZE);

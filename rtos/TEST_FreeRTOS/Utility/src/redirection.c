@@ -16,9 +16,7 @@
 // I/O redirect
 int _write(int file, char *ptr, int len)
 {
-    int i;
-    file = file;
-    for (i = 0; i < len; i++) {
+    for (int i = 0; i < len; i++) {
     	usart1SendChar((const uint8_t)(*ptr++ & 0xFF));
     }
     return len;

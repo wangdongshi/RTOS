@@ -123,6 +123,48 @@ void usart1SendBuffer(const uint8_t* message)
 	writeRegThenWait(USART1_CR1, 0, 3, 1); // disable TE
 }
 
+uint32_t getRandomData(void)
+{
+	RCC->AHB2ENR |= RCC_AHB2ENR_RNGEN;
+	while((RCC->AHB2ENR & RCC_AHB2ENR_RNGEN_Msk) == 0);
+
+	RNG->CR = RNG_CR_RNGEN;
+	while((RNG->SR & RNG_SR_DRDY_Msk) == 0);
+
+	uint32_t random = RNG->DR;
+
+	RCC->AHB2RSTR |= RCC_AHB2RSTR_RNGRST;
+	return random;
+}
+
+uint32_t testMemoryDMA(uint16_t data)
+{
+	uint32_t  size = 0x8000;
+	uint16_t* pSrc = &data;
+	uint16_t* pDes = ((uint16_t*)_SDRAM_BANK1) + (uint32_t)(0x700000/sizeof(uint16_t));
+
+	RCC->AHB1ENR |= RCC_AHB1ENR_DMA2EN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_DMA2EN_Msk) == 0);
+
+	DMA2_Stream0->CR = 	DMA_SxCR_CHSEL_0 | // Stream0, channel1
+						DMA_SxCR_PSIZE_0 | // src data 16bits
+						DMA_SxCR_MSIZE_0 | // des data 16bits
+						DMA_SxCR_MINC | 	// des address automatic increase
+						DMA_SxCR_PL_0 | DMA_SxCR_PL_1 | // highest DMA priority
+						DMA_SxCR_DIR_1; 	// memory to memory
+	DMA2_Stream0->NDTR = size/sizeof(uint16_t);	 // 32768 / 2 = 16 K half word
+	DMA2_Stream0->PAR  = (uint32_t)(pSrc);
+	DMA2_Stream0->M0AR = (uint32_t)(pDes);
+
+	DMA2_Stream0->CR |= DMA_SxCR_EN; // start DMA transfer
+
+	while(DMA2_Stream0->NDTR != 0);  // wait transfer complete
+
+	RCC->AHB1RSTR |= RCC_AHB1RSTR_DMA2RST;
+
+	return (*((uint16_t*)0xC0700000) == data && *((uint16_t*)0xC0700000 + 0x3FF8) == data);
+}
+
 // General register(4 bytes) operation function
 static uint32_t readRegister(uint32_t addr, uint32_t shift, uint32_t len)
 {
