@@ -8,6 +8,7 @@
  * Author:    Wang Yu
  *
  **********************************************************************/
+#include <stdint.h>
 #include <stdio.h>
 
 #ifdef  USE_FULL_ASSERT

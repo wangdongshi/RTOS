@@ -8,7 +8,9 @@
  * Author:    Wang Yu
  *
  **********************************************************************/
+#include <stdint.h>
 #include <string.h>
+#include "stm32f746xx.h"
 #include "stm32f746g_disco_driver.h"
 
 #define PLLM					((uint32_t)( 25 <<  0))
@@ -33,14 +35,14 @@
 #define GPIO_PUPDR_RESERVE		(0b11)
 #define GPIO_AFR_AF7			(0b0111)
 
-static uint32_t readRegister(uint32_t* addr, uint32_t shift, uint32_t len);
-static void writeRegister(uint32_t* addr, uint32_t data, uint32_t shift, uint32_t len);
-static void writeRegThenWait(uint32_t* addr, uint32_t data, uint32_t shift, uint32_t len);
-static void writeRegMask(uint32_t* addr, uint32_t mask, uint32_t data);
-static void writeRegMaskThenWait(uint32_t* addr, uint32_t mask, uint32_t data);
-static void waitValueSet(uint32_t* addr, uint32_t mask, uint32_t data);
-static void waitBitsSet(uint32_t* addr, uint32_t mask);
-static __attribute__((unused)) void waitBitsClear(uint32_t* addr, uint32_t mask);
+static uint32_t readRegister(uint32_t addr, uint32_t shift, uint32_t len);
+static void writeRegister(uint32_t addr, uint32_t data, uint32_t shift, uint32_t len);
+static void writeRegThenWait(uint32_t addr, uint32_t data, uint32_t shift, uint32_t len);
+static void writeRegMask(uint32_t addr, uint32_t mask, uint32_t data);
+static void writeRegMaskThenWait(uint32_t addr, uint32_t mask, uint32_t data);
+static void waitValueSet(uint32_t addr, uint32_t mask, uint32_t data);
+static void waitBitsSet(uint32_t addr, uint32_t mask);
+static __attribute__((unused)) void waitBitsClear(uint32_t addr, uint32_t mask);
 
 static void initFPU(void);
 static void initSDRAM(void);
@@ -62,10 +64,11 @@ static void initTIM7Int(void);
 static void initTIM7(void);
 #endif
 
-
 // Hardware driver API
 void SystemInit(void)
 {
+	SCB_EnableICache();
+	SCB_EnableDCache();
 	initFPU();
 	initSystemClock();
 	initSDRAM();
@@ -121,9 +124,9 @@ void usart1SendBuffer(const uint8_t* message)
 }
 
 // General register(4 bytes) operation function
-static uint32_t readRegister(uint32_t* addr, uint32_t shift, uint32_t len)
+static uint32_t readRegister(uint32_t addr, uint32_t shift, uint32_t len)
 {
-	uint32_t* reg = addr;
+	uint32_t* reg = (uint32_t*)addr;
 	uint32_t  val = *reg; // read from register
 	uint32_t  mask = 0x00000000;
 
@@ -139,9 +142,9 @@ static uint32_t readRegister(uint32_t* addr, uint32_t shift, uint32_t len)
 	return val;
 }
 
-static void writeRegister(uint32_t* addr, uint32_t data, uint32_t shift, uint32_t len)
+static void writeRegister(uint32_t addr, uint32_t data, uint32_t shift, uint32_t len)
 {
-	uint32_t* reg = addr;
+	uint32_t* reg = (uint32_t*)addr;
 	uint32_t  val = *reg; // read from register
 	uint32_t  mask = 0x00000000;
 
@@ -158,9 +161,9 @@ static void writeRegister(uint32_t* addr, uint32_t data, uint32_t shift, uint32_
 	*reg = val;						// write back to register
 }
 
-static void writeRegThenWait(uint32_t* addr, uint32_t data, uint32_t shift, uint32_t len)
+static void writeRegThenWait(uint32_t addr, uint32_t data, uint32_t shift, uint32_t len)
 {
-	uint32_t* reg = addr;
+	uint32_t* reg = (uint32_t*)addr;
 	uint32_t  val = *reg; // read from register
 	uint32_t  mask = 0x00000000;
 
@@ -178,9 +181,9 @@ static void writeRegThenWait(uint32_t* addr, uint32_t data, uint32_t shift, uint
 	while(*reg != val);				// wait for set complete
 }
 
-static void writeRegMask(uint32_t* addr, uint32_t mask, uint32_t data)
+static void writeRegMask(uint32_t addr, uint32_t mask, uint32_t data)
 {
-	volatile uint32_t* reg = addr;
+	volatile uint32_t* reg = (uint32_t*)addr;
 	uint32_t val = *reg; 	// read from register
 
 	// set data
@@ -189,9 +192,9 @@ static void writeRegMask(uint32_t* addr, uint32_t mask, uint32_t data)
 	*reg = val;				// write back to register
 }
 
-static void writeRegMaskThenWait(uint32_t* addr, uint32_t mask, uint32_t data)
+static void writeRegMaskThenWait(uint32_t addr, uint32_t mask, uint32_t data)
 {
-	volatile uint32_t* reg = addr;
+	volatile uint32_t* reg = (uint32_t*)addr;
 	uint32_t val = *reg; 	// read from register
 
 	// set data
@@ -201,22 +204,22 @@ static void writeRegMaskThenWait(uint32_t* addr, uint32_t mask, uint32_t data)
 	while(*reg != val);		// wait for set complete
 }
 
-static void waitValueSet(uint32_t* addr, uint32_t mask, uint32_t data)
+static void waitValueSet(uint32_t addr, uint32_t mask, uint32_t data)
 {
-	volatile uint32_t* reg = addr;
+	volatile uint32_t* reg = (uint32_t*)addr;
 	while((*reg & ~mask) != data);
 
 }
 
-static void waitBitsSet(uint32_t* addr, uint32_t mask)
+static void waitBitsSet(uint32_t addr, uint32_t mask)
 {
-	volatile uint32_t* reg = addr;
+	volatile uint32_t* reg = (uint32_t*)addr;
 	while((*reg & ~mask) == 0);
 }
 
-static void waitBitsClear(uint32_t* addr, uint32_t mask)
+static void waitBitsClear(uint32_t addr, uint32_t mask)
 {
-	volatile uint32_t* reg = addr;
+	volatile uint32_t* reg = (uint32_t*)addr;
 	while((*reg & ~mask) != 0);
 }
 

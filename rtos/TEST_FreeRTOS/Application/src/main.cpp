@@ -8,19 +8,20 @@
  * Author:    Wang Yu
  *
  **********************************************************************/
+#include <stdint.h>
 #include <string.h>
 #include <stdio.h>
+#include "stm32f746g_disco_driver.h"
 #include "assert_param.h"
 #include "FreeRTOS.h"
 #include "task.h"
-#include "stm32f746g_disco_driver.h"
 
 #define SDRAM_SIZE			(0x800000UL)
 
 void startTask(void *pvParameters);
 void mainTask(void *pvParameters);
 void led1Task(void *pvParameters);
-boolean checkSDRAM(void);
+uint16_t checkSDRAM(void);
 #ifdef MODE_STAND_ALONE
 void executeCmd(const char* cmd);
 #endif
@@ -82,28 +83,28 @@ void mainTask(void *pvParameters)
 	}
 }
 
-boolean checkSDRAM(void)
+uint16_t checkSDRAM(void)
 {
 	uint8_t* p;
 
 	// check after write
-	for (p = (uint8_t *)SDRAM_BANK1; (uint32_t)p < SDRAM_BANK1 + SDRAM_SIZE; p += 0x100000) {
+	for (p = (uint8_t *)_SDRAM_BANK1; (uint32_t)p < _SDRAM_BANK1 + SDRAM_SIZE; p += 0x100000) {
 		*p = 0xA5;
-		if ((*p) != 0xA5) return FALSE;
+		if ((*p) != 0xA5) return 0;
 	}
-	p = (uint8_t *)(SDRAM_BANK1 + SDRAM_SIZE - 1);
+	p = (uint8_t *)(_SDRAM_BANK1 + SDRAM_SIZE - 1);
 	*p = 0x5A;
-	if ((*p) != 0x5A) return FALSE;
+	if ((*p) != 0x5A) return 0;
 
 	// check delay
 	for (volatile uint32_t i = 0; i < 1000000; i++);
-	for (p = (uint8_t *)SDRAM_BANK1; (uint32_t)p < SDRAM_BANK1 + SDRAM_SIZE; p += 0x100000) {
-		if ((*p) != 0xA5) return FALSE;
+	for (p = (uint8_t *)_SDRAM_BANK1; (uint32_t)p < _SDRAM_BANK1 + SDRAM_SIZE; p += 0x100000) {
+		if ((*p) != 0xA5) return 0;
 	}
-	p = (uint8_t *)(SDRAM_BANK1 + SDRAM_SIZE - 1);
-	if ((*p) != 0x5A) return FALSE;
+	p = (uint8_t *)(_SDRAM_BANK1 + SDRAM_SIZE - 1);
+	if ((*p) != 0x5A) return 0;
 
-	return TRUE;
+	return 1;
 }
 
 #ifdef MODE_STAND_ALONE

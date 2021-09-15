@@ -11,7 +11,7 @@
 #ifndef STM32F746G_DISCO_DRIVER_H
 #define STM32F746G_DISCO_DRIVER_H
 
-#include "stm32f746g_type.h"
+#include <stdint.h>
 #include "stm32f746g_register.h"
 
 //#define MODE_STAND_ALONE
