@@ -662,9 +662,6 @@ static void initLCDGPIO(void)
 	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOEEN_Msk) == 0);
 	// PE4  --> LTDC_B0
 	GPIOE->MODER	|=	0b10	<< GPIO_MODER_MODER4_Pos;		// MODER = Multiple(0b10)
-	//GPIOE->OTYPER	|=	0b0		<< GPIO_OTYPER_OT4_Pos;			// OTYPER = PP
-	//GPIOE->OSPEEDR	|=	0b11	<< GPIO_OSPEEDR_OSPEEDR4_Pos;	// OSPEEDR = Full
-	//GPIOE->PUPDR	|=	0b00	<< GPIO_PUPDR_PUPDR4_Pos;		// PUPDR = No Pull
 	GPIOE->AFR[0]	|=	14		<< GPIO_AFRL_AFRL4_Pos;			// AF = AF14
 
 	// GPIOG
@@ -681,11 +678,11 @@ static void initLCDGPIO(void)
 	// PI10 --> LTDC_HSYNC
 	// PI14 --> LTDC_CLK
 	// PI15 --> LTDC_R0
-	GPIOG->MODER	|=	0b10	<< GPIO_MODER_MODER9_Pos |		// MODER = Multiple(0b10)
+	GPIOI->MODER	|=	0b10	<< GPIO_MODER_MODER9_Pos |		// MODER = Multiple(0b10)
 						0b10	<< GPIO_MODER_MODER10_Pos |
 						0b10	<< GPIO_MODER_MODER14_Pos |
 						0b10	<< GPIO_MODER_MODER15_Pos;
-	GPIOG->AFR[1]	|=	14		<< GPIO_AFRH_AFRH1_Pos |		// AF = AF14
+	GPIOI->AFR[1]	|=	14		<< GPIO_AFRH_AFRH1_Pos |		// AF = AF14
 						14		<< GPIO_AFRH_AFRH2_Pos |
 						14		<< GPIO_AFRH_AFRH6_Pos |
 						14		<< GPIO_AFRH_AFRH7_Pos;
@@ -708,9 +705,9 @@ static void initLCDGPIO(void)
 	// PJ13 --> LTDC_B1
 	// PJ14 --> LTDC_B2
 	// PJ15 --> LTDC_B3
-	GPIOG->MODER	|=	0xA8AAAAAA;	// MODER = Multiple(0b10)
-	GPIOG->AFR[0]	|=	0xEEEEEEEE; // AF = AF14
-	GPIOG->AFR[1]	|=	0xEEE0EEEE; // AF = AF14
+	GPIOJ->MODER	|=	0xA8AAAAAA;	// MODER = Multiple(0b10)
+	GPIOJ->AFR[0]	|=	0xEEEEEEEE; // AF = AF14
+	GPIOJ->AFR[1]	|=	0xEEE0EEEE; // AF = AF14
 
 	// GPIOK
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOKEN;
@@ -722,8 +719,8 @@ static void initLCDGPIO(void)
 	// PK5  --> LTDC_B6
 	// PK6  --> LTDC_B7
 	// PK7  --> LTDC_DE
-	GPIOG->MODER	|=	0x0000AA2A;	// MODER = Multiple(0b10)
-	GPIOG->AFR[0]	|=	0xEEEE0EEE; // AF = AF14
+	GPIOK->MODER	|=	0x0000AA2A;	// MODER = Multiple(0b10)
+	GPIOK->AFR[0]	|=	0xEEEE0EEE; // AF = AF14
 
 	// GPIOI12 --> LCD_DISP (must be manually controlled)
 	GPIOI->MODER	|=	0b01 << GPIO_MODER_MODER12_Pos;		// MODER = Output(0b01)
@@ -896,14 +893,16 @@ static void initLCD(void)
 	initLCDGPIO();
 
 	// 1. Enable the LTDC clock in the RCC register.
-	RCC->APB2ENR |= RCC_APB2ENR_LTDCEN;
+	RCC->APB2ENR	|=	RCC_APB2ENR_LTDCEN;
 	while((RCC->APB2ENR & RCC_APB2ENR_LTDCEN_Msk) == 0);
 
 	// 2. Configure the required pixel clock following the panel datasheet.
+	RCC->DCKCFGR1	&=	~RCC_DCKCFGR1_PLLSAIDIVR_Msk;
+	RCC->DCKCFGR1	|=	0b10 << RCC_DCKCFGR1_PLLSAIDIVR_Pos; // PLLSAIDIVR = 8
 	RCC->PLLSAICFGR = 	384 << RCC_PLLSAICFGR_PLLSAIN_Pos |
 						5 << RCC_PLLSAICFGR_PLLSAIR_Pos |
-						2 << RCC_PLLSAICFGR_PLLSAIQ_Pos |
-						0b11 << RCC_PLLSAICFGR_PLLSAIP_Pos; // PLLSAIP = 8
+						2 << RCC_PLLSAICFGR_PLLSAIQ_Pos | // not used
+						0 << RCC_PLLSAICFGR_PLLSAIP_Pos;  // not used
 	RCC->CR |= RCC_CR_PLLSAION;
 	while((RCC->CR & RCC_CR_PLLSAIRDY_Msk) == 0);
 
@@ -987,10 +986,10 @@ static void initLCD(void)
 	//    – programming the layer window horizontal and vertical position in the
 	//      LTDC_LxWHPCR and LTDC_WVPCR registers. The layer window must be in the
 	//      active data area.
-	LTDC_Layer1->WHPCR	=	0	<< LTDC_LxWHPCR_WHSTPOS_Pos |
-							480	<< LTDC_LxWHPCR_WHSPPOS_Pos;
-	LTDC_Layer1->WVPCR	=	0	<< LTDC_LxWHPCR_WHSTPOS_Pos |
-							272	<< LTDC_LxWHPCR_WHSPPOS_Pos;
+	LTDC_Layer1->WHPCR	=	(0 + 53 + 1) << LTDC_LxWHPCR_WHSTPOS_Pos |
+							(480 + 53)   << LTDC_LxWHPCR_WHSPPOS_Pos;
+	LTDC_Layer1->WVPCR	=	(0 + 12 + 1) << LTDC_LxWVPCR_WVSTPOS_Pos |
+							(272 + 12)   << LTDC_LxWVPCR_WVSPPOS_Pos;
 
 	//    – programming the pixel input format in the LTDC_LxPFCR register
 	LTDC_Layer1->PFCR	=	0b010; // RGB565
@@ -1024,6 +1023,7 @@ static void initLCD(void)
 	// (*) It need not dithering and color keying respectively function.
 
 	// 10. Reload the shadow registers to active register through the LTDC_SRCR register.
+	LTDC->SRCR |= LTDC_SRCR_IMR;
 
 	// 11. Enable the LCD-TFT controller in the LTDC_GCR register.
 	LTDC->GCR |= LTDC_GCR_LTDCEN;

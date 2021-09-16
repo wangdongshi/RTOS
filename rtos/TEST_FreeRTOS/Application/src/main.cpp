@@ -37,9 +37,7 @@ int main(void)
 	xTaskCreate(mainTask,	"MAIN_TASK",	400,	NULL,	5,	NULL);
 
 	// start FreeRTOS kernel
-	//vTaskStartScheduler();
-	//printf("Test LCD!!\r\n");
-	testMemoryDMA(250);
+	vTaskStartScheduler();
 
 	// It should not execute to here
 	printf("RTOS task schedule ERROR!!!\n");
