@@ -12,6 +12,7 @@
 #include <string.h>
 #include "stm32f746xx.h"
 #include "stm32f746g_disco_driver.h"
+#include "image.h"
 
 #define PLLM					((uint32_t)( 25 <<  0))
 #define PLLN					((uint32_t)(432 <<  6))
@@ -46,6 +47,7 @@ static __attribute__((unused)) void waitBitsClear(uint32_t addr, uint32_t mask);
 
 static void initFPU(void);
 static void initSDRAM(void);
+static void initLCD(void);
 static void initSystemClock(void);
 static void initNVICPriorityGroup(void);
 static void initSystickInt(void);
@@ -58,6 +60,7 @@ static void initUSART1(void);
 static void initUartGPIO(void);
 static void initLED1GPIO(void);
 static void initSDRAMGPIO(void);
+static void initLCDGPIO(void);
 
 #ifdef MODE_STAND_ALONE
 static void initTIM7Int(void);
@@ -76,6 +79,7 @@ void SystemInit(void)
 	initSVCallInt();
 	initPendSVInt();
 	initLED1();
+	initLCD();
 	initUSART1();
 	initSystick();
 #ifdef MODE_STAND_ALONE
@@ -138,6 +142,35 @@ uint32_t getRandomData(void)
 }
 
 uint32_t testMemoryDMA(uint16_t data)
+{
+	uint32_t  size = 65280;
+	uint16_t* pSrc = (uint16_t*)testImage;
+	uint16_t* pDes = ((uint16_t*)_SDRAM_BANK1) + (uint32_t)(0x700000/sizeof(uint16_t));
+
+	RCC->AHB1ENR |= RCC_AHB1ENR_DMA2EN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_DMA2EN_Msk) == 0);
+
+	DMA2_Stream0->CR = 	DMA_SxCR_CHSEL_0 | // Stream0, channel1
+						DMA_SxCR_PSIZE_0 | // src data 16bits
+						DMA_SxCR_MSIZE_0 | // des data 16bits
+						DMA_SxCR_PINC |    // src address automatic increase
+						DMA_SxCR_MINC |    // des address automatic increase
+						DMA_SxCR_PL_0 | DMA_SxCR_PL_1 | // highest DMA priority
+						DMA_SxCR_DIR_1; 	// memory to memory
+	DMA2_Stream0->NDTR = size/sizeof(uint16_t);	 // 32768 / 2 = 16 K half word
+	DMA2_Stream0->PAR  = (uint32_t)(pSrc);
+	DMA2_Stream0->M0AR = (uint32_t)(pDes);
+
+	DMA2_Stream0->CR |= DMA_SxCR_EN; // start DMA transfer
+
+	while(DMA2_Stream0->NDTR != 0);  // wait transfer complete
+
+	RCC->AHB1RSTR |= RCC_AHB1RSTR_DMA2RST;
+
+	return 1;
+}
+
+uint32_t testMemoryDMA1(uint16_t data)
 {
 	uint32_t  size = 0x8000;
 	uint16_t* pSrc = &data;
@@ -621,6 +654,88 @@ static void initSDRAMGPIO(void)
 	writeRegMask(GPIO_AFRL(H),		~0x00F0F000,	0x00C0C000); // AF = AF12
 }
 
+// LCD pin initialization
+static void initLCDGPIO(void)
+{
+	// GPIOE
+	RCC->AHB1ENR	|= RCC_AHB1ENR_GPIOEEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOEEN_Msk) == 0);
+	// PE4  --> LTDC_B0
+	GPIOE->MODER	|=	0b10	<< GPIO_MODER_MODER4_Pos;		// MODER = Multiple(0b10)
+	//GPIOE->OTYPER	|=	0b0		<< GPIO_OTYPER_OT4_Pos;			// OTYPER = PP
+	//GPIOE->OSPEEDR	|=	0b11	<< GPIO_OSPEEDR_OSPEEDR4_Pos;	// OSPEEDR = Full
+	//GPIOE->PUPDR	|=	0b00	<< GPIO_PUPDR_PUPDR4_Pos;		// PUPDR = No Pull
+	GPIOE->AFR[0]	|=	14		<< GPIO_AFRL_AFRL4_Pos;			// AF = AF14
+
+	// GPIOG
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOGEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOGEN_Msk) == 0);
+	// PG12 --> LTDC_B4
+	GPIOG->MODER	|=	0b10	<< GPIO_MODER_MODER12_Pos;		// MODER = Multiple(0b10)
+	GPIOG->AFR[1]	|=	14		<< GPIO_AFRH_AFRH4_Pos;			// AF = AF14
+
+	// GPIOI
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOIEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOIEN_Msk) == 0);
+	// PI9  --> LTDC_VSYNC
+	// PI10 --> LTDC_HSYNC
+	// PI14 --> LTDC_CLK
+	// PI15 --> LTDC_R0
+	GPIOG->MODER	|=	0b10	<< GPIO_MODER_MODER9_Pos |		// MODER = Multiple(0b10)
+						0b10	<< GPIO_MODER_MODER10_Pos |
+						0b10	<< GPIO_MODER_MODER14_Pos |
+						0b10	<< GPIO_MODER_MODER15_Pos;
+	GPIOG->AFR[1]	|=	14		<< GPIO_AFRH_AFRH1_Pos |		// AF = AF14
+						14		<< GPIO_AFRH_AFRH2_Pos |
+						14		<< GPIO_AFRH_AFRH6_Pos |
+						14		<< GPIO_AFRH_AFRH7_Pos;
+
+	// GPIOJ
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOJEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOJEN_Msk) == 0);
+	// PJ0  --> LTDC_R1
+	// PJ1  --> LTDC_R2
+	// PJ2  --> LTDC_R3
+	// PJ3  --> LTDC_R4
+	// PJ4  --> LTDC_R5
+	// PJ5  --> LTDC_R6
+	// PJ6  --> LTDC_R7
+	// PJ7  --> LTDC_G0
+	// PJ8  --> LTDC_G1
+	// PJ9  --> LTDC_G2
+	// PJ10 --> LTDC_G3
+	// PJ11 --> LTDC_G4
+	// PJ13 --> LTDC_B1
+	// PJ14 --> LTDC_B2
+	// PJ15 --> LTDC_B3
+	GPIOG->MODER	|=	0xA8AAAAAA;	// MODER = Multiple(0b10)
+	GPIOG->AFR[0]	|=	0xEEEEEEEE; // AF = AF14
+	GPIOG->AFR[1]	|=	0xEEE0EEEE; // AF = AF14
+
+	// GPIOK
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOKEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOKEN_Msk) == 0);
+	// PK0  --> LTDC_G5
+	// PK1  --> LTDC_G6
+	// PK2  --> LTDC_G7
+	// PK4  --> LTDC_B5
+	// PK5  --> LTDC_B6
+	// PK6  --> LTDC_B7
+	// PK7  --> LTDC_DE
+	GPIOG->MODER	|=	0x0000AA2A;	// MODER = Multiple(0b10)
+	GPIOG->AFR[0]	|=	0xEEEE0EEE; // AF = AF14
+
+	// GPIOI12 --> LCD_DISP (must be manually controlled)
+	GPIOI->MODER	|=	0b01 << GPIO_MODER_MODER12_Pos;		// MODER = Output(0b01)
+	GPIOI->OTYPER	|=	0b0  << GPIO_OTYPER_OT12_Pos;		// OTYPER = PP
+	GPIOI->BSRR		|=	0b1  << GPIO_BSRR_BS12_Pos;			// Bit Set
+
+	// GPIOK3  --> LCD_BL_CTRL (must be manually controlled)
+	GPIOK->MODER	|=	0b01 << GPIO_MODER_MODER3_Pos;		// MODER = Output(0b01)
+	GPIOK->OTYPER	|=	0b0  << GPIO_OTYPER_OT3_Pos;		// OTYPER = PP
+	GPIOK->BSRR		|=	0b1  << GPIO_BSRR_BS3_Pos;			// Bit Set
+}
+
 // SDRAM initialization
 static void initSDRAM(void)
 {
@@ -772,4 +887,148 @@ static void initSDRAM(void)
 	 * At this point the DRAM is ready for any valid command.
 	 *
 	 */
+}
+
+// LTDC initialization
+static void initLCD(void)
+{
+	// Initialize GPIO for FMC
+	initLCDGPIO();
+
+	// 1. Enable the LTDC clock in the RCC register.
+	RCC->APB2ENR |= RCC_APB2ENR_LTDCEN;
+	while((RCC->APB2ENR & RCC_APB2ENR_LTDCEN_Msk) == 0);
+
+	// 2. Configure the required pixel clock following the panel datasheet.
+	RCC->PLLSAICFGR = 	384 << RCC_PLLSAICFGR_PLLSAIN_Pos |
+						5 << RCC_PLLSAICFGR_PLLSAIR_Pos |
+						2 << RCC_PLLSAICFGR_PLLSAIQ_Pos |
+						0b11 << RCC_PLLSAICFGR_PLLSAIP_Pos; // PLLSAIP = 8
+	RCC->CR |= RCC_CR_PLLSAION;
+	while((RCC->CR & RCC_CR_PLLSAIRDY_Msk) == 0);
+
+	//  The following graph is copied from ST sample code.
+	//  LCD_TFT synchronous timings configuration :
+	//  -------------------------------------------
+	//
+	//                                             Total Width
+	//                          <--------------------------------------------------->
+	//                    Hsync width HBP             Active Width                HFP
+	//                          <---><--><--------------------------------------><-->
+	//                      ____    ____|_______________________________________|____
+	//                          |___|   |                                       |    |
+	//                                  |                                       |    |
+	//                      __|         |                                       |    |
+	//         /|\    /|\  |            |                                       |    |
+	//          | VSYNC|   |            |                                       |    |
+	//          |Width\|/  |__          |                                       |    |
+	//          |     /|\     |         |                                       |    |
+	//          |  VBP |      |         |                                       |    |
+	//          |     \|/_____|_________|_______________________________________|    |
+	//          |     /|\     |         | / / / / / / / / / / / / / / / / / / / |    |
+	//          |      |      |         |/ / / / / / / / / / / / / / / / / / / /|    |
+	// Total    |      |      |         |/ / / / / / / / / / / / / / / / / / / /|    |
+	// Heigh    |      |      |         |/ / / / / / / / / / / / / / / / / / / /|    |
+	//          |Active|      |         |/ / / / / / / / / / / / / / / / / / / /|    |
+	//          |Heigh |      |         |/ / / / / / Active Display Area / / / /|    |
+	//          |      |      |         |/ / / / / / / / / / / / / / / / / / / /|    |
+	//          |      |      |         |/ / / / / / / / / / / / / / / / / / / /|    |
+	//          |      |      |         |/ / / / / / / / / / / / / / / / / / / /|    |
+	//          |      |      |         |/ / / / / / / / / / / / / / / / / / / /|    |
+	//          |      |      |         |/ / / / / / / / / / / / / / / / / / / /|    |
+	//          |     \|/_____|_________|_______________________________________|    |
+	//          |     /|\     |                                                      |
+	//          |  VFP |      |                                                      |
+	//         \|/    \|/_____|______________________________________________________|
+	//
+	//
+	//  Each LCD device has its specific synchronous timings values.
+	//  This example uses AM480272H3TMQW-T01H LCD (MB1046 B-01) and configures
+	//  the synchronous timings as following :
+	//
+	//  Horizontal Synchronization (Hsync) = 41
+	//  Horizontal Back Porch (HBP)        = 13
+	//  Active Width                       = 480
+	//  Horizontal Front Porch (HFP)       = 32
+	//
+	//  Vertical Synchronization (Vsync)   = 10
+	//  Vertical Back Porch (VBP)          = 2
+	//  Active Heigh                       = 272
+	//  Vertical Front Porch (VFP)         = 2
+	//
+	//  ********************************** !!!! Attention !!!! **********************************
+	//  The RK043FN48H-CT672B LCD (MB1191 B-02) has same size and resolution as AM480272H3TMQW-T01H,
+	//  but it support RGB888 (24 bits/pixel) image. It should reprogram layer register setting.
+	//  *****************************************************************************************
+
+	// 3. Configure the synchronous timings: VSYNC, HSYNC, vertical and horizontal back
+	//    porch, active data area and the front porch timings following the panel datasheet as
+	//    described in the Section 18.4.1: LTDC global configuration parameters.
+	LTDC->SSCR	= 	(41 - 1)					<< LTDC_SSCR_HSW_Pos |
+					(10 - 1)					<< LTDC_SSCR_VSH_Pos;
+	LTDC->BPCR	=	(41 + 13 - 1)				<< LTDC_BPCR_AHBP_Pos |
+					(10 + 2 - 1) 				<< LTDC_BPCR_AVBP_Pos;
+	LTDC->AWCR	=	(41 + 13 + 480 - 1) 		<< LTDC_AWCR_AAW_Pos |
+					(10 + 2 + 272 - 1) 			<< LTDC_AWCR_AAH_Pos;
+	LTDC->TWCR	=	(41 + 13 + 480 + 32 - 1) 	<< LTDC_TWCR_TOTALW_Pos |
+					(10 + 2 + 272 + 2 - 1) 		<< LTDC_TWCR_TOTALH_Pos;
+	// while();
+
+	// 4. Configure the synchronous signals and clock polarity in the LTDC_GCR register.
+	// (*) Polarity assignment set by default value (low level valid).
+
+	// 5. If needed, configure the background color in the LTDC_BCCR register.
+	// (*) Background color set by default value (RGB888:0x000000).
+
+	// 6. Configure the needed interrupts in the LTDC_IER and LTDC_LIPCR register.
+	// (*) Temporarily donn't enable LTDC interrupt.
+
+	// 7. Configure the layer1/2 parameters by:
+	//    – programming the layer window horizontal and vertical position in the
+	//      LTDC_LxWHPCR and LTDC_WVPCR registers. The layer window must be in the
+	//      active data area.
+	LTDC_Layer1->WHPCR	=	0	<< LTDC_LxWHPCR_WHSTPOS_Pos |
+							480	<< LTDC_LxWHPCR_WHSPPOS_Pos;
+	LTDC_Layer1->WVPCR	=	0	<< LTDC_LxWHPCR_WHSTPOS_Pos |
+							272	<< LTDC_LxWHPCR_WHSPPOS_Pos;
+
+	//    – programming the pixel input format in the LTDC_LxPFCR register
+	LTDC_Layer1->PFCR	=	0b010; // RGB565
+
+	//    – programming the color frame buffer start address in the LTDC_LxCFBAR register
+	LTDC_Layer1->CFBAR	=	(uint32_t)&testImage; // Frame Buffer
+
+	//    – programming the line length and pitch of the color frame buffer in the
+	//      LTDC_LxCFBLR register
+	LTDC_Layer1->CFBLR	=	(480 * 2) << LTDC_LxCFBLR_CFBP_Pos |		// ???
+							(480 * 2 + 3) << LTDC_LxCFBLR_CFBLL_Pos;	// ???
+
+	//    – programming the number of lines of the color frame buffer in the
+	//      LTDC_LxCFBLNR register
+	LTDC_Layer1->CFBLNR	=	272;
+
+	//    – if needed, loading the CLUT with the RGB values and its address in the
+	//      LTDC_LxCLUTWR register
+	// (*) Temporarily needn't CLUT function.
+
+	//    – If needed, configuring the default color and the blending factors respectively in the
+	//      LTDC_LxDCCR and LTDC_LxBFCR registers
+	// (*) Default color and the blending factors respectively set by default value
+	// (*) (constant alpha = 255, pixel alpha = 0, blending factor 1/2 = constant alpha * pixel alpha)
+
+	// 8. Enable layer1/2 and if needed the CLUT in the LTDC_LxCR register.
+	LTDC_Layer1->CR |= LTDC_LxCR_LEN;
+
+	// 9. If needed, enable dithering and color keying respectively in the LTDC_GCR and
+	//    LTDC_LxCKCR registers. They can be also enabled on the fly.
+	// (*) It need not dithering and color keying respectively function.
+
+	// 10. Reload the shadow registers to active register through the LTDC_SRCR register.
+
+	// 11. Enable the LCD-TFT controller in the LTDC_GCR register.
+	LTDC->GCR |= LTDC_GCR_LTDCEN;
+
+	// 12. All layer parameters can be modified on the fly except the CLUT. The new configuration
+	//    has to be either reloaded immediately or during vertical blanking period by configuring
+	//    the LTDC_SRCR register.
 }
