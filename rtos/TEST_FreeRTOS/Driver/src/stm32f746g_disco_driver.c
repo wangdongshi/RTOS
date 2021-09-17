@@ -36,6 +36,8 @@
 #define GPIO_PUPDR_RESERVE		(0b11)
 #define GPIO_AFR_AF7			(0b0111)
 
+uint32_t __attribute__((section(".sdram"))) FrameBuffer[65280];
+
 static uint32_t readRegister(uint32_t addr, uint32_t shift, uint32_t len);
 static void writeRegister(uint32_t addr, uint32_t data, uint32_t shift, uint32_t len);
 static void writeRegThenWait(uint32_t addr, uint32_t data, uint32_t shift, uint32_t len);
@@ -141,23 +143,23 @@ uint32_t getRandomData(void)
 	return random;
 }
 
-uint32_t testMemoryDMA(uint16_t data)
+void showLogo(void)
 {
 	uint32_t  size = 65280;
-	uint16_t* pSrc = (uint16_t*)testImage;
-	uint16_t* pDes = ((uint16_t*)_SDRAM_BANK1) + (uint32_t)(0x700000/sizeof(uint16_t));
+	uint32_t* pSrc = (uint32_t*)&logoImage;
+	uint32_t* pDes = (uint32_t*)&FrameBuffer;
 
 	RCC->AHB1ENR |= RCC_AHB1ENR_DMA2EN;
 	while((RCC->AHB1ENR & RCC_AHB1ENR_DMA2EN_Msk) == 0);
 
-	DMA2_Stream0->CR = 	DMA_SxCR_CHSEL_0 | // Stream0, channel1
-						DMA_SxCR_PSIZE_0 | // src data 16bits
-						DMA_SxCR_MSIZE_0 | // des data 16bits
-						DMA_SxCR_PINC |    // src address automatic increase
-						DMA_SxCR_MINC |    // des address automatic increase
+	DMA2_Stream0->CR = 	DMA_SxCR_CHSEL_0 |	// Stream0, channel1
+						DMA_SxCR_PSIZE_1 |	// src data 32bits
+						DMA_SxCR_MSIZE_1 |	// des data 32bits
+						DMA_SxCR_PINC |		// src address automatic increase
+						DMA_SxCR_MINC |		// des address automatic increase
 						DMA_SxCR_PL_0 | DMA_SxCR_PL_1 | // highest DMA priority
 						DMA_SxCR_DIR_1; 	// memory to memory
-	DMA2_Stream0->NDTR = size/sizeof(uint16_t);	 // 32768 / 2 = 16 K half word
+	DMA2_Stream0->NDTR = size;
 	DMA2_Stream0->PAR  = (uint32_t)(pSrc);
 	DMA2_Stream0->M0AR = (uint32_t)(pDes);
 
@@ -166,11 +168,9 @@ uint32_t testMemoryDMA(uint16_t data)
 	while(DMA2_Stream0->NDTR != 0);  // wait transfer complete
 
 	RCC->AHB1RSTR |= RCC_AHB1RSTR_DMA2RST;
-
-	return 1;
 }
 
-uint32_t testMemoryDMA1(uint16_t data)
+uint32_t testMemoryDMA(uint16_t data)
 {
 	uint32_t  size = 0x8000;
 	uint16_t* pSrc = &data;
@@ -995,7 +995,7 @@ static void initLCD(void)
 	LTDC_Layer1->PFCR	=	0b010; // RGB565
 
 	//    – programming the color frame buffer start address in the LTDC_LxCFBAR register
-	LTDC_Layer1->CFBAR	=	(uint32_t)&testImage; // Frame Buffer
+	LTDC_Layer1->CFBAR	=	(uint32_t)&FrameBuffer; // Frame Buffer
 
 	//    – programming the line length and pitch of the color frame buffer in the
 	//      LTDC_LxCFBLR register

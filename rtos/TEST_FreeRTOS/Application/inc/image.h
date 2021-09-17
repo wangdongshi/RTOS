@@ -13,7 +13,7 @@
 
 #include <stdint.h>
 
-const uint32_t __attribute__((section(".sdram"))) testImage[65280] =
+const uint32_t logoImage[65280] =
 {
 0x7A537A53,
 0x82538253,

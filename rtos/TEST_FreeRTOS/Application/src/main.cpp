@@ -65,24 +65,24 @@ void led1Task(void *pvParameters)
 
 void mainTask(void *pvParameters)
 {
-	// print shell banner
-	printf("Welcome to STM32F746G-DISCO!\r\n");
+	printf("Welcome to STM32F746G-DISCO!\r\n"); // print shell banner
 	//printf("Test FPU function with float value(%.4f). \r\n", 99.99f);
 
-	// test SDRAM
 	//assert_param(checkSDRAM());
-	if (!checkSDRAM()) {
+	if (!checkSDRAM()) { // test SDRAM
 		printf("SDRAM initialization Failure!\r\n");
 		return;
 	}
 
-#if 1
+#if 0
 	// test peripherals
 	uint32_t random = getRandomData();
 	if (!testMemoryDMA(random&0x0000FFFF)) {
-		printf("SDRAM DMA transfer Failure!\r\n");
+		printf("DMA(M2M) transfer Failure!\r\n");
 	}
 #endif
+
+	showLogo(); // transfer LOGO image to LCD frame buffer
 
 	// main loop
 	unsigned int count = 0;
