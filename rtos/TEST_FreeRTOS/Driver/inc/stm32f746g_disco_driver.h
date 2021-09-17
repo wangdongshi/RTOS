@@ -28,6 +28,7 @@ void toggleLED1(void);
 void showLogo(void);
 uint32_t getRandomData(void);
 uint32_t testMemoryDMA(uint16_t data);
+void FillRect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t color);
 
 #ifdef __cplusplus
 }

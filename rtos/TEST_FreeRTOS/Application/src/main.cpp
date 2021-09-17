@@ -82,7 +82,11 @@ void mainTask(void *pvParameters)
 	}
 #endif
 
-	showLogo(); // transfer LOGO image to LCD frame buffer
+	showLogo(); // show LOGO image by normal DMA
+	vTaskDelay(3000);
+
+	FillRect(0, 0, 480, 272, 0xA9A9A9);
+	FillRect(100, 100, 30, 30, 0x8B0000);
 
 	// main loop
 	unsigned int count = 0;

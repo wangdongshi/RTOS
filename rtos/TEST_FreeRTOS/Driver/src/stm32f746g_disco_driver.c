@@ -77,6 +77,7 @@ static void initUartGPIO(void);
 static void initLED1GPIO(void);
 static void initSDRAMGPIO(void);
 static void initLCDGPIO(void);
+static void initDMA2D(void);
 
 #ifdef MODE_STAND_ALONE
 static void initTIM7Int(void);
@@ -157,48 +158,6 @@ uint32_t getRandomData(void)
 	return random;
 }
 
-void showLogo(void)
-{
-	uint32_t size = LCD_FRAME_BUF_SIZE / sizeof(uint32_t) / 2; // it must lower than 65535
-
-	// Open DMA RRC
-	RCC->AHB1ENR |= RCC_AHB1ENR_DMA2EN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_DMA2EN_Msk) == 0);
-
-	// RGB888 above half frame (48960 uint32_t)
-	DMA2_Stream0->CR = 	DMA_SxCR_CHSEL_0 |	// Stream0, channel1
-						DMA_SxCR_PSIZE_1 |	// src data 32bits
-						DMA_SxCR_MSIZE_1 |	// des data 32bits
-						DMA_SxCR_PINC |		// src address automatic increase
-						DMA_SxCR_MINC |		// des address automatic increase
-						DMA_SxCR_PL_0 | DMA_SxCR_PL_1 | // highest DMA priority
-						DMA_SxCR_DIR_1; 	// memory to memory
-	DMA2_Stream0->NDTR = size;
-	DMA2_Stream0->PAR  = (uint32_t)&logoImage;
-	DMA2_Stream0->M0AR = (uint32_t)&FrameBuffer;
-	DMA2_Stream0->CR |= DMA_SxCR_EN;  // start DMA transfer
-	while(DMA2_Stream0->NDTR != 0);   // wait transfer complete
-	DMA2->LIFCR |= DMA_LIFCR_CTCIF0;  // must clear TC interrupt flag for next DMA
-
-	// RGB888 below half frame (48960 uint32_t)
-	DMA2_Stream0->CR = 	DMA_SxCR_CHSEL_0 |	// Stream0, channel1
-						DMA_SxCR_PSIZE_1 |	// src data 32bits
-						DMA_SxCR_MSIZE_1 |	// des data 32bits
-						DMA_SxCR_PINC |		// src address automatic increase
-						DMA_SxCR_MINC |		// des address automatic increase
-						DMA_SxCR_PL_0 | DMA_SxCR_PL_1 | // highest DMA priority
-						DMA_SxCR_DIR_1; 	// memory to memory
-	DMA2_Stream0->NDTR = size;
-	DMA2_Stream0->PAR  = (uint32_t)((uint32_t*)&logoImage + size);
-	DMA2_Stream0->M0AR = (uint32_t)((uint32_t*)&FrameBuffer + size);
-	DMA2_Stream0->CR |= DMA_SxCR_EN; // start DMA transfer
-	while(DMA2_Stream0->NDTR != 0);  // wait transfer complete
-	DMA2->LIFCR |= DMA_LIFCR_CTCIF0; // must clear TC interrupt flag for next DMA
-
-	// close DMA RRC
-	RCC->AHB1RSTR |= RCC_AHB1RSTR_DMA2RST;
-}
-
 uint32_t testMemoryDMA(uint16_t data)
 {
 	uint32_t  size = 0x8000;
@@ -226,6 +185,62 @@ uint32_t testMemoryDMA(uint16_t data)
 	RCC->AHB1RSTR |= RCC_AHB1RSTR_DMA2RST;
 
 	return (*((uint16_t*)0xC0700000) == data && *((uint16_t*)0xC0700000 + 0x3FF8) == data);
+}
+
+void showLogo(void)
+{
+	uint32_t size = LCD_FRAME_BUF_SIZE / sizeof(uint32_t) / 2; // it must lower than 65535
+
+	// Open DMA RRC
+	RCC->AHB1ENR |= RCC_AHB1ENR_DMA2EN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_DMA2EN_Msk) == 0);
+
+	// RGB888 above half frame (48960 uint32_t)
+	DMA2_Stream0->CR = 	DMA_SxCR_CHSEL_0 |	// Stream0, channel1
+						DMA_SxCR_PSIZE_1 |	// src data 32bits
+						DMA_SxCR_MSIZE_1 |	// des data 32bits
+						DMA_SxCR_PINC |		// src address automatic increase
+						DMA_SxCR_MINC |		// des address automatic increase
+						DMA_SxCR_PL_0 | DMA_SxCR_PL_1 | // highest DMA priority
+						DMA_SxCR_DIR_1; 	// memory to memory
+	DMA2_Stream0->NDTR = size;
+	DMA2_Stream0->PAR  = (uint32_t)&logoImage;
+	DMA2_Stream0->M0AR = (uint32_t)&FrameBuffer;
+	DMA2_Stream0->CR |= DMA_SxCR_EN;  // start DMA transfer
+	while((DMA2->LISR & DMA_LISR_TCIF0_Msk) == 0);   // wait transfer complete
+	DMA2->LIFCR |= DMA_LIFCR_CTCIF0;  // must clear TC interrupt flag for next DMA
+
+	// RGB888 below half frame (48960 uint32_t)
+	DMA2_Stream0->CR = 	DMA_SxCR_CHSEL_0 |	// Stream0, channel1
+						DMA_SxCR_PSIZE_1 |	// src data 32bits
+						DMA_SxCR_MSIZE_1 |	// des data 32bits
+						DMA_SxCR_PINC |		// src address automatic increase
+						DMA_SxCR_MINC |		// des address automatic increase
+						DMA_SxCR_PL_0 | DMA_SxCR_PL_1 | // highest DMA priority
+						DMA_SxCR_DIR_1; 	// memory to memory
+	DMA2_Stream0->NDTR = size;
+	DMA2_Stream0->PAR  = (uint32_t)((uint32_t*)&logoImage + size);
+	DMA2_Stream0->M0AR = (uint32_t)((uint32_t*)&FrameBuffer + size);
+	DMA2_Stream0->CR |= DMA_SxCR_EN; // start DMA transfer
+	while((DMA2->LISR & DMA_LISR_TCIF0_Msk) == 0);   // wait transfer complete
+	DMA2->LIFCR |= DMA_LIFCR_CTCIF0; // must clear TC interrupt flag for next DMA
+
+	// close DMA RRC
+	RCC->AHB1RSTR |= RCC_AHB1RSTR_DMA2RST;
+}
+
+void FillRect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t color)
+{
+	DMA2D->CR 		&= ~DMA2D_CR_MODE_Msk;
+	DMA2D->CR 		|= 0b11 << DMA2D_CR_MODE_Pos; // register to memory
+	DMA2D->OCOLR	= color;
+	DMA2D->OMAR		= (uint32_t)(&(((uint8_t*)&FrameBuffer)[(y * LCD_ACTIVE_WIDTH + x) * LCD_COLOR_BYTES]));
+	DMA2D->OOR		= LCD_ACTIVE_WIDTH - w;
+	DMA2D->OPFCCR	= 0b01;
+	DMA2D->NLR		= w << DMA2D_NLR_PL_Pos | h << DMA2D_NLR_NL_Pos;
+
+	DMA2D->CR   	|= DMA2D_CR_START;
+	while (DMA2D->CR & DMA2D_CR_START);
 }
 
 // General register(4 bytes) operation function
@@ -684,6 +699,12 @@ static void initSDRAMGPIO(void)
 	writeRegMask(GPIO_AFRL(H),		~0x00F0F000,	0x00C0C000); // AF = AF12
 }
 
+static void initDMA2D(void)
+{
+	RCC->AHB1ENR	|= RCC_AHB1ENR_DMA2DEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_DMA2DEN_Msk) == 0);
+}
+
 // LCD pin initialization
 static void initLCDGPIO(void)
 {
@@ -919,8 +940,11 @@ static void initSDRAM(void)
 // LTDC initialization
 static void initLCD(void)
 {
-	// Initialize GPIO for FMC
+	// Initialize GPIO for LTDC
 	initLCDGPIO();
+
+	// Initialize DMA2D
+	initDMA2D();
 
 	// 1. Enable the LTDC clock in the RCC register.
 	RCC->APB2ENR	|=	RCC_APB2ENR_LTDCEN;
