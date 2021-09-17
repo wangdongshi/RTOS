@@ -14,12 +14,14 @@
 #include "stm32f746g_disco_driver.h"
 #include "image.h"
 
+// Clock constant value definition
 #define PLLM					((uint32_t)( 25 <<  0))
 #define PLLN					((uint32_t)(432 <<  6))
 #define PLLP					((uint32_t)(  0 << 16)) // pay attention to this value!!
 #define PLLSRC					((uint32_t)(  1 << 22))
 #define PLLQ					((uint32_t)(  9 << 24))
 
+// GPIO register setting pattern definition
 #define GPIO_MODER_IN			(0b0)
 #define GPIO_MODER_OUT			(0b1)
 #define GPIO_MODER_MULTI		(0b10)
@@ -36,7 +38,19 @@
 #define GPIO_PUPDR_RESERVE		(0b11)
 #define GPIO_AFR_AF7			(0b0111)
 
-uint32_t __attribute__((section(".sdram"))) FrameBuffer[65280];
+// LCD constant value definition
+#define LCD_FRAME_BUF_SIZE		(LCD_COLOR_BYTES * LCD_ACTIVE_WIDTH * LCD_ACTIVE_HEIGHT)
+#define LCD_COLOR_BYTES			(3)
+#define LCD_ACTIVE_WIDTH		(480)
+#define LCD_ACTIVE_HEIGHT		(272)
+#define LCD_HSYNC				(41)
+#define LCD_VSYNC				(10)
+#define LCD_HBP					(13)
+#define LCD_HFP					(32)
+#define LCD_VBP					(2)
+#define LCD_VFP					(2)
+
+uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) ) FrameBuffer[LCD_FRAME_BUF_SIZE];
 
 static uint32_t readRegister(uint32_t addr, uint32_t shift, uint32_t len);
 static void writeRegister(uint32_t addr, uint32_t data, uint32_t shift, uint32_t len);
@@ -145,13 +159,13 @@ uint32_t getRandomData(void)
 
 void showLogo(void)
 {
-	uint32_t  size = 65280;
-	uint32_t* pSrc = (uint32_t*)&logoImage;
-	uint32_t* pDes = (uint32_t*)&FrameBuffer;
+	uint32_t size = LCD_FRAME_BUF_SIZE / sizeof(uint32_t) / 2; // it must lower than 65535
 
+	// Open DMA RRC
 	RCC->AHB1ENR |= RCC_AHB1ENR_DMA2EN;
 	while((RCC->AHB1ENR & RCC_AHB1ENR_DMA2EN_Msk) == 0);
 
+	// RGB888 above half frame (48960 uint32_t)
 	DMA2_Stream0->CR = 	DMA_SxCR_CHSEL_0 |	// Stream0, channel1
 						DMA_SxCR_PSIZE_1 |	// src data 32bits
 						DMA_SxCR_MSIZE_1 |	// des data 32bits
@@ -160,13 +174,28 @@ void showLogo(void)
 						DMA_SxCR_PL_0 | DMA_SxCR_PL_1 | // highest DMA priority
 						DMA_SxCR_DIR_1; 	// memory to memory
 	DMA2_Stream0->NDTR = size;
-	DMA2_Stream0->PAR  = (uint32_t)(pSrc);
-	DMA2_Stream0->M0AR = (uint32_t)(pDes);
+	DMA2_Stream0->PAR  = (uint32_t)&logoImage;
+	DMA2_Stream0->M0AR = (uint32_t)&FrameBuffer;
+	DMA2_Stream0->CR |= DMA_SxCR_EN;  // start DMA transfer
+	while(DMA2_Stream0->NDTR != 0);   // wait transfer complete
+	DMA2->LIFCR |= DMA_LIFCR_CTCIF0;  // must clear TC interrupt flag for next DMA
 
+	// RGB888 below half frame (48960 uint32_t)
+	DMA2_Stream0->CR = 	DMA_SxCR_CHSEL_0 |	// Stream0, channel1
+						DMA_SxCR_PSIZE_1 |	// src data 32bits
+						DMA_SxCR_MSIZE_1 |	// des data 32bits
+						DMA_SxCR_PINC |		// src address automatic increase
+						DMA_SxCR_MINC |		// des address automatic increase
+						DMA_SxCR_PL_0 | DMA_SxCR_PL_1 | // highest DMA priority
+						DMA_SxCR_DIR_1; 	// memory to memory
+	DMA2_Stream0->NDTR = size;
+	DMA2_Stream0->PAR  = (uint32_t)((uint32_t*)&logoImage + size);
+	DMA2_Stream0->M0AR = (uint32_t)((uint32_t*)&FrameBuffer + size);
 	DMA2_Stream0->CR |= DMA_SxCR_EN; // start DMA transfer
-
 	while(DMA2_Stream0->NDTR != 0);  // wait transfer complete
+	DMA2->LIFCR |= DMA_LIFCR_CTCIF0; // must clear TC interrupt flag for next DMA
 
+	// close DMA RRC
 	RCC->AHB1RSTR |= RCC_AHB1RSTR_DMA2RST;
 }
 
@@ -192,6 +221,7 @@ uint32_t testMemoryDMA(uint16_t data)
 	DMA2_Stream0->CR |= DMA_SxCR_EN; // start DMA transfer
 
 	while(DMA2_Stream0->NDTR != 0);  // wait transfer complete
+	DMA2->LIFCR |= DMA_LIFCR_CTCIF0; // must clear TC interrupt flag for next DMA
 
 	RCC->AHB1RSTR |= RCC_AHB1RSTR_DMA2RST;
 
@@ -945,6 +975,13 @@ static void initLCD(void)
 	//  This example uses AM480272H3TMQW-T01H LCD (MB1046 B-01) and configures
 	//  the synchronous timings as following :
 	//
+	//  ********************************** !!!! Attention !!!! **********************************
+	//  ST sample code is written for AM480272H3TMQW-T01H LCD (MB1046 B-01). It just can support RGB565
+	//  (16 bits/pixel). But my board is MB1191 B-02, and it's LCD RK043FN48H-CT672B can support RGB888
+	//  (24 bits/pixel). In order to improve the quality of LCD display, the layer register PFCR and CFBLR
+	//  setting value should be modified.
+	//  *****************************************************************************************
+	//
 	//  Horizontal Synchronization (Hsync) = 41
 	//  Horizontal Back Porch (HBP)        = 13
 	//  Active Width                       = 480
@@ -952,25 +989,21 @@ static void initLCD(void)
 	//
 	//  Vertical Synchronization (Vsync)   = 10
 	//  Vertical Back Porch (VBP)          = 2
-	//  Active Heigh                       = 272
+	//  Active Height                      = 272
 	//  Vertical Front Porch (VFP)         = 2
 	//
-	//  ********************************** !!!! Attention !!!! **********************************
-	//  The RK043FN48H-CT672B LCD (MB1191 B-02) has same size and resolution as AM480272H3TMQW-T01H,
-	//  but it support RGB888 (24 bits/pixel) image. It should reprogram layer register setting.
-	//  *****************************************************************************************
 
 	// 3. Configure the synchronous timings: VSYNC, HSYNC, vertical and horizontal back
 	//    porch, active data area and the front porch timings following the panel datasheet as
 	//    described in the Section 18.4.1: LTDC global configuration parameters.
-	LTDC->SSCR	= 	(41 - 1)					<< LTDC_SSCR_HSW_Pos |
-					(10 - 1)					<< LTDC_SSCR_VSH_Pos;
-	LTDC->BPCR	=	(41 + 13 - 1)				<< LTDC_BPCR_AHBP_Pos |
-					(10 + 2 - 1) 				<< LTDC_BPCR_AVBP_Pos;
-	LTDC->AWCR	=	(41 + 13 + 480 - 1) 		<< LTDC_AWCR_AAW_Pos |
-					(10 + 2 + 272 - 1) 			<< LTDC_AWCR_AAH_Pos;
-	LTDC->TWCR	=	(41 + 13 + 480 + 32 - 1) 	<< LTDC_TWCR_TOTALW_Pos |
-					(10 + 2 + 272 + 2 - 1) 		<< LTDC_TWCR_TOTALH_Pos;
+	LTDC->SSCR	= 	(LCD_HSYNC - 1)											<< LTDC_SSCR_HSW_Pos |
+					(LCD_VSYNC - 1)											<< LTDC_SSCR_VSH_Pos;
+	LTDC->BPCR	=	(LCD_HSYNC + LCD_HBP - 1)								<< LTDC_BPCR_AHBP_Pos |
+					(LCD_VSYNC + LCD_VBP - 1) 								<< LTDC_BPCR_AVBP_Pos;
+	LTDC->AWCR	=	(LCD_HSYNC + LCD_HBP + LCD_ACTIVE_WIDTH - 1) 			<< LTDC_AWCR_AAW_Pos |
+					(LCD_VSYNC + LCD_VBP + LCD_ACTIVE_HEIGHT - 1) 			<< LTDC_AWCR_AAH_Pos;
+	LTDC->TWCR	=	(LCD_HSYNC + LCD_HBP + LCD_ACTIVE_WIDTH + LCD_HFP - 1) 	<< LTDC_TWCR_TOTALW_Pos |
+					(LCD_VSYNC + LCD_VBP + LCD_ACTIVE_HEIGHT + LCD_VFP - 1) << LTDC_TWCR_TOTALH_Pos;
 	// while();
 
 	// 4. Configure the synchronous signals and clock polarity in the LTDC_GCR register.
@@ -986,25 +1019,28 @@ static void initLCD(void)
 	//    – programming the layer window horizontal and vertical position in the
 	//      LTDC_LxWHPCR and LTDC_WVPCR registers. The layer window must be in the
 	//      active data area.
-	LTDC_Layer1->WHPCR	=	(0 + 53 + 1) << LTDC_LxWHPCR_WHSTPOS_Pos |
-							(480 + 53)   << LTDC_LxWHPCR_WHSPPOS_Pos;
-	LTDC_Layer1->WVPCR	=	(0 + 12 + 1) << LTDC_LxWVPCR_WVSTPOS_Pos |
-							(272 + 12)   << LTDC_LxWVPCR_WVSPPOS_Pos;
+	uint16_t bpcrAhbp1	=	((LTDC->BPCR & LTDC_BPCR_AHBP_Msk) >> LTDC_BPCR_AHBP_Pos) + 1;
+	uint16_t bpcrAvbp1	=	((LTDC->BPCR & LTDC_BPCR_AVBP_Msk) >> LTDC_BPCR_AVBP_Pos) + 1;
+	LTDC_Layer1->WHPCR	=	(0 + bpcrAhbp1) << LTDC_LxWHPCR_WHSTPOS_Pos |
+							(LCD_ACTIVE_WIDTH + bpcrAhbp1 - 1)   << LTDC_LxWHPCR_WHSPPOS_Pos;
+	LTDC_Layer1->WVPCR	=	(0 + bpcrAvbp1 + 1) << LTDC_LxWVPCR_WVSTPOS_Pos |
+							(LCD_ACTIVE_HEIGHT + bpcrAvbp1)   << LTDC_LxWVPCR_WVSPPOS_Pos;
 
 	//    – programming the pixel input format in the LTDC_LxPFCR register
-	LTDC_Layer1->PFCR	=	0b010; // RGB565
+	LTDC_Layer1->PFCR	=	0b001; // RGB888, AM480272H3TMQW-T01H LCD use RGB565
 
 	//    – programming the color frame buffer start address in the LTDC_LxCFBAR register
 	LTDC_Layer1->CFBAR	=	(uint32_t)&FrameBuffer; // Frame Buffer
 
 	//    – programming the line length and pitch of the color frame buffer in the
 	//      LTDC_LxCFBLR register
-	LTDC_Layer1->CFBLR	=	(480 * 2) << LTDC_LxCFBLR_CFBP_Pos |		// ???
-							(480 * 2 + 3) << LTDC_LxCFBLR_CFBLL_Pos;	// ???
+	LTDC_Layer1->CFBLR	=	(LCD_ACTIVE_WIDTH * LCD_COLOR_BYTES) << LTDC_LxCFBLR_CFBP_Pos |
+							(LCD_ACTIVE_WIDTH * LCD_COLOR_BYTES + 3) << LTDC_LxCFBLR_CFBLL_Pos;
+	// AM480272H3TMQW-T01H should multiply 2
 
 	//    – programming the number of lines of the color frame buffer in the
 	//      LTDC_LxCFBLNR register
-	LTDC_Layer1->CFBLNR	=	272;
+	LTDC_Layer1->CFBLNR	=	LCD_ACTIVE_HEIGHT;
 
 	//    – if needed, loading the CLUT with the RGB values and its address in the
 	//      LTDC_LxCLUTWR register
