@@ -124,8 +124,10 @@ uint16_t checkSDRAM(void)
 
 void testTouchPanel(void)
 {
-	uint8_t chipID = i2c3Read1Byte(0b1110000, 0xA8);
+	uint8_t chipID = i2c3Read1Byte(0x70, 0xA8);
 	printf("Chip ID is 0x%x.\r\n", chipID);
+	uint8_t posNum = i2c3Read1Byte(0x70, 0x02);
+	printf("Touch points number is %d.\r\n", posNum);
 }
 
 #ifdef MODE_STAND_ALONE

@@ -793,20 +793,23 @@ static void initTouchPanelGPIO(void)
 	// GPIOH RCC
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOHEN;
 	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOHEN_Msk) == 0);
-	// PH7  --> I2C3_SCL(for FT5336 Control)
-	// PH8  --> I2C3_SDA
+	// PH7  --> I2C3_SCL (for FT5336 Control)
+	// PH8  --> I2C3_SDA (for FT5336 Control)
 	GPIOH->MODER	|=	0b10	<< GPIO_MODER_MODER7_Pos |	// MODER = Multiple(0b10)
 						0b10	<< GPIO_MODER_MODER8_Pos;
-	GPIOH->OTYPER	|=	0b1		<< GPIO_OTYPER_OT7_Pos;		// Open Drain
-	GPIOH->OSPEEDR	|=	0b10	<< GPIO_OSPEEDR_OSPEEDR7_Pos; // High speed
-	GPIOH->PUPDR	|=	0b01	<< GPIO_PUPDR_PUPDR7_Pos;	// Pull-up
+	GPIOH->OTYPER	|=	0b1		<< GPIO_OTYPER_OT7_Pos |	// Open Drain
+						0b1		<< GPIO_OTYPER_OT8_Pos;
+	GPIOH->OSPEEDR	|=	0b11	<< GPIO_OSPEEDR_OSPEEDR7_Pos | // Very high speed
+						0b11	<< GPIO_OSPEEDR_OSPEEDR8_Pos;
+	GPIOH->PUPDR	|=	0b01	<< GPIO_PUPDR_PUPDR7_Pos |	// Pull-up
+						0b01	<< GPIO_PUPDR_PUPDR8_Pos;
 	GPIOH->AFR[0]	|=	4		<< GPIO_AFRL_AFRL7_Pos;		// AF = AF4
 	GPIOH->AFR[1]	|=	4		<< GPIO_AFRH_AFRH0_Pos;		// AF = AF4
 
 	// GPIOI RCC
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOIEN;
 	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOIEN_Msk) == 0);
-	// PI13 --> LCD_INT
+	// PI13 --> LCD_INT (for FT5336 Control)
 	GPIOI->MODER	|=	0b10	<< GPIO_MODER_MODER15_Pos;	// MODER = Multiple(0b10)
 	GPIOI->AFR[1]	|=	15		<< GPIO_AFRH_AFRH5_Pos;		// AF = AF15
 }
@@ -826,15 +829,16 @@ static void initI2C3(void)
 	RCC->DCKCFGR2	|=	0b00 << RCC_DCKCFGR2_I2C3SEL_Pos; // APB1 clock (54MHz)
 
 	// Set I2C3 register
-	I2C3->CR1		&=	~I2C_CR1_PECEN_Msk;
-	I2C3->TIMINGR	=	0x30C03444; // from CubeMX (I2C Frequency = 100KHz, Rise time = 700ns, Fall time = 100ns)
-	I2C3->OAR1		|=	0x30F	<< I2C_OAR1_OA1_Pos |
-						0b1		<< I2C_OAR1_OA1MODE_Pos |
-						0b1		<< I2C_OAR1_OA1EN_Pos;
+	I2C3->CR1		&=	~I2C_CR1_PE_Msk;
+	I2C3->TIMINGR	=	0x30C03444; // calculate by CubeMX (I2C Frequency = 100KHz, Rise time = 700ns, Fall time = 100ns)
+	//I2C3->TIMINGR	=	0x40912732; // from ST sample
+	//I2C3->TIMINGR	=	0x20404768; // from https://github.com/haidongqing/i2c3test-xy/blob/master/
+	I2C3->OAR1		&=	~(I2C_OAR1_OA1_Msk | I2C_OAR1_OA1MODE_Msk | I2C_OAR1_OA1EN_Msk);
+	I2C3->OAR1		|=	0b1 << I2C_OAR1_OA1EN_Pos;
 
 	// Reset I2C3
-	while(I2C3->CR1 & I2C_CR1_PECEN_Msk);
-	I2C3->CR1		|=	I2C_CR1_PECEN;
+	while(I2C3->CR1 & I2C_CR1_PE_Msk);
+	I2C3->CR1		|=	I2C_CR1_PE;
 }
 
 // for 7bits slave address and 8bits memory address
@@ -843,13 +847,10 @@ void i2c3Write1Byte(uint8_t slaveAddr, uint8_t devAddr, uint8_t data)
 	// Wait previous I2C operation complete
 	while (I2C3->ISR & I2C_ISR_BUSY);
 
-	// Master mode communication initialization
-	I2C3->CR2	=	0x00000000;
+	// Set master communication to write mode for send device address and data
 	I2C3->CR2	=	I2C_CR2_AUTOEND |
 					2 << I2C_CR2_NBYTES_Pos | // send 2 bytes (address + data)
-					I2C_CR2_NACK |
 					I2C_CR2_START |
-					I2C_CR2_ADD10 |
 					0b0 << I2C_CR2_RD_WRN_Pos | // write
 					slaveAddr << I2C_CR2_SADD_Pos;
 
@@ -858,8 +859,7 @@ void i2c3Write1Byte(uint8_t slaveAddr, uint8_t devAddr, uint8_t data)
 	I2C3->TXDR	=	devAddr;
 	while ((I2C3->ISR & I2C_ISR_TXIS_Msk) == 0);
 	I2C3->TXDR	=	data;
-
-	// Check and clean stop bit
+	while ((I2C3->ISR & I2C_ISR_TC_Msk) == 0);
 	while ((I2C3->ISR & I2C_ISR_STOPF_Msk) == 0);
 	I2C3->ICR	|=	I2C_ICR_STOPCF;
 }
@@ -870,46 +870,25 @@ uint8_t i2c3Read1Byte(uint8_t slaveAddr, uint8_t devAddr)
 	uint8_t data;
 
 	// Wait previous I2C operation complete
-	while (I2C3->ISR & I2C_ISR_BUSY);
+	while (I2C3->ISR & I2C_ISR_BUSY_Msk);
 
-	// Master mode communication initialization
-	I2C3->CR2	=	0x00000000;
-	I2C3->CR2	=	//I2C_CR2_AUTOEND |
-					1 << I2C_CR2_NBYTES_Pos | // send device address
-					//I2C_CR2_NACK |
-					//I2C_CR2_START |
-					//I2C_CR2_ADD10 |
+	// Set master communication to write mode for send device address
+	I2C3->CR2	=	1 << I2C_CR2_NBYTES_Pos |
+					I2C_CR2_START |
 					0b0 << I2C_CR2_RD_WRN_Pos | // write
 					slaveAddr << I2C_CR2_SADD_Pos;
-
-	I2C3->CR2	|=	I2C_CR2_START;
-
-	// Send device address
-	//while ((I2C3->ISR & I2C_ISR_TXIS_Msk) == 0);
+	while ((I2C3->ISR & I2C_ISR_TXIS_Msk) == 0);
 	I2C3->TXDR	=	devAddr;
+	while ((I2C3->ISR & I2C_ISR_TC_Msk) == 0);
 
-	// Check and clean stop bit
-	while ((I2C3->ISR & I2C_ISR_STOPF_Msk) == 0);
-	I2C3->ICR	|=	I2C_ICR_STOPCF;
-
-	// Wait previous I2C operation complete
-	while (I2C3->ISR & I2C_ISR_BUSY);
-
-	// Master mode communication initialization
-	I2C3->CR2	=	0x00000000;
+	// Set master communication to read mode for receive data
 	I2C3->CR2	=	I2C_CR2_AUTOEND |
-					1 << I2C_CR2_NBYTES_Pos | // receive data
-					I2C_CR2_NACK |
+					1 << I2C_CR2_NBYTES_Pos |
 					I2C_CR2_START |
-					I2C_CR2_ADD10 |
 					0b1 << I2C_CR2_RD_WRN_Pos | // read
 					slaveAddr << I2C_CR2_SADD_Pos;
-
-	// Wait receive data prepared
 	while ((I2C3->ISR & I2C_ISR_RXNE_Msk) == 0);
 	data		=	(uint8_t)I2C3->RXDR;
-
-	// Check and clean stop bit
 	while ((I2C3->ISR & I2C_ISR_STOPF_Msk) == 0);
 	I2C3->ICR	|=	I2C_ICR_STOPCF;
 
