@@ -22,6 +22,7 @@ void startTask(void *pvParameters);
 void mainTask(void *pvParameters);
 void led1Task(void *pvParameters);
 uint16_t checkSDRAM(void);
+void testTouchPanel(void);
 #ifdef MODE_STAND_ALONE
 void executeCmd(const char* cmd);
 #endif
@@ -89,9 +90,10 @@ void mainTask(void *pvParameters)
 	FillRect(100, 100, 30, 30, 0x8B0000);
 
 	// main loop
-	unsigned int count = 0;
+	//unsigned int count = 0;
 	while(1) {
-		printf("Mask count is %d.\r\n", count++);
+		//printf("Mask count is %d.\r\n", count++);
+		testTouchPanel();
 		vTaskDelay(2000);
 	}
 }
@@ -118,6 +120,12 @@ uint16_t checkSDRAM(void)
 	if ((*p) != 0x5A) return 0;
 
 	return 1;
+}
+
+void testTouchPanel(void)
+{
+	uint8_t chipID = i2c3Read1Byte(0b1110000, 0xA8);
+	printf("Chip ID is 0x%x.\r\n", chipID);
 }
 
 #ifdef MODE_STAND_ALONE

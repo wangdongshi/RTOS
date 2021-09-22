@@ -24,6 +24,8 @@ void SystemInit(void);
 uint8_t usart1ReceiveChar(void);
 void usart1SendChar(const uint8_t character);
 void usart1SendBuffer(const uint8_t* message);
+void i2c3Write1Byte(uint8_t slaveAddr, uint8_t devAddr, uint8_t data);
+uint8_t i2c3Read1Byte(uint8_t slaveAddr, uint8_t devAddr);
 void toggleLED1(void);
 void showLogo(void);
 uint32_t getRandomData(void);
