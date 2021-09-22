@@ -67,7 +67,7 @@ void led1Task(void *pvParameters)
 void mainTask(void *pvParameters)
 {
 	printf("Welcome to STM32F746G-DISCO!\r\n"); // print shell banner
-	//printf("Test FPU function with float value(%.4f). \r\n", 99.99f);
+	printf("Test FPU function with float value(%.4f). \r\n", 99.99f);
 
 	//assert_param(checkSDRAM());
 	if (!checkSDRAM()) { // test SDRAM
@@ -83,8 +83,8 @@ void mainTask(void *pvParameters)
 	}
 #endif
 
-	showLogo(); // show LOGO image by normal DMA
-	vTaskDelay(3000);
+	//showLogo(); // show LOGO image by normal DMA
+	//vTaskDelay(3000);
 
 	FillRect(0, 0, 480, 272, 0xA9A9A9);
 	FillRect(100, 100, 30, 30, 0x8B0000);

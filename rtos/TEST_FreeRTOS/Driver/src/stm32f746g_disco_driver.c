@@ -109,42 +109,32 @@ void SystemInit(void)
 
 void toggleLED1(void)
 {
-	uint32_t data = readRegister(GPIOI_ODR, 1, 1);
-
-	data = (!data) & 0x00000001;
-	writeRegThenWait(GPIOI_ODR, data, 1, 1);
+	uint32_t data = GPIOI->ODR & GPIO_ODR_OD1_Msk;
+	GPIOI->ODR &= ~GPIO_ODR_OD1_Msk;
+	GPIOI->ODR |= (~data) & GPIO_ODR_OD1_Msk;
 }
 
 void usart1SendChar(const uint8_t character)
 {
-	waitBitsSet(USART1_ISR, ~0x00000040); // wait TC set
-	writeRegThenWait(USART1_TDR, (uint32_t)character, 0, 8);
+	while((USART1->ISR & USART_ISR_TC_Msk) == 0);
+	USART1->TDR = (uint32_t)character;
 }
 
 uint8_t usart1ReceiveChar(void)
 {
-	waitBitsSet(USART1_ISR, ~0x00000020); // wait RXNE set
-	return (uint8_t)((readRegister(USART1_ISR, 0, 8) & 0x000000FF));
+	while((USART1->ISR & USART_ISR_RXNE_Msk) == 0);
+	return (uint8_t)(USART1->RDR & 0xFF);
 }
 
 void usart1SendBuffer(const uint8_t* message)
 {
-	/*
-	*((uint32_t *)USART1_CR1) |= 0x00000008; // enable TE
+	USART1->CR1	|= USART_CR1_TE;
 	for(uint32_t i = 0; i < strlen((const char*)message); i++) {
-		*((uint32_t *)USART1_TDR) = (0x000000FF & message[i]); // set character to TX buffer
-		while((*((uint32_t *)USART1_ISR) & 0x00000080) == 0); // wait TXE set
+		USART1->TDR = message[i];
+		while((USART1->ISR & USART_ISR_TXE_Msk) == 0);
 	}
-	while((*((uint32_t *)USART1_ISR) & 0x00000040) == 0); // wait TC set
-	*((uint32_t *)USART1_CR1) &= ~0x00000008; // disable TE
-	*/
-	writeRegThenWait(USART1_CR1, 1, 3, 1); // enable TE
-	for(uint32_t i = 0; i < strlen((const char*)message); i++) {
-		writeRegThenWait(USART1_TDR, message[i], 0, 8); // set character to TX buffer
-		waitBitsSet(USART1_ISR, ~0x00000080); // wait TXE set
-	}
-	waitBitsSet(USART1_ISR, ~0x00000040); // wait TC set
-	writeRegThenWait(USART1_CR1, 0, 3, 1); // disable TE
+	while((USART1->ISR & USART_ISR_TC_Msk) == 0);
+	USART1->CR1	&= ~USART_CR1_TE;
 }
 
 uint32_t getRandomData(void)
@@ -350,47 +340,51 @@ static void waitBitsClear(uint32_t addr, uint32_t mask)
 // FPU initialization
 static void initFPU(void)
 {
-	writeRegThenWait(SCR_CPACR, 0b1111, 20, 4); // open CP10 & CP11
+	SCB->CPACR |= 	0b11 << 20 | // CP10
+					0b11 << 22;  // CP11
+	while((SCB->CPACR & (0b1111 << 20)) != (0b1111 << 20));
 }
 
 // System clock initialization
 static void initSystemClock(void)
 {
 	// 1. Set HSE and reset RCC_CIR
-	writeRegThenWait(RCC_CR, 0b1, 18, 1); // set HSEBYP bit
-	writeRegThenWait(RCC_CR, 0b1, 16, 1); // set HSEON bit
-	waitBitsSet(RCC_CR, ~0x00020000); // wait HSERDY set
-	writeRegThenWait(RCC_CIR, 0x00000000, 0, 32); // disable all RCC interrupts
+	RCC->CR |= RCC_CR_HSEBYP | RCC_CR_HSEON;
+	while((RCC->CR & RCC_CR_HSERDY_Msk) == 0);
+	RCC->CIR = 0x00000000; // disable all RCC interrupts
 
 	// 2. Set FLASH latency
-	writeRegThenWait(FLASH_ACR, 7, 0, 4); // need be set in 216MHz
-	//writeRegThenWait(FLASH_ACR, 0b11, 8, 2); // set ARTEN, PRFTEN
-	//writeRegThenWait(PWR_CR1, 0b11, 14, 2); // PWR_VOS default value has set to 0b11 in reset
+	FLASH->ACR |= FLASH_ACR_LATENCY_7WS; // need be set in 216MHz
+	while((FLASH->ACR & FLASH_ACR_LATENCY_Msk) != FLASH_ACR_LATENCY_7WS);
+	//FLASH->ACR |= FLASH_ACR_ARTEN | FLASH_ACR_PRFTEN;
+	//PWR->CR1 |= 0b11 << PWR_CR1_VOS_Pos; // default value has set to 0b11 in reset
 
 	// 3. Enable PWR clock
-	writeRegThenWait(RCC_APB1ENR, 0b1, 28, 1);
-	//*((uint32_t *)RCC_APB1ENR) |= 0x10000000;
+	RCC->APB1ENR |= RCC_APB1ENR_PWREN;
+	while((RCC->APB1ENR & RCC_APB1ENR_PWREN_Msk) == 0);
 
 	// 4. Activation OverDrive Mode
-	writeRegThenWait(PWR_CR1, 0b1, 16, 1); // set ODEN
-	waitBitsSet(PWR_CSR1, ~0x00010000); // wait ODRDY
+	PWR->CR1 |= PWR_CR1_ODEN;
+	while((PWR->CSR1 & PWR_CSR1_ODRDY_Msk) == 0);
 
 	// 5. Activation OverDrive Switching
-	writeRegThenWait(PWR_CR1, 0b1, 17, 1); // set ODEN
-	waitBitsSet(PWR_CSR1, ~0x00020000); // wait ODRDY
+	PWR->CR1 |= PWR_CR1_ODSWEN;
+	while((PWR->CSR1 & PWR_CSR1_ODSWRDY_Msk) == 0);
 
 	// 6. Main PLL configuration and activation
-	writeRegThenWait(RCC_PLLCFGR, (PLLM | PLLN | PLLP | PLLSRC | PLLQ), 0, 32); // reset PLLCFGR register
-	writeRegThenWait(RCC_CR, 0b1, 24, 1); // set PLLON
-	waitBitsSet(RCC_CR, ~0x02000000); // wait for PLLRDY
+	RCC->PLLCFGR = PLLM | PLLN | PLLP | PLLSRC | PLLQ;
+	RCC->CR |= RCC_CR_PLLON;
+	while((RCC->CR & RCC_CR_PLLRDY_Msk) == 0);
 
 	// 7. System clock activation on the main PLL
-	writeRegThenWait(RCC_CFGR, 0b0000, 4, 4); // set HPRE  (AHB  pre-scaler) to 1 (216 MHz)
-	writeRegThenWait(RCC_CFGR, 0b101, 10, 3); // set PPRE1 (APB1 pre-scaler) to 4 (54  MHz)
-	writeRegThenWait(RCC_CFGR, 0b100, 13, 3); // set PPRE2 (APB2 pre-scaler) to 2 (108 MHz)
-	waitValueSet(RCC_CFGR, ~0x0000FC00, 0x00009400); // Attention : before switching System clock to PLL, it must wait all pre-scale value set to CFGR.
-	writeRegister(RCC_CFGR, 0b10, 0, 2); // set SW to PLL
-	waitValueSet(RCC_CFGR, ~0x0000000C, 0x00000008); // wait for system clock set to PLL
+	RCC->CFGR |=	RCC_CFGR_HPRE_DIV1 |	 // set HPRE  (AHB  pre-scaler) to 1 (216 MHz)
+					RCC_CFGR_PPRE1_DIV4 |	 // set PPRE1 (APB1 pre-scaler) to 4 (54  MHz)
+					RCC_CFGR_PPRE2_DIV2;	 // set PPRE2 (APB2 pre-scaler) to 2 (108 MHz)
+	// Attention : before switching System clock to PLL, it must wait all pre-scale value set to CFGR.
+	while((RCC->CFGR & (RCC_CFGR_HPRE_Msk | RCC_CFGR_PPRE1_Msk | RCC_CFGR_PPRE2_Msk)) !=
+		(RCC_CFGR_HPRE_DIV1 | RCC_CFGR_PPRE1_DIV4 | RCC_CFGR_PPRE2_DIV2));
+	RCC->CFGR |=	RCC_CFGR_SW_PLL; // switch main clock to PLL
+	while((RCC->CFGR & RCC_CFGR_SWS_Msk) != RCC_CFGR_SWS_PLL);
 }
 
 // Set global NVIC priority group
@@ -413,8 +407,9 @@ static void initNVICPriorityGroup(void)
 	//   ----------------|------------------------------------------------
 
 	// "|=" can not be used here, because VECTKEY write key is "0x05FA" and "|=" will change it
-	writeRegister(SCR_AIRCR, 0x05FA0300, 0, 32); // PRIGROUP = 0b011 (preemption:16, sub:0)
-	waitValueSet(SCR_AIRCR, ~0x00000700, 0x00000300);
+	SCB->AIRCR =	0x05FA << SCB_AIRCR_VECTKEY_Pos |
+					0b011  << SCB_AIRCR_PRIGROUP_Pos; // PRIGROUP = 0b011 (preemption:16, sub:0)
+	while((SCB->AIRCR & SCB_AIRCR_PRIGROUP_Msk) != (0b011 << SCB_AIRCR_PRIGROUP_Pos));
 
 	// Global interrupt design in sample project can refer to the following setting.
 	// SVC(FreeRTOS)		: preemption:10, IRQn:11
@@ -427,39 +422,29 @@ static void initNVICPriorityGroup(void)
 // Initialize USART1 interrupt
 static void initUSART1Int(void)
 {
-	// Set USART1 interrupt priority
-	writeRegThenWait(NVIC_IPR9, 14, (8+4), 4);
-
-	// Enable USART1 global interrupt (IRQn=37)
-	writeRegThenWait(NVIC_ISER1, 0b1, (37-32), 1);
+	NVIC->IP[9]   |= 14 << (8 + 4); // Set USART1 interrupt priority
+	NVIC->ISER[1] |= 0b1 << (37 - 32); // Enable USART1 global interrupt (IRQn=37)
 }
 
 // Initialize SVCall interrupt (IRQn:11)
 static void initSVCallInt(void)
 {
-	// Set SVCall interrupt priority
-	writeRegThenWait(SCR_SHPR2, 10, (24+4), 4);
-
+	SCB->SHPR[2] |= 10 << (24 + 4); // Set SVCall interrupt priority
 	// SVC need not open. Executing SVC instrument will trigger SVC interrupt.
 }
 
 // Initialize PendSV interrupt (IRQn:14)
 static void initPendSVInt(void)
 {
-	// Set PendSV interrupt priority
-	writeRegThenWait(SCR_SHPR3, 15, (16+4), 4);
-
+	SCB->SHPR[3] |= 15 << (16 + 4); // Set PendSV interrupt priority
 	// PendSV need not open. Setting ICSR the 28th bit will trigger pendSV interrupt.
 }
 
 // Initialize Systick interrupt (IRQn:15)
 static void initSystickInt(void)
 {
-	// Set Systick interrupt priority
-	writeRegThenWait(SCR_SHPR3, 6, (24+4), 4);
-
-	// Enable Systick global interrupt
-	writeRegThenWait(SYST_CSR, 0b1, 1, 1);
+	SCB->SHPR[3]  |= 6 << (24 + 4); // Set Systick interrupt priority
+	SysTick->CTRL |= 0b1 << SysTick_CTRL_TICKINT_Pos; // Enable Systick global interrupt
 }
 
 // LED1 initialization
@@ -475,27 +460,28 @@ static void initUSART1(void)
 	initUartGPIO();
 
 	// Enable APB2 USART1 RCC
-	writeRegThenWait(RCC_APB2ENR, 0b1, 4, 1);
+	RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
+	while((RCC->APB2ENR & RCC_APB2ENR_USART1EN_Msk) == 0);
 
 	// Set USART1 parameter
-	//writeRegThenWait(USART1_BRR, 0x2BF2, 0, 16); // baud rate = 9600(fCK=108MHz, CR1/OVER8=0, 0x2BF2 = 108000000/9600)
-	writeRegThenWait(USART1_BRR, 0x03AA, 0, 16); // baud rate = 115200(fCK=108MHz, CR1/OVER8=0, 0x03AA = 108000000/115200)
-	writeRegMaskThenWait(USART1_CR1, 0x10001000, 0x00000000);	// data bits = 8(M[1:0]=00)
-	writeRegThenWait(USART1_CR2, 0b00, 12, 2);					// stop bits = 1(STOP[1:0]=00)
-	writeRegThenWait(USART1_CR1, 0b0, 10, 1);					// parity = off(parity = on, odd:0x00000600, even:0x00000400)
-	writeRegThenWait(USART1_CR3, 0b00, 8, 2);					// disable CTS and RTS
+	//USART1->BRR = 0x2BF2;	// baud rate = 9600(fCK=108MHz, CR1/OVER8=0, 0x2BF2 = 108000000/9600)
+	USART1->BRR = 0x03AA;	// baud rate = 15200(fCK=108MHz, CR1/OVER8=0, 0x03AA = 108000000/115200)
+	USART1->CR1 &= ~USART_CR1_M;	// data bits = 8(M[1:0]=00)
+	USART1->CR2 &= ~USART_CR2_STOP;	// stop bits = 1(STOP[1:0]=00)
+	USART1->CR1 &= ~USART_CR1_PCE;	// parity = off(parity = on, odd:0x00000600, even:0x00000400)
+	USART1->CR3 &= ~(USART_CR3_CTSE | USART_CR3_RTSE); // disable CTS and RTS
 
 	// Enable USART1 global interrupt
 	initUSART1Int();
 
 	// Disable RX interrupt in console log mode
-	//writeRegThenWait(USART1_CR1, 0b1, 5, 1); // set RXNEIE
+	//USART1->CR1 |&= USART_CR1_RXNEIE;
 
 	// Enable USART1
-	writeRegThenWait(USART1_CR1, 0b1, 0, 1);
+	USART1->CR1 |= USART_CR1_UE;
 
 	// Enable TX and RE
-	writeRegThenWait(USART1_CR1, 0b11, 2, 2);
+	USART1->CR1 |= USART_CR1_TE | USART_CR1_RE;
 }
 
 // System tick initialization
@@ -505,14 +491,14 @@ static void initSystick(void)
 	initSystickInt();
 
 	// Set RELOAD value (216000000 / 1000 = 216000)
-	writeRegThenWait(SYST_RVR, (0x00034BC0-1), 0, 32);
+	SysTick->LOAD = 0x00034BC0 - 1;
 
 	// Set current value by default value
-	//writeRegThenWait(SYST_CVR, 0x00000000, 0, 32);
+	//SysTick->VAL = 0x00000000;
 
 	// Set CLKSOURCE, ENABLE
-	writeRegThenWait(SYST_CSR, 0b1, 2, 1); // clk-source : processor clock
-	writeRegThenWait(SYST_CSR, 0b1, 0, 1); // enable systick counter
+	SysTick->CTRL |= 	0b1 << SysTick_CTRL_CLKSOURCE_Pos |	// clk-source : processor clock
+						0b1 << SysTick_CTRL_ENABLE_Pos;		// enable systick counter
 }
 
 #ifdef MODE_STAND_ALONE
@@ -520,41 +506,32 @@ static void initSystick(void)
 static void initTIM7Int(void)
 {
 	// Set TIM7 interrupt priority for LED1 flicker
-	writeRegThenWait(NVIC_IPR13, 14, (24+4), 4);
+	NVIC->IP[13]   |= 14 << (24 + 4);
 
 	// Enable TIM7 global interrupt (IRQn=55)
-	writeRegThenWait(NVIC_ISER1, 0b1, (55-32), 4);
+	NVIC->ISER[1] |= 0b1 << (55 - 32);
 
 	// Enable TIM7 update interrupt
-	writeRegThenWait(TIM7_DIER, 0b1, 0, 1);
+	TIM7->DIER |= TIM_DIER_UIE;
 }
 
 // TIM7 initialization for low speed timer(500ms)
 static void initTIM7(void)
 {
 	// Enable APB1 TIM7 RCC
-	writeRegThenWait(RCC_APB1ENR, 0b1, 5, 1);
+	RCC->APB1ENR |= RCC_APB1ENR_TIM7EN;
+	while((RCC->APB1ENR & RCC_APB1ENR_TIM7EN_Msk) == 0);
 	
 	// Enable TIM7 interrupt
 	initTIM7Int();
 
-	// Enable pre-load ARPE
-	writeRegThenWait(TIM7_CR1, 0b1, 7, 1);
-	
-	// Set 4000 to pre-scale
-	writeRegThenWait(TIM7_PSC, (4000-1), 0, 16); // timer frequency = 108MHz / 4000 = 27KHz (APB pre-sacle is not 1, so fCK_PSC = 54MHz * 2 = 108MHz)
-	
-	// Set 0 to CNT
-	//writeRegThenWait(TIM7_CNT, 0, 0, 16); // reset CNT
-
-	// Clear timer update interrupt flag
-	writeRegThenWait(TIM7_SR, 0b0, 0, 1); // reset UIF
-	
-	// Set 13500 to reload value
-	writeRegThenWait(TIM7_ARR, (13500-1), 0, 16);
-	
-	// Enable TIM7 CEN
-	writeRegThenWait(TIM7_CR1, 0b1, 0, 1);
+	// Initialize TIM7
+	TIM7->CR1 |= TIM_CR1_ARPE;			// Enable pre-load ARPE
+	TIM7->PSC = 4000 - 1;				// timer frequency = 108MHz / 4000 = 27KHz (APB pre-sacle is not 1, so fCK_PSC = 54MHz * 2 = 108MHz)
+	TIM7->CNT &= TIM_CNT_UIFCPY_Msk;	// set bit[30:0] to 0
+	TIM7->SR  &= ~TIM_SR_UIF;			// Clear timer update interrupt flag
+	TIM7->ARR = 13500 - 1;				// Set 13500 to reload value
+	TIM7->CR1 |= TIM_CR1_CEN;			// Enable TIM7 CEN
 }
 #endif
 
