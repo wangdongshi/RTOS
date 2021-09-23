@@ -21,23 +21,6 @@
 #define PLLSRC					((uint32_t)(  1 << 22))
 #define PLLQ					((uint32_t)(  9 << 24))
 
-// GPIO register setting pattern definition
-#define GPIO_MODER_IN			(0b0)
-#define GPIO_MODER_OUT			(0b1)
-#define GPIO_MODER_MULTI		(0b10)
-#define GPIO_MODER_SIM			(0b11)
-#define GPIO_OTYPER_PP			(0b0)
-#define GPIO_OTYPER_OD			(0b1)
-#define GPIO_OSPEEDR_LOW		(0b00)
-#define GPIO_OSPEEDR_MID		(0b01)
-#define GPIO_OSPEEDR_HIGH		(0b10)
-#define GPIO_OSPEEDR_FULL		(0b11)
-#define GPIO_PUPDR_NONE			(0b00)
-#define GPIO_PUPDR_UP			(0b01)
-#define GPIO_PUPDR_DOWN			(0b10)
-#define GPIO_PUPDR_RESERVE		(0b11)
-#define GPIO_AFR_AF7			(0b0111)
-
 // LCD constant value definition
 #define LCD_FRAME_BUF_SIZE		(LCD_COLOR_BYTES * LCD_ACTIVE_WIDTH * LCD_ACTIVE_HEIGHT)
 #define LCD_COLOR_BYTES			(3)
@@ -51,15 +34,6 @@
 #define LCD_VFP					(2)
 
 uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) ) FrameBuffer[LCD_FRAME_BUF_SIZE];
-
-static uint32_t readRegister(uint32_t addr, uint32_t shift, uint32_t len);
-static void writeRegister(uint32_t addr, uint32_t data, uint32_t shift, uint32_t len);
-static void writeRegThenWait(uint32_t addr, uint32_t data, uint32_t shift, uint32_t len);
-static void writeRegMask(uint32_t addr, uint32_t mask, uint32_t data);
-static void writeRegMaskThenWait(uint32_t addr, uint32_t mask, uint32_t data);
-static void waitValueSet(uint32_t addr, uint32_t mask, uint32_t data);
-static void waitBitsSet(uint32_t addr, uint32_t mask);
-static __attribute__((unused)) void waitBitsClear(uint32_t addr, uint32_t mask);
 
 static void initFPU(void);
 static void initSDRAM(void);
@@ -155,14 +129,14 @@ uint32_t testMemoryDMA(uint16_t data)
 {
 	uint32_t  size = 0x8000;
 	uint16_t* pSrc = &data;
-	uint16_t* pDes = ((uint16_t*)_SDRAM_BANK1) + (uint32_t)(0x700000/sizeof(uint16_t));
+	uint16_t* pDes = ((uint16_t*)(&__sdram)) + (uint32_t)(0x700000/sizeof(uint16_t));
 
 	RCC->AHB1ENR |= RCC_AHB1ENR_DMA2EN;
 	while((RCC->AHB1ENR & RCC_AHB1ENR_DMA2EN_Msk) == 0);
 
-	DMA2_Stream0->CR = 	DMA_SxCR_CHSEL_0 | // Stream0, channel1
-						DMA_SxCR_PSIZE_0 | // src data 16bits
-						DMA_SxCR_MSIZE_0 | // des data 16bits
+	DMA2_Stream0->CR = 	DMA_SxCR_CHSEL_0 |	// Stream0, channel1
+						DMA_SxCR_PSIZE_0 |	// src data 16bits
+						DMA_SxCR_MSIZE_0 |	// des data 16bits
 						DMA_SxCR_MINC | 	// des address automatic increase
 						DMA_SxCR_PL_0 | DMA_SxCR_PL_1 | // highest DMA priority
 						DMA_SxCR_DIR_1; 	// memory to memory
@@ -234,106 +208,6 @@ void FillRect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t color)
 
 	DMA2D->CR   	|= DMA2D_CR_START;
 	while (DMA2D->CR & DMA2D_CR_START);
-}
-
-// General register(4 bytes) operation function
-static uint32_t readRegister(uint32_t addr, uint32_t shift, uint32_t len)
-{
-	uint32_t* reg = (uint32_t*)addr;
-	uint32_t  val = *reg; // read from register
-	uint32_t  mask = 0x00000000;
-
-	// set mask
-	for (uint32_t i = 0; i < 32; i++) {
-		if (i >= shift && i < shift + len)
-			mask |= (1 << i);
-	}
-	mask = ~mask;
-
-	// set data
-	val = (val & ~mask) >> shift;
-	return val;
-}
-
-static void writeRegister(uint32_t addr, uint32_t data, uint32_t shift, uint32_t len)
-{
-	uint32_t* reg = (uint32_t*)addr;
-	uint32_t  val = *reg; // read from register
-	uint32_t  mask = 0x00000000;
-
-	// set mask
-	for (uint32_t i = 0; i < 32; i++) {
-		if (i >= shift && i < shift + len)
-			mask |= (1 << i);
-	}
-	mask = ~mask;
-
-	// set data
-	val &= mask;					// clear bits
-	val |= (data << shift) & ~mask; // set bits
-	*reg = val;						// write back to register
-}
-
-static void writeRegThenWait(uint32_t addr, uint32_t data, uint32_t shift, uint32_t len)
-{
-	uint32_t* reg = (uint32_t*)addr;
-	uint32_t  val = *reg; // read from register
-	uint32_t  mask = 0x00000000;
-
-	// set mask
-	for (uint32_t i = 0; i < 32; i++) {
-		if (i >= shift && i < shift + len)
-			mask |= (1 << i);
-	}
-	mask = ~mask;
-
-	// set data
-	val &= mask;					// clear bits
-	val |= (data << shift) & ~mask; // set bits
-	*reg = val;						// write back to register
-	while(*reg != val);				// wait for set complete
-}
-
-static void writeRegMask(uint32_t addr, uint32_t mask, uint32_t data)
-{
-	volatile uint32_t* reg = (uint32_t*)addr;
-	uint32_t val = *reg; 	// read from register
-
-	// set data
-	val &= mask;			// clear bits
-	val |= data & (~mask);	// set bits
-	*reg = val;				// write back to register
-}
-
-static void writeRegMaskThenWait(uint32_t addr, uint32_t mask, uint32_t data)
-{
-	volatile uint32_t* reg = (uint32_t*)addr;
-	uint32_t val = *reg; 	// read from register
-
-	// set data
-	val &= mask;			// clear bits
-	val |= data & (~mask);	// set bits
-	*reg = val;				// write back to register
-	while(*reg != val);		// wait for set complete
-}
-
-static void waitValueSet(uint32_t addr, uint32_t mask, uint32_t data)
-{
-	volatile uint32_t* reg = (uint32_t*)addr;
-	while((*reg & ~mask) != data);
-
-}
-
-static void waitBitsSet(uint32_t addr, uint32_t mask)
-{
-	volatile uint32_t* reg = (uint32_t*)addr;
-	while((*reg & ~mask) == 0);
-}
-
-static void waitBitsClear(uint32_t addr, uint32_t mask)
-{
-	volatile uint32_t* reg = (uint32_t*)addr;
-	while((*reg & ~mask) != 0);
 }
 
 // The following initialization process is write for STM32F746G-DISCO
@@ -506,7 +380,7 @@ static void initSystick(void)
 static void initTIM7Int(void)
 {
 	// Set TIM7 interrupt priority for LED1 flicker
-	NVIC->IP[13]   |= 14 << (24 + 4);
+	NVIC->IP[13] |= 14 << (24 + 4);
 
 	// Enable TIM7 global interrupt (IRQn=55)
 	NVIC->ISER[1] |= 0b1 << (55 - 32);
@@ -535,45 +409,41 @@ static void initTIM7(void)
 }
 #endif
 
-// USART TX pin initialization (TX:GPIOA9, RX:GPIOB7)
+// USART TX pin initialization
 static void initUartGPIO(void)
 {
-	/*
-	writeRegThenWait(RCC_AHB1ENR, 1, 0, 1);
-	writeRegThenWait(GPIOA_MODER,	GPIO_MODER_MULTI,	9*2,		2);
-	writeRegThenWait(GPIOA_OTYPER,	GPIO_OTYPER_PP,		9,			1);
-	writeRegThenWait(GPIOA_OSPEEDR,	GPIO_OSPEEDR_FULL,	9*2,		2);
-	writeRegThenWait(GPIOA_PUPDR,	GPIO_PUPDR_UP,		9*2,		2);
-	writeRegThenWait(GPIOA_AFRH,	GPIO_AFR_AF7,		(9-8)*4,	4);
+	// GPIOA
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOAEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOAEN_Msk) == 0);
+	// PA9  --> USART1 TX
+	GPIOA->MODER	|=	0b10	<< GPIO_MODER_MODER9_Pos;		// MODER = Multiple(0b10)
+	GPIOA->OTYPER	|=	0b0		<< GPIO_OTYPER_OT9_Pos;
+	GPIOA->OSPEEDR	|=	0b11	<< GPIO_OSPEEDR_OSPEEDR9_Pos;
+	GPIOA->PUPDR	|=	0b01	<< GPIO_PUPDR_PUPDR9_Pos;
+	GPIOA->AFR[1]	|=	7		<< GPIO_AFRH_AFRH1_Pos;			// AF7
 
-	writeRegThenWait(RCC_AHB1ENR, 1, 1, 1);
-	writeRegThenWait(GPIOB_MODER,	GPIO_MODER_MULTI,	7*2,		2);
-	writeRegThenWait(GPIOB_OTYPER,	GPIO_OTYPER_PP,		7,			1);
-	writeRegThenWait(GPIOB_AFRL,	GPIO_AFR_AF7,		7*4,		4);
-	*/
-	writeRegMask(RCC_AHB1ENR,	~0x00000001,	0x00000001);
-	writeRegMask(GPIOA_MODER,	~0x000C0000,	0x00080000);
-	writeRegMask(GPIOA_OTYPER,	~0x00000200,	0x00000000);
-	writeRegMask(GPIOA_OSPEEDR,	~0x000C0000,	0x000C0000);
-	writeRegMask(GPIOA_PUPDR,	~0x000C0000,	0x00040000);
-	writeRegMask(GPIOA_AFRH,	~0x000000F0,	0x00000070);
-
-	writeRegMask(RCC_AHB1ENR,	~0x00000002,	0x00000002);
-	writeRegMask(GPIOB_MODER,	~0x000C0000,	0x00080000);
-	writeRegMask(GPIOB_OTYPER,	~0x00000200,	0x00000000);
+	// GPIOB
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOBEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOBEN_Msk) == 0);
+	// PB7  --> USART1 RX
+	GPIOB->MODER	|=	0b10	<< GPIO_MODER_MODER7_Pos;		// MODER = Multiple(0b10)
+	GPIOB->OTYPER	|=	0b0		<< GPIO_OTYPER_OT9_Pos;
 	// RX line need not to set OSPEEDR and PUPDR
-	writeRegMask(GPIOB_AFRL,	~0xF0000000,	0x70000000);
+	GPIOB->AFR[0]	|=	7		<< GPIO_AFRL_AFRL7_Pos;			// AF7
+
 }
 
-// LED1 pin initialization (GPIOI1)
+// LED1 pin initialization
 static void initLED1GPIO(void)
 {
-	writeRegThenWait(RCC_AHB1ENR,	0b1, 8, 1);
-	writeRegThenWait(GPIOI_MODER,	GPIO_MODER_OUT,		1*2,		2);
-	writeRegThenWait(GPIOI_OTYPER,	GPIO_OTYPER_PP,		1,			1);
-	writeRegThenWait(GPIOI_OSPEEDR,	GPIO_OSPEEDR_FULL,	1*2,		2);
-	writeRegThenWait(GPIOI_PUPDR,	GPIO_PUPDR_UP,		1*2,		2);
-
+	// GPIOI
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOIEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOIEN_Msk) == 0);
+	// PI1  --> LED1
+	GPIOI->MODER	|=	0b01	<< GPIO_MODER_MODER1_Pos;		// MODER = Output
+	GPIOI->OTYPER	|=	0b0		<< GPIO_OTYPER_OT1_Pos;
+	GPIOI->OSPEEDR	|=	0b11	<< GPIO_OSPEEDR_OSPEEDR1_Pos;
+	GPIOI->PUPDR	|=	0b01	<< GPIO_PUPDR_PUPDR1_Pos;
 }
 
 // SDRAM pin initialization
@@ -589,15 +459,18 @@ static void initLED1GPIO(void)
 static void initSDRAMGPIO(void)
 {
 	// GPIOC
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOCEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOCEN_Msk) == 0);
 	// PC3  --> FMC_SDCKE0
-	writeRegMask(RCC_AHB1ENR,		~0x00000004,	0x00000004);
-	writeRegMask(GPIO_MODER(C),		~0x000000C0,	0x00000080); // MODER = 10(Multiple)
-	writeRegMask(GPIO_OTYPER(C),	~0x00000010,	0x00000000); // OTYPER = PP
-	writeRegMask(GPIO_OSPEEDR(C),	~0x000000C0,	0x000000C0); // OSPEEDR = Full
-	writeRegMask(GPIO_PUPDR(C),		~0x000000C0,	0x00000000); // PUPDR = No Pull
-	writeRegMask(GPIO_AFRL(C),		~0x0000F000,	0x0000C000); // AF = AF12
+	GPIOC->MODER	|=	0b10	<< GPIO_MODER_MODER3_Pos;		// MODER = Multiple(0b10)
+	GPIOC->OTYPER	|=	0b0		<< GPIO_OTYPER_OT3_Pos;			// OTYPER = PP
+	GPIOC->OSPEEDR	|=	0b11	<< GPIO_OSPEEDR_OSPEEDR3_Pos;	// OSPEEDR = Full
+	GPIOC->PUPDR	|=	0b00	<< GPIO_PUPDR_PUPDR3_Pos;		// PUPDR = No Pull
+	GPIOC->AFR[0]	|=	12		<< GPIO_AFRL_AFRL3_Pos;			// AF12
 
 	// GPIOD
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIODEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIODEN_Msk) == 0);
 	// PD0  --> FMC_D2
 	// PD1  --> FMC_D3
 	// PD8  --> FMC_D13
@@ -605,15 +478,16 @@ static void initSDRAMGPIO(void)
 	// PD10 --> FMC_D15
 	// PD14 --> FMC_D0
 	// PD15 --> FMC_D1
-	writeRegMask(RCC_AHB1ENR,		~0x00000008,	0x00000008);
-	writeRegMask(GPIO_MODER(D),		~0xF03F000F,	0xA02A000A); // MODER = 10(Multiple)
-	writeRegMask(GPIO_OTYPER(D),	~0x0000C703,	0x00000000); // OTYPER = PP
-	writeRegMask(GPIO_OSPEEDR(D),	~0xF03F000F,	0xF03F000F); // OSPEEDR = Full
-	writeRegMask(GPIO_PUPDR(D),		~0xF03F000F,	0x00000000); // PUPDR = No Pull
-	writeRegMask(GPIO_AFRL(D),		~0x000000FF,	0x000000CC); // AF = AF12
-	writeRegMask(GPIO_AFRH(D),		~0xFF000FFF,	0xCC000CCC); // AF = AF12
+	GPIOD->MODER	|=	0xA02A000A;	// MODER = Multiple(0b10)
+	GPIOD->OTYPER	|=	0x00000000;	// OTYPER = PP
+	GPIOD->OSPEEDR	|=	0xF03F000F;	// OSPEEDR = Full
+	GPIOD->PUPDR	|=	0x00000000;	// PUPDR = No Pull
+	GPIOD->AFR[0]	|=	0x000000CC;	// AF12
+	GPIOD->AFR[1]	|=	0xCC000CCC;	// AF12
 
 	// GPIOE
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOEEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOEEN_Msk) == 0);
 	// PE0  --> FMC_NBL0
 	// PE1  --> FMC_NBL1
 	// PE7  --> FMC_D4
@@ -625,15 +499,16 @@ static void initSDRAMGPIO(void)
 	// PE13 --> FMC_D10
 	// PE14 --> FMC_D11
 	// PE15 --> FMC_D12
-	writeRegMask(RCC_AHB1ENR,		~0x00000010,	0x00000010);
-	writeRegMask(GPIO_MODER(E),		~0xFFFFC00F,	0xAAAA800A); // MODER = 10(Multiple)
-	writeRegMask(GPIO_OTYPER(E),	~0x0000FF83,	0x00000000); // OTYPER = PP
-	writeRegMask(GPIO_OSPEEDR(E),	~0xFFFFC00F,	0xFFFFC00F); // OSPEEDR = Full
-	writeRegMask(GPIO_PUPDR(E),		~0xFFFFC00F,	0x00000000); // PUPDR = No Pull
-	writeRegMask(GPIO_AFRL(E),		~0xF00000FF,	0xC00000CC); // AF = AF12
-	writeRegMask(GPIO_AFRH(E),		~0xFFFFFFFF,	0xCCCCCCCC); // AF = AF12
+	GPIOE->MODER	|=	0xAAAA800A;	// MODER = Multiple(0b10)
+	GPIOE->OTYPER	|=	0x00000000;	// OTYPER = PP
+	GPIOE->OSPEEDR	|=	0xFFFFC00F;	// OSPEEDR = Full
+	GPIOE->PUPDR	|=	0x00000000;	// PUPDR = No Pull
+	GPIOE->AFR[0]	|=	0xC00000CC;	// AF12
+	GPIOE->AFR[1]	|=	0xCCCCCCCC;	// AF12
 
 	// GPIOF
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOFEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOFEN_Msk) == 0);
 	// PF0  --> FMC_A0
 	// PF1  --> FMC_A1
 	// PF2  --> FMC_A2
@@ -645,38 +520,39 @@ static void initSDRAMGPIO(void)
 	// PF13 --> FMC_A7
 	// PF14 --> FMC_A8
 	// PF15 --> FMC_A9
-	writeRegMask(RCC_AHB1ENR,		~0x00000020,	0x00000020);
-	writeRegMask(GPIO_MODER(F),		~0xFFC00FFF,	0xAA800AAA); // MODER = 10(Multiple)
-	writeRegMask(GPIO_OTYPER(F),	~0x0000F83F,	0x00000000); // OTYPER = PP
-	writeRegMask(GPIO_OSPEEDR(F),	~0xFFC00FFF,	0xFFC00FFF); // OSPEEDR = Full
-	writeRegMask(GPIO_PUPDR(F),		~0xFFC00FFF,	0x00000000); // PUPDR = No Pull
-	writeRegMask(GPIO_AFRL(F),		~0x00FFFFFF,	0x00CCCCCC); // AF = AF12
-	writeRegMask(GPIO_AFRH(F),		~0xFFFFF000,	0xCCCCC000); // AF = AF12
+	GPIOF->MODER	|=	0xAA800AAA;	// MODER = Multiple(0b10)
+	GPIOF->OTYPER	|=	0x00000000;	// OTYPER = PP
+	GPIOF->OSPEEDR	|=	0xFFC00FFF;	// OSPEEDR = Full
+	GPIOF->PUPDR	|=	0x00000000;	// PUPDR = No Pull
+	GPIOF->AFR[0]	|=	0x00CCCCCC;	// AF12
+	GPIOF->AFR[1]	|=	0xCCCCC000;	// AF12
 
 	// GPIOG
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOGEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOGEN_Msk) == 0);
 	// PG0  --> FMC_A10
 	// PG1  --> FMC_A11
 	// PG4  --> FMC_BA0
 	// PG5  --> FMC_BA1
 	// PG8  --> FMC_SDCLK
 	// PG15 --> FMC_SDNCAS
-	writeRegMask(RCC_AHB1ENR,		~0x00000040,	0x00000040);
-	writeRegMask(GPIO_MODER(G),		~0xC0030F0F,	0x80020A0A); // MODER = 10(Multiple)
-	writeRegMask(GPIO_OTYPER(G),	~0x00008133,	0x00000000); // OTYPER = PP
-	writeRegMask(GPIO_OSPEEDR(G),	~0xC0030F0F,	0xC0030F0F); // OSPEEDR = Full
-	writeRegMask(GPIO_PUPDR(G),		~0xC0030F0F,	0x00000000); // PUPDR = No Pull
-	writeRegMask(GPIO_AFRL(G),		~0x00FF00FF,	0x00CC00CC); // AF = AF12
-	writeRegMask(GPIO_AFRH(G),		~0xF000000F,	0xC000000C); // AF = AF12
+	GPIOG->MODER	|=	0x80020A0A;	// MODER = Multiple(0b10)
+	GPIOG->OTYPER	|=	0x00000000;	// OTYPER = PP
+	GPIOG->OSPEEDR	|=	0xC0030F0F;	// OSPEEDR = Full
+	GPIOG->PUPDR	|=	0x00000000;	// PUPDR = No Pull
+	GPIOG->AFR[0]	|=	0x00CC00CC;	// AF12
+	GPIOG->AFR[1]	|=	0xC000000C;	// AF12
 
 	// GPIOH
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOHEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOHEN_Msk) == 0);
 	// PH3  --> FMC_SDNE0
 	// PH5  --> FMC_SDNWE
-	writeRegMask(RCC_AHB1ENR,		~0x00000080,	0x00000080);
-	writeRegMask(GPIO_MODER(H),		~0x00000CC0,	0x00000880); // MODER = 10(Multiple)
-	writeRegMask(GPIO_OTYPER(H),	~0x00000028,	0x00000000); // OTYPER = PP
-	writeRegMask(GPIO_OSPEEDR(H),	~0x00000CC0,	0x00000CC0); // OSPEEDR = Full
-	writeRegMask(GPIO_PUPDR(H),		~0x00000CC0,	0x00000000); // PUPDR = No Pull
-	writeRegMask(GPIO_AFRL(H),		~0x00F0F000,	0x00C0C000); // AF = AF12
+	GPIOH->MODER	|=	0x00000880;	// MODER = Multiple(0b10)
+	GPIOH->OTYPER	|=	0x00000000;	// OTYPER = PP
+	GPIOH->OSPEEDR	|=	0x00000CC0;	// OSPEEDR = Full
+	GPIOH->PUPDR	|=	0x00000000;	// PUPDR = No Pull
+	GPIOH->AFR[0]	|=	0x00C0C000;	// AF12
 }
 
 static void initDMA2D(void)
@@ -693,14 +569,14 @@ static void initLCDGPIO(void)
 	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOEEN_Msk) == 0);
 	// PE4  --> LTDC_B0
 	GPIOE->MODER	|=	0b10	<< GPIO_MODER_MODER4_Pos;		// MODER = Multiple(0b10)
-	GPIOE->AFR[0]	|=	14		<< GPIO_AFRL_AFRL4_Pos;			// AF = AF14
+	GPIOE->AFR[0]	|=	14		<< GPIO_AFRL_AFRL4_Pos;			// AF14
 
 	// GPIOG
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOGEN;
 	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOGEN_Msk) == 0);
 	// PG12 --> LTDC_B4
 	GPIOG->MODER	|=	0b10	<< GPIO_MODER_MODER12_Pos;		// MODER = Multiple(0b10)
-	GPIOG->AFR[1]	|=	14		<< GPIO_AFRH_AFRH4_Pos;			// AF = AF14
+	GPIOG->AFR[1]	|=	14		<< GPIO_AFRH_AFRH4_Pos;			// AF14
 
 	// GPIOI
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOIEN;
@@ -713,7 +589,7 @@ static void initLCDGPIO(void)
 						0b10	<< GPIO_MODER_MODER10_Pos |
 						0b10	<< GPIO_MODER_MODER14_Pos |
 						0b10	<< GPIO_MODER_MODER15_Pos;
-	GPIOI->AFR[1]	|=	14		<< GPIO_AFRH_AFRH1_Pos |		// AF = AF14
+	GPIOI->AFR[1]	|=	14		<< GPIO_AFRH_AFRH1_Pos |		// AF14
 						14		<< GPIO_AFRH_AFRH2_Pos |
 						14		<< GPIO_AFRH_AFRH6_Pos |
 						14		<< GPIO_AFRH_AFRH7_Pos;
@@ -737,8 +613,8 @@ static void initLCDGPIO(void)
 	// PJ14 --> LTDC_B2
 	// PJ15 --> LTDC_B3
 	GPIOJ->MODER	|=	0xA8AAAAAA;	// MODER = Multiple(0b10)
-	GPIOJ->AFR[0]	|=	0xEEEEEEEE; // AF = AF14
-	GPIOJ->AFR[1]	|=	0xEEE0EEEE; // AF = AF14
+	GPIOJ->AFR[0]	|=	0xEEEEEEEE; // AF14
+	GPIOJ->AFR[1]	|=	0xEEE0EEEE; // AF14
 
 	// GPIOK
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOKEN;
@@ -772,23 +648,23 @@ static void initTouchPanelGPIO(void)
 	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOHEN_Msk) == 0);
 	// PH7  --> I2C3_SCL (for FT5336 Control)
 	// PH8  --> I2C3_SDA (for FT5336 Control)
-	GPIOH->MODER	|=	0b10	<< GPIO_MODER_MODER7_Pos |	// MODER = Multiple(0b10)
+	GPIOH->MODER	|=	0b10	<< GPIO_MODER_MODER7_Pos |		// MODER = Multiple(0b10)
 						0b10	<< GPIO_MODER_MODER8_Pos;
-	GPIOH->OTYPER	|=	0b1		<< GPIO_OTYPER_OT7_Pos |	// Open Drain
+	GPIOH->OTYPER	|=	0b1		<< GPIO_OTYPER_OT7_Pos |		// Open Drain
 						0b1		<< GPIO_OTYPER_OT8_Pos;
-	GPIOH->OSPEEDR	|=	0b11	<< GPIO_OSPEEDR_OSPEEDR7_Pos | // Very high speed
+	GPIOH->OSPEEDR	|=	0b11	<< GPIO_OSPEEDR_OSPEEDR7_Pos |	// Very high speed
 						0b11	<< GPIO_OSPEEDR_OSPEEDR8_Pos;
-	GPIOH->PUPDR	|=	0b01	<< GPIO_PUPDR_PUPDR7_Pos |	// Pull-up
+	GPIOH->PUPDR	|=	0b01	<< GPIO_PUPDR_PUPDR7_Pos |		// Pull-up
 						0b01	<< GPIO_PUPDR_PUPDR8_Pos;
-	GPIOH->AFR[0]	|=	4		<< GPIO_AFRL_AFRL7_Pos;		// AF = AF4
-	GPIOH->AFR[1]	|=	4		<< GPIO_AFRH_AFRH0_Pos;		// AF = AF4
+	GPIOH->AFR[0]	|=	4		<< GPIO_AFRL_AFRL7_Pos;			// AF4
+	GPIOH->AFR[1]	|=	4		<< GPIO_AFRH_AFRH0_Pos;			// AF4
 
 	// GPIOI RCC
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOIEN;
 	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOIEN_Msk) == 0);
 	// PI13 --> LCD_INT (for FT5336 Control)
-	GPIOI->MODER	|=	0b10	<< GPIO_MODER_MODER15_Pos;	// MODER = Multiple(0b10)
-	GPIOI->AFR[1]	|=	15		<< GPIO_AFRH_AFRH5_Pos;		// AF = AF15
+	GPIOI->MODER	|=	0b10	<< GPIO_MODER_MODER15_Pos;		// MODER = Multiple(0b10)
+	GPIOI->AFR[1]	|=	15		<< GPIO_AFRH_AFRH5_Pos;			// AF15
 }
 
 // I2C3 controller initialization (for touch panel)
@@ -826,9 +702,9 @@ void i2c3Write1Byte(uint8_t slaveAddr, uint8_t devAddr, uint8_t data)
 
 	// Set master communication to write mode for send device address and data
 	I2C3->CR2	=	I2C_CR2_AUTOEND |
-					2 << I2C_CR2_NBYTES_Pos | // send 2 bytes (address + data)
+					2 << I2C_CR2_NBYTES_Pos |	// send 2 bytes (address + data)
 					I2C_CR2_START |
-					0b0 << I2C_CR2_RD_WRN_Pos | // write
+					0b0 << I2C_CR2_RD_WRN_Pos |	// write
 					slaveAddr << I2C_CR2_SADD_Pos;
 
 	// Send device address and data
@@ -875,77 +751,101 @@ uint8_t i2c3Read1Byte(uint8_t slaveAddr, uint8_t devAddr)
 // SDRAM initialization
 static void initSDRAM(void)
 {
+	uint32_t reg, mask;
+
 	// Initialize GPIO for FMC
 	initSDRAMGPIO();
 
 	// Enable FMC RCC
-	writeRegMaskThenWait(RCC_AHB3ENR, ~0x00000001, 0x00000001);
+	RCC->AHB3ENR	|=	RCC_AHB3ENR_FMCEN;
+	while((RCC->AHB3ENR & RCC_AHB3ENR_FMCEN_Msk) == 0);
 
 	// The following comment is copied from STM32F746G data-sheet FMC-SDRAM chapter.
-	// Set MCU-FMC register
+	// --- Set MCU-FMC register ---
 	// 1. Program the memory device features into the FMC_SDCRx register.
 	//    The SDRAM clock frequency, RBURST and RPIPE must be programmed in
 	//    the FMC_SDCR1 register.
-	uint32_t NC     = 0b00 << 0;	// 8 bits
-	uint32_t NR     = 0b01 << 2;	// 12 bits
-	uint32_t NWID   = 0b01 << 4;	// 16 bits
-	uint32_t NB     = 0b1 << 6;		// 4 banks
-	uint32_t CAS    = 0b11 << 7;	// 3 cycles
-	uint32_t WP     = 0b0 << 9;		// enable write operation
-	uint32_t SDCLK  = 0b10 << 10;	// HCLK x 2 = 108MHz = 9.26ns
-	uint32_t RBURST = 0b1 << 12;	// enable burst mode
-	uint32_t RPIPE  = 0b0 << 13;	// 0 latency after CAS
-	uint32_t SDCR   = NC | NR | NWID | NB | CAS | WP | SDCLK | RBURST | RPIPE;
-	writeRegMaskThenWait(FMC_SDCR1, ~0x00007FFF, SDCR);
+	mask =	FMC_SDCR1_NC_Msk |
+			FMC_SDCR1_NR_Msk |
+			FMC_SDCR1_MWID_Msk |
+			FMC_SDCR1_NB_Msk |
+			FMC_SDCR1_CAS_Msk |
+			FMC_SDCR1_WP_Msk |
+			FMC_SDCR1_SDCLK_Msk |
+			FMC_SDCR1_RBURST_Msk |
+			FMC_SDCR1_RPIPE_Msk;
+	reg  = 	0b00 << FMC_SDCR1_NC_Pos |		// 8 bits
+			0b01 << FMC_SDCR1_NR_Pos |		// 12 bits
+			0b01 << FMC_SDCR1_MWID_Pos |	// 16 bits
+			0b1  << FMC_SDCR1_NB_Pos |		// 4 banks
+			0b11 << FMC_SDCR1_CAS_Pos |		// 3 cycles
+			0b0  << FMC_SDCR1_WP_Pos |		// enable write operation
+			0b10 << FMC_SDCR1_SDCLK_Pos |	// HCLK x 2 = 108MHz = 9.26ns
+			0b1  << FMC_SDCR1_RBURST_Pos |	// enable burst mode
+			0b00 << FMC_SDCR1_RPIPE_Pos;	// 0 latency after CAS
+	FMC_Bank5_6->SDCR[0] &= ~mask;
+	FMC_Bank5_6->SDCR[0] |= reg;
+	while((FMC_Bank5_6->SDCR[0] & mask) != reg);
 
 	// 2. Program the memory device timing into the FMC_SDTRx register.
 	//    The TRP and TRC timings must be programmed in the FMC_SDTR1 register.
-	uint32_t TMRD	= 1 << 0;		// 1 cycle : uncertain !
-	uint32_t TXSR	= 8 << 4;		// 8 x 9.26 = 74.08ns > tXSR(70ns)
-	uint32_t TRAS	= 3 << 8;		// 3 x 9.26 = 27.78ns < tRFC(70ns) : uncertain !
-	uint32_t TRC	= 8 << 12;		// 8 x 9.26 = 74.08ns > tRC(70ns)
-	uint32_t TWR	= 3 << 16;		// 3 x 9.26 = 27.78ns > tWR(1CLK+7ns or 14ns) : uncertain !
-	uint32_t TRP	= 3 << 20;		// 3 x 9.26 = 27.78ns > tRP(20ns)
-	uint32_t TRCD	= 3 << 24;		// 3 x 9.26 = 27.78ns < tRCD(20ns)
-	uint32_t SDTR	= TMRD | TXSR | TRAS | TRC | TWR | TRP | TRCD;
-	writeRegMaskThenWait(FMC_SDTR1, ~0x0FFFFFFF, SDTR);
+	mask =	FMC_SDTR1_TMRD_Msk |
+			FMC_SDTR1_TXSR_Msk |
+			FMC_SDTR1_TRAS_Msk |
+			FMC_SDTR1_TRC_Msk |
+			FMC_SDTR1_TWR_Msk |
+			FMC_SDTR1_TRP_Msk |
+			FMC_SDTR1_TRCD_Msk;
+	reg  = 	1 << FMC_SDTR1_TMRD_Pos |	// 1 cycle : uncertain !
+			8 << FMC_SDTR1_TXSR_Pos |	// 8 x 9.26 = 74.08ns > tXSR(70ns)
+			3 << FMC_SDTR1_TRAS_Pos |	// 3 x 9.26 = 27.78ns < tRFC(70ns) : uncertain !
+			8 << FMC_SDTR1_TRC_Pos |	// 8 x 9.26 = 74.08ns > tRC(70ns)
+			3 << FMC_SDTR1_TWR_Pos |	// 3 x 9.26 = 27.78ns > tWR(1CLK+7ns or 14ns) : uncertain !
+			3 << FMC_SDTR1_TRP_Pos |	// 3 x 9.26 = 27.78ns > tRP(20ns)
+			3 << FMC_SDTR1_TRCD_Pos;	// 3 x 9.26 = 27.78ns < tRCD(20ns)
+	FMC_Bank5_6->SDTR[0] &= ~mask;
+	FMC_Bank5_6->SDTR[0] |= reg;
+	while((FMC_Bank5_6->SDTR[0] & mask) != reg);
 
-	// Set SDRAM-MODE register
-	uint32_t MODE, CTB1, NRFS, MRD, SDCMR;
+	// --- Set SDRAM-MODE register ---
 	// 3. Set MODE bits to ‘001’ and configure the Target Bank bits
 	//    (CTB1 and/or CTB2) in the	FMC_SDCMR register to start delivering
 	//    the clock to the memory (SDCKE is driven high).
-	MODE	= 0b001 << 0;	// clock assign enable
-	CTB1	= 0b1 << 4;		// CTB1 enable
-	NRFS	= 0 << 5;		// not use
-	MRD		= 0 << 9;		// not use
-	SDCMR	= MODE | CTB1 | NRFS | MRD;
-	writeRegMask(FMC_SDCMR, ~0x003FFFFF, SDCMR);
+	mask =	FMC_SDCMR_MODE_Msk |
+			FMC_SDCMR_CTB1_Msk |
+			FMC_SDCMR_NRFS_Msk |
+			FMC_SDCMR_MRD_Msk;
+	reg  = 	0b001	<< FMC_SDCMR_MODE_Pos |	// clock assign enable
+			0b1		<< FMC_SDCMR_CTB1_Pos |	// CTB1 enable
+			0		<< FMC_SDCMR_NRFS_Pos |	// NRFS not use
+			0		<< FMC_SDCMR_MRD_Pos;	// MRD not use
+	FMC_Bank5_6->SDCMR &= ~mask;
+	FMC_Bank5_6->SDCMR |= reg;
 
 	// 4. Wait during the prescribed delay period. Typical delay is around
-	//    100 us (refer to the SDRAM datasheet for the required delay after power-up).
+	//    100 us (refer to the SDRAM data-sheet for the required delay after power-up).
 	for (volatile uint32_t i = 0; i < 50000; i++); // at least 100 us delay here, (216MHz = 4.63ns, 100us / 2.63ns = 21598)
 
 	// 5. Set MODE bits to ‘010’ and configure the Target Bank bits
-	//    (CTB1 and/or CTB2) in the FMC_SDCMR register to issue a “Precharge All” command.
-	MODE	= 0b010 << 0;	// pre-charge all
-	CTB1	= 0b1 << 4;		// CTB1 enable
-	NRFS	= 0 << 5;		// not use
-	MRD		= 0 << 9;		// not use
-	SDCMR	= MODE | CTB1 | NRFS | MRD;
-	writeRegMask(FMC_SDCMR, ~0x003FFFFF, SDCMR);
+	//    (CTB1 and/or CTB2) in the FMC_SDCMR register to issue a “Pre-charge All” command.
+	reg  = 	0b010	<< FMC_SDCMR_MODE_Pos |	// pre-charge all
+			0b1		<< FMC_SDCMR_CTB1_Pos |	// CTB1 enable
+			0		<< FMC_SDCMR_NRFS_Pos |	// NRFS not use
+			0		<< FMC_SDCMR_MRD_Pos;	// MRD not use
+	FMC_Bank5_6->SDCMR &= ~mask;
+	FMC_Bank5_6->SDCMR |= reg;
 
 	// 6. Set MODE bits to ‘011’, and configure the Target Bank bits
 	//    (CTB1 and/or CTB2) as well as the number of consecutive Auto-refresh
 	//    commands (NRFS) in the FMC_SDCMR register.
-	//    Refer to the SDRAM datasheet for the number of Auto-refresh commands
+	//    Refer to the SDRAM data-sheet for the number of Auto-refresh commands
 	//    that should be issued. Typical number is 8.
-	MODE	= 0b011 << 0;	// auto-refresh
-	CTB1	= 0b1 << 4;		// CTB1 enable
-	NRFS	= 8 << 5;		// typical number is 8, but according to following MT48LC4M32B manual it's at least 2 and must delay 100us between twice auto-refresh command.
-	MRD		= 0 << 9;		// not use
-	SDCMR	= MODE | CTB1 | NRFS | MRD;
-	writeRegMask(FMC_SDCMR, ~0x003FFFFF, SDCMR);
+	reg  = 	0b011	<< FMC_SDCMR_MODE_Pos |	// clock assign enable
+			0b1		<< FMC_SDCMR_CTB1_Pos |	// CTB1 enable
+			8		<< FMC_SDCMR_NRFS_Pos |	// Typical number is 8, but according to following MT48LC4M32B manual it's at least 2 and must delay 100us between twice auto-refresh command.
+			0		<< FMC_SDCMR_MRD_Pos;	// MRD not use
+	FMC_Bank5_6->SDCMR &= ~mask;
+	FMC_Bank5_6->SDCMR |= reg;
 
 	// 7. Configure the MRD field according to the SDRAM device, set the MODE bits
 	//    to '100', and configure the Target Bank bits (CTB1 and/or CTB2) in
@@ -954,7 +854,7 @@ static void initSDRAM(void)
 	//    a) the CAS latency must be selected following configured value in
 	//       FMC_SDCR1/2 registers
 	//    b) the Burst Length (BL) of 1 must be selected by configuring the
-	//       M[2:0] bits to 000 in the mode register. Refer to SDRAM device datasheet.
+	//       M[2:0] bits to 000 in the mode register. Refer to SDRAM device data-sheet.
 	//    If the Mode Register is not the same for both SDRAM banks,
 	//    this step has to be repeated twice, once for each bank,
 	//    and the Target Bank bits set accordingly.
@@ -965,23 +865,24 @@ static void initSDRAM(void)
 	//  -|---------------|----|---------|--------------|----|--------------|-
 	//   |  Reserved     | WB | Op Mode | CAS Latency  | BT | Burst Length |
 	//  -|---------------|----|---------|--------------|----|--------------|-
-	uint16_t MODEREG_BURST_LENGTH	= 0b000 << 0;	// length = 1
-	uint16_t MODEREG_BURST_TYPE		= 0b1 << 3;		// interleaved
-	uint16_t MODEREG_CAS_LATENCY	= 0b011 << 4;	// latency = 3
-	uint16_t MODEREG_OP_MODE		= 0b00 << 7;	// standard
-	uint16_t MODEREG_WRITE_BURST	= 0b1 << 9;		// single
-	uint16_t MODEREG = MODEREG_BURST_LENGTH | MODEREG_BURST_TYPE | MODEREG_CAS_LATENCY | MODEREG_OP_MODE | MODEREG_WRITE_BURST;
-	MODE	= 0b100 << 0;	// load mode register
-	CTB1	= 0b1 << 4;		// CTB1 enable
-	NRFS	= 0 << 5;		// not use
-	MRD		= MODEREG << 9;	// mode register
-	SDCMR	= MODE | CTB1 | NRFS | MRD;
-	writeRegMask(FMC_SDCMR, ~0x003FFFFF, SDCMR);
+	uint16_t MODEREG =	0b000	<< 0 |		// length = 1
+						0b1		<< 3 |		// interleaved
+						0b011	<< 4 |		// latency = 3
+						0b00	<< 7 |		// standard
+						0b1		<< 9;		// single
+	reg  = 	0b100	<< FMC_SDCMR_MODE_Pos |	// load mode register
+			0b1		<< FMC_SDCMR_CTB1_Pos |	// CTB1 enable
+			0		<< FMC_SDCMR_NRFS_Pos |	// not use
+			MODEREG	<< FMC_SDCMR_MRD_Pos;	// Mode register
+	FMC_Bank5_6->SDCMR &= ~mask;
+	FMC_Bank5_6->SDCMR |= reg;
 
+	// --- Set MCU-FMC register ---
 	// 8. Program the refresh rate in the FMC_SDRTR register
 	//    The refresh rate corresponds to the delay between refresh cycles.
 	//    Its value must be adapted to SDRAM devices.
-	writeRegMaskThenWait(FMC_SDRTR, ~0x00003FFE, 1600 << 1);
+	FMC_Bank5_6->SDRTR &= ~FMC_SDRTR_COUNT_Msk;
+	FMC_Bank5_6->SDRTR |= (uint32_t)1600 << FMC_SDRTR_COUNT_Pos;
 
 	// The above parameter can be optimized according to the recommendation in SDRAM technical manual below.
 	/*

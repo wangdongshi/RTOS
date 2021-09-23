@@ -12,13 +12,14 @@
 #define STM32F746G_DISCO_DRIVER_H
 
 #include <stdint.h>
-#include "stm32f746g_register.h"
 
 //#define MODE_STAND_ALONE
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+extern uint32_t __sdram;
 
 void SystemInit(void);
 uint8_t usart1ReceiveChar(void);

@@ -83,8 +83,8 @@ void mainTask(void *pvParameters)
 	}
 #endif
 
-	//showLogo(); // show LOGO image by normal DMA
-	//vTaskDelay(3000);
+	showLogo(); // show LOGO image by normal DMA
+	vTaskDelay(3000);
 
 	FillRect(0, 0, 480, 272, 0xA9A9A9);
 	FillRect(100, 100, 30, 30, 0x8B0000);
@@ -103,20 +103,20 @@ uint16_t checkSDRAM(void)
 	uint8_t* p;
 
 	// check after write
-	for (p = (uint8_t *)_SDRAM_BANK1; (uint32_t)p < _SDRAM_BANK1 + SDRAM_SIZE; p += 0x100000) {
+	for (p = (uint8_t *)&__sdram; (uint32_t)p < (uint32_t)(&__sdram) + SDRAM_SIZE; p += 0x100000) {
 		*p = 0xA5;
 		if ((*p) != 0xA5) return 0;
 	}
-	p = (uint8_t *)(_SDRAM_BANK1 + SDRAM_SIZE - 1);
+	p = (uint8_t *)((uint32_t)(&__sdram) + SDRAM_SIZE - 1);
 	*p = 0x5A;
 	if ((*p) != 0x5A) return 0;
 
 	// check delay
 	for (volatile uint32_t i = 0; i < 1000000; i++);
-	for (p = (uint8_t *)_SDRAM_BANK1; (uint32_t)p < _SDRAM_BANK1 + SDRAM_SIZE; p += 0x100000) {
+	for (p = (uint8_t *)&__sdram; (uint32_t)p < (uint32_t)(&__sdram) + SDRAM_SIZE; p += 0x100000) {
 		if ((*p) != 0xA5) return 0;
 	}
-	p = (uint8_t *)(_SDRAM_BANK1 + SDRAM_SIZE - 1);
+	p = (uint8_t *)((uint32_t)(&__sdram) + SDRAM_SIZE - 1);
 	if ((*p) != 0x5A) return 0;
 
 	return 1;

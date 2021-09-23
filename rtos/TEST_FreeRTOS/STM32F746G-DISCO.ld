@@ -159,6 +159,7 @@ SECTIONS
 	.sdram :
 	{
 		. = ALIGN(4);
+		__sdram = .;
 		*(.sdram)         /* .sdram  sections (low speed and user application data.) */
 		*(.sdram*)        /* .sdram* sections (low speed and user application data.) */
 		. = ALIGN(4);
