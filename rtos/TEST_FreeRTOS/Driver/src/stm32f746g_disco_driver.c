@@ -129,7 +129,7 @@ uint32_t testMemoryDMA(uint16_t data)
 {
 	uint32_t  size = 0x8000;
 	uint16_t* pSrc = &data;
-	uint16_t* pDes = ((uint16_t*)(&__sdram)) + (uint32_t)(0x700000/sizeof(uint16_t));
+	uint16_t* pDes = (uint16_t*)((uint32_t)(&__sdram) + (uint32_t)(0x700000/sizeof(uint16_t)));
 
 	RCC->AHB1ENR |= RCC_AHB1ENR_DMA2EN;
 	while((RCC->AHB1ENR & RCC_AHB1ENR_DMA2EN_Msk) == 0);
