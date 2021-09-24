@@ -125,11 +125,11 @@ uint32_t getRandomData(void)
 	return random;
 }
 
-uint32_t testMemoryDMA(uint16_t data)
+uint32_t checkDMA(uint16_t data)
 {
 	uint32_t  size = 0x8000;
 	uint16_t* pSrc = &data;
-	uint16_t* pDes = (uint16_t*)((uint32_t)(&__sdram) + (uint32_t)(0x700000/sizeof(uint16_t)));
+	uint16_t* pDes = (uint16_t*)((uint32_t)&_ssdram + (uint32_t)(0x500000/sizeof(uint16_t)));
 
 	RCC->AHB1ENR |= RCC_AHB1ENR_DMA2EN;
 	while((RCC->AHB1ENR & RCC_AHB1ENR_DMA2EN_Msk) == 0);
@@ -146,12 +146,19 @@ uint32_t testMemoryDMA(uint16_t data)
 
 	DMA2_Stream0->CR |= DMA_SxCR_EN; // start DMA transfer
 
-	while(DMA2_Stream0->NDTR != 0);  // wait transfer complete
+	while((DMA2->LISR & DMA_LISR_TCIF0_Msk) == 0); // wait transfer complete
 	DMA2->LIFCR |= DMA_LIFCR_CTCIF0; // must clear TC interrupt flag for next DMA
 
-	RCC->AHB1RSTR |= RCC_AHB1RSTR_DMA2RST;
+	//RCC->AHB1RSTR |= RCC_AHB1RSTR_DMA2RST;
 
-	return (*((uint16_t*)0xC0700000) == data && *((uint16_t*)0xC0700000 + 0x3FF8) == data);
+	return (*pDes == data && *(pDes + 0x3FF8) == data);
+}
+
+// TODO : DMA2D check should imply with start screen display (showLogo function)
+void checkDMA2D(void)
+{
+	FillRect(0, 0, 480, 272, 0xA9A9A9);
+	FillRect(100, 100, 30, 30, 0x8B0000);
 }
 
 void showLogo(void)
@@ -193,7 +200,7 @@ void showLogo(void)
 	DMA2->LIFCR |= DMA_LIFCR_CTCIF0; // must clear TC interrupt flag for next DMA
 
 	// close DMA RRC
-	RCC->AHB1RSTR |= RCC_AHB1RSTR_DMA2RST;
+	//RCC->AHB1RSTR |= RCC_AHB1RSTR_DMA2RST;
 }
 
 void FillRect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t color)
@@ -208,6 +215,36 @@ void FillRect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t color)
 
 	DMA2D->CR   	|= DMA2D_CR_START;
 	while (DMA2D->CR & DMA2D_CR_START);
+}
+
+uint16_t checkSDRAM(void)
+{
+	uint8_t* p;
+	uint8_t* startAddr	= (uint8_t*)&_ssdram;
+	uint8_t* endAddr	= (uint8_t*)((uint32_t)&_ssdram + (uint32_t)&_sdram_size - 1);
+
+	// check after write
+	for (p = startAddr; p <= endAddr; p += 0x100000) {
+		*p = 0xA5;
+		if ((*p) != 0xA5) return 0;
+	}
+	*endAddr = 0x5A;
+	if ((*endAddr) != 0x5A) return 0;
+
+	// check delay
+	for (volatile uint32_t i = 0; i < 1000000; i++);
+	for (p = startAddr; p <= endAddr; p += 0x100000) {
+		if ((*p) != 0xA5) return 0;
+	}
+	if ((*endAddr) != 0x5A) return 0;
+
+	return 1;
+}
+
+uint16_t checkTouchPanel(void)
+{
+	uint8_t chipID = i2c3Read1Byte(0x70, 0xA8);
+	return (chipID == 0x51);
 }
 
 // The following initialization process is write for STM32F746G-DISCO

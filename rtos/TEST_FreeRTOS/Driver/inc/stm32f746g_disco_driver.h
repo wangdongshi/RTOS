@@ -13,13 +13,16 @@
 
 #include <stdint.h>
 
+#define MODE_TEST_DRIVER
 //#define MODE_STAND_ALONE
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern uint32_t __sdram;
+// Defined in link script
+extern uint32_t _ssdram; // SDRAM start address
+extern uint32_t _sdram_size;
 
 void SystemInit(void);
 uint8_t usart1ReceiveChar(void);
@@ -30,7 +33,10 @@ uint8_t i2c3Read1Byte(uint8_t slaveAddr, uint8_t devAddr);
 void toggleLED1(void);
 void showLogo(void);
 uint32_t getRandomData(void);
-uint32_t testMemoryDMA(uint16_t data);
+uint32_t checkDMA(uint16_t data);
+void checkDMA2D(void);
+uint16_t checkSDRAM(void);
+uint16_t checkTouchPanel(void);
 void FillRect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t color);
 
 #ifdef __cplusplus

@@ -42,6 +42,7 @@ SDRAM (rw)     : ORIGIN = 0xC0000000, LENGTH = 8M
 
 /* Highest address of the user mode stack */
 _estack = ORIGIN(SRAM) + LENGTH(SRAM); /* end of SRAM addr. of Main Stack */
+_sdram_size = LENGTH(SDRAM);
 
 /* Generate a link error if heap and stack don't fit into SRAM (Only use in this file) */
 _Min_Heap_Size	= 0x400; /* required amount of heap  (1K) */
@@ -159,10 +160,11 @@ SECTIONS
 	.sdram :
 	{
 		. = ALIGN(4);
-		__sdram = .;
+		_ssdram = .;
 		*(.sdram)         /* .sdram  sections (low speed and user application data.) */
 		*(.sdram*)        /* .sdram* sections (low speed and user application data.) */
 		. = ALIGN(4);
+		_esdram = .;
 	} > SDRAM
 
 	/* Remove information from the standard libraries */

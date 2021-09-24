@@ -16,20 +16,16 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
-#define SDRAM_SIZE			(0x800000UL)
-
+uint32_t checkDevices(void);
 void startTask(void *pvParameters);
 void mainTask(void *pvParameters);
 void led1Task(void *pvParameters);
-uint16_t checkSDRAM(void);
-void testTouchPanel(void);
 #ifdef MODE_STAND_ALONE
 void executeCmd(const char* cmd);
 #endif
 
 TaskHandle_t startTaskHandler;
 
-// Main function for LED test
 int main(void)
 {
 	// create start task
@@ -66,69 +62,54 @@ void led1Task(void *pvParameters)
 
 void mainTask(void *pvParameters)
 {
-	printf("Welcome to STM32F746G-DISCO!\r\n"); // print shell banner
-	printf("Test FPU function with float value(%.4f). \r\n", 99.99f);
-
-	//assert_param(checkSDRAM());
-	if (!checkSDRAM()) { // test SDRAM
-		printf("SDRAM initialization Failure!\r\n");
-		return;
-	}
-
-#if 0
-	// test peripherals
-	uint32_t random = getRandomData();
-	if (!testMemoryDMA(random&0x0000FFFF)) {
-		printf("DMA(M2M) transfer Failure!\r\n");
-	}
-#endif
-
+	// initialization
+	printf("Welcome to STM32F746G-DISCO ^_^\r\n"); // print banner
 	showLogo(); // show LOGO image by normal DMA
-	vTaskDelay(3000);
-
-	FillRect(0, 0, 480, 272, 0xA9A9A9);
-	FillRect(100, 100, 30, 30, 0x8B0000);
+	checkDevices(); // check all drivers
 
 	// main loop
-	//unsigned int count = 0;
 	while(1) {
-		//printf("Mask count is %d.\r\n", count++);
-		testTouchPanel();
 		vTaskDelay(2000);
 	}
 }
 
-uint16_t checkSDRAM(void)
+uint32_t checkDevices(void)
 {
-	uint8_t* p;
+	//printf("Check FPU print with float value 99.99 (Display as %.2f).\r\n", 99.99f);
 
-	// check after write
-	for (p = (uint8_t *)&__sdram; (uint32_t)p < (uint32_t)(&__sdram) + SDRAM_SIZE; p += 0x100000) {
-		*p = 0xA5;
-		if ((*p) != 0xA5) return 0;
+	//assert_param(checkSDRAM());
+	if (checkSDRAM()) {
+		printf("SDRAM initialization success.\r\n");
+	} else {
+		printf("SDRAM initialization failure!\r\n");
+		return 0;
 	}
-	p = (uint8_t *)((uint32_t)(&__sdram) + SDRAM_SIZE - 1);
-	*p = 0x5A;
-	if ((*p) != 0x5A) return 0;
 
-	// check delay
-	for (volatile uint32_t i = 0; i < 1000000; i++);
-	for (p = (uint8_t *)&__sdram; (uint32_t)p < (uint32_t)(&__sdram) + SDRAM_SIZE; p += 0x100000) {
-		if ((*p) != 0xA5) return 0;
+	if (checkTouchPanel()) {
+		printf("Touch panel initialization success.\r\n");
+	} else {
+		printf("Touch panel initialization failure!\r\n");
+		return 0;
 	}
-	p = (uint8_t *)((uint32_t)(&__sdram) + SDRAM_SIZE - 1);
-	if ((*p) != 0x5A) return 0;
+
+#ifdef MODE_TEST_DRIVER
+	uint32_t random = getRandomData();
+	if (checkDMA(random & 0x0000FFFF)) {
+		printf("DMA(M2M) transfer success.\r\n");
+	} else {
+		printf("DMA(M2M) transfer failure!\r\n");
+		return 0;
+	}
+#endif
+
+#ifdef MODE_TEST_DRIVER
+	checkDMA2D();
+	printf("DMA2D transfer success.\r\n");
+#endif
 
 	return 1;
 }
 
-void testTouchPanel(void)
-{
-	uint8_t chipID = i2c3Read1Byte(0x70, 0xA8);
-	printf("Chip ID is 0x%x.\r\n", chipID);
-	uint8_t posNum = i2c3Read1Byte(0x70, 0x02);
-	printf("Touch points number is %d.\r\n", posNum);
-}
 
 #ifdef MODE_STAND_ALONE
 
