@@ -11,8 +11,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
-#include "stm32f746g_disco_driver.h"
 #include "assert_param.h"
+#include "stm32f746g_disco_driver.h"
 #include "FreeRTOS.h"
 #include "task.h"
 
@@ -69,7 +69,7 @@ void mainTask(void *pvParameters)
 
 	// main loop
 	while(1) {
-		vTaskDelay(2000);
+		vTaskDelay(1000);
 	}
 }
 

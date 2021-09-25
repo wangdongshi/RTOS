@@ -38,7 +38,7 @@ uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) ) 
 static void initFPU(void);
 static void initSDRAM(void);
 static void initLCD(void);
-static void initI2C3(void);
+static void initTouchPanel(void);
 static void initSystemClock(void);
 static void initNVICPriorityGroup(void);
 static void initSystickInt(void);
@@ -74,7 +74,7 @@ void SystemInit(void)
 	initLED1();
 	initLCD();
 	initUSART1();
-	initI2C3();
+	initTouchPanel();
 	initSystick();
 #ifdef MODE_STAND_ALONE
 	initTIM7();
@@ -328,34 +328,42 @@ static void initNVICPriorityGroup(void)
 	// Systick(FreeRTOS)	: preemption:6,  IRQn:15
 	// USART1(Debug)		: preemption:14, IRQn:37
 	// TIMER7(LED1 flicker)	: preemption:14, IRQn:55
-}
-
-// Initialize USART1 interrupt
-static void initUSART1Int(void)
-{
-	NVIC->IP[9]   |= 14 << (8 + 4); // Set USART1 interrupt priority
-	NVIC->ISER[1] |= 0b1 << (37 - 32); // Enable USART1 global interrupt (IRQn=37)
+	// EXIT13(TouchPanel)	: preemption:13, IRQn:40
 }
 
 // Initialize SVCall interrupt (IRQn:11)
 static void initSVCallInt(void)
 {
-	SCB->SHPR[2] |= 10 << (24 + 4); // Set SVCall interrupt priority
+	SCB->SHPR[2] |= 10 << (24 + 4);
 	// SVC need not open. Executing SVC instrument will trigger SVC interrupt.
 }
 
 // Initialize PendSV interrupt (IRQn:14)
 static void initPendSVInt(void)
 {
-	SCB->SHPR[3] |= 15 << (16 + 4); // Set PendSV interrupt priority
+	SCB->SHPR[3] |= 15 << (16 + 4);
 	// PendSV need not open. Setting ICSR the 28th bit will trigger pendSV interrupt.
 }
 
 // Initialize Systick interrupt (IRQn:15)
 static void initSystickInt(void)
 {
-	SCB->SHPR[3]  |= 6 << (24 + 4); // Set Systick interrupt priority
-	SysTick->CTRL |= 0b1 << SysTick_CTRL_TICKINT_Pos; // Enable Systick global interrupt
+	SCB->SHPR[3]  |= 6 << (24 + 4);
+	SysTick->CTRL |= 0b1 << SysTick_CTRL_TICKINT_Pos;
+}
+
+// Initialize USART1 interrupt (IRQn:37)
+static void initUSART1Int(void)
+{
+	NVIC->IP[37]  |= 14 << 4;
+	NVIC->ISER[1] |= 0b1 << (37 - 32);
+}
+
+// Initialize EXTI15_10 interrupt (IRQn:40)
+static void initEXTI15_10Int(void)
+{
+	NVIC->IP[40]  |= 13 << 4;
+	NVIC->ISER[1] |= 0b1 << (40 - 32);
 }
 
 // LED1 initialization
@@ -467,7 +475,6 @@ static void initUartGPIO(void)
 	GPIOB->OTYPER	|=	0b0		<< GPIO_OTYPER_OT9_Pos;
 	// RX line need not to set OSPEEDR and PUPDR
 	GPIOB->AFR[0]	|=	7		<< GPIO_AFRL_AFRL7_Pos;			// AF7
-
 }
 
 // LED1 pin initialization
@@ -700,13 +707,16 @@ static void initTouchPanelGPIO(void)
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOIEN;
 	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOIEN_Msk) == 0);
 	// PI13 --> LCD_INT (for FT5336 Control)
-	GPIOI->MODER	|=	0b10	<< GPIO_MODER_MODER15_Pos;		// MODER = Multiple(0b10)
-	GPIOI->AFR[1]	|=	15		<< GPIO_AFRH_AFRH5_Pos;			// AF15
+	GPIOI->MODER	|=	0b00	<< GPIO_MODER_MODER13_Pos;		// MODER = Multiple(0b10)
+	GPIOI->OTYPER	|=	0b0		<< GPIO_OTYPER_OT13_Pos;		// Push and pull
+	GPIOI->OSPEEDR	|=	0b10	<< GPIO_OSPEEDR_OSPEEDR13_Pos;	// High speed
+	GPIOI->PUPDR	|=	0b00	<< GPIO_PUPDR_PUPDR13_Pos;		// No Pull
 }
 
-// I2C3 controller initialization (for touch panel)
-static void initI2C3(void)
+// Touch panel initialization (I2C3 and EXIT13)
+static void initTouchPanel(void)
 {
+	// ---- Initialize I2C3 ----
 	// Initialize GPIO for I2C3
 	initTouchPanelGPIO();
 
@@ -729,6 +739,21 @@ static void initI2C3(void)
 	// Reset I2C3
 	while(I2C3->CR1 & I2C_CR1_PE_Msk);
 	I2C3->CR1		|=	I2C_CR1_PE;
+
+	// ---- Initialize EXTI13 ----
+	// Mapping PI13 in SYSCFG register
+	RCC->APB2ENR	|=	RCC_APB2ENR_SYSCFGEN;
+	while((RCC->APB2ENR & RCC_APB2ENR_SYSCFGEN) == 0);
+	SYSCFG->EXTICR[3] &= ~SYSCFG_EXTICR4_EXTI13_Msk;
+	SYSCFG->EXTICR[3] |= SYSCFG_EXTICR4_EXTI13_PI;
+
+	// Initialize EXTI15_10 interrupt
+	EXTI->IMR		|=	EXTI_IMR_MR13;  // EXT INT 13
+	EXTI->RTSR		|=	EXTI_RTSR_TR13; // Rising edge trigger
+	initEXTI15_10Int();
+
+	// Enable FT5336 interrupt to host
+	i2c3Write1Byte(0x70, 0xA4, 0x00);
 }
 
 // for 7bits slave address and 8bits memory address
@@ -749,7 +774,8 @@ void i2c3Write1Byte(uint8_t slaveAddr, uint8_t devAddr, uint8_t data)
 	I2C3->TXDR	=	devAddr;
 	while ((I2C3->ISR & I2C_ISR_TXIS_Msk) == 0);
 	I2C3->TXDR	=	data;
-	while ((I2C3->ISR & I2C_ISR_TC_Msk) == 0);
+	// No need to Check TC flag, with AUTOEND mode the stop is automatically generated
+	//while ((I2C3->ISR & I2C_ISR_TC_Msk) == 0);
 	while ((I2C3->ISR & I2C_ISR_STOPF_Msk) == 0);
 	I2C3->ICR	|=	I2C_ICR_STOPCF;
 }

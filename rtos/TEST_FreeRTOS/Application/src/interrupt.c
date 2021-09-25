@@ -8,6 +8,9 @@
  * Author:    Wang Yu
  *
  **********************************************************************/
+#include <stdio.h>
+#include "assert_param.h"
+#include "stm32f746xx.h"
 #include "stm32f746g_disco_driver.h"
 
 #ifdef MODE_STAND_ALONE
@@ -29,3 +32,12 @@ void USART1_IRQHandler(void)
 	}
 }
 #endif
+
+// PI13(LCD_INT) interrupt from FT5336
+void EXTI15_10_IRQHandler(void)
+{
+	if((EXTI->PR & EXTI_PR_PR13_Msk) != 0) { // from PI13(LCD_INT)
+		printf("Touch panel interrupt!\r\n");
+	}
+	EXTI->PR |= EXTI_PR_PR13;
+}
