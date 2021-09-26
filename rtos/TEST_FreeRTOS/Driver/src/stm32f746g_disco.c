@@ -155,7 +155,7 @@ uint32_t checkDMA(uint16_t data)
 	return (*pDes == data && *(pDes + 0x3FF8) == data);
 }
 
-// TODO : DMA2D check should imply with start screen display (showLogo function)
+// DMA2D checked by logo showing
 void checkDMA2D(void)
 {
 	fillRect(0, 0, 480, 272, 0xA9A9A9);
@@ -165,48 +165,6 @@ void checkDMA2D(void)
 void showLogo(void)
 {
 	drawImage(0, 0, 480, 272, (uint32_t)&logoImage);
-}
-
-void showLogo1(void)
-{
-	uint32_t size = LCD_FRAME_BUF_SIZE / sizeof(uint32_t) / 2; // it must lower than 65535
-
-	// Open DMA RRC
-	RCC->AHB1ENR |= RCC_AHB1ENR_DMA2EN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_DMA2EN_Msk) == 0);
-
-	// RGB888 above half frame (48960 uint32_t)
-	DMA2_Stream0->CR = 	DMA_SxCR_CHSEL_0 |	// Stream0, channel1
-						DMA_SxCR_PSIZE_1 |	// src data 32bits
-						DMA_SxCR_MSIZE_1 |	// des data 32bits
-						DMA_SxCR_PINC |		// src address automatic increase
-						DMA_SxCR_MINC |		// des address automatic increase
-						DMA_SxCR_PL_0 | DMA_SxCR_PL_1 | // highest DMA priority
-						DMA_SxCR_DIR_1; 	// memory to memory
-	DMA2_Stream0->NDTR = size;
-	DMA2_Stream0->PAR  = (uint32_t)&logoImage;
-	DMA2_Stream0->M0AR = (uint32_t)&FrameBuffer;
-	DMA2_Stream0->CR |= DMA_SxCR_EN;  // start DMA transfer
-	while((DMA2->LISR & DMA_LISR_TCIF0_Msk) == 0);   // wait transfer complete
-	DMA2->LIFCR |= DMA_LIFCR_CTCIF0;  // must clear TC interrupt flag for next DMA
-
-	// RGB888 below half frame (48960 uint32_t)
-	DMA2_Stream0->CR = 	DMA_SxCR_CHSEL_0 |	// Stream0, channel1
-						DMA_SxCR_PSIZE_1 |	// src data 32bits
-						DMA_SxCR_MSIZE_1 |	// des data 32bits
-						DMA_SxCR_PINC |		// src address automatic increase
-						DMA_SxCR_MINC |		// des address automatic increase
-						DMA_SxCR_PL_0 | DMA_SxCR_PL_1 | // highest DMA priority
-						DMA_SxCR_DIR_1; 	// memory to memory
-	DMA2_Stream0->NDTR = size;
-	DMA2_Stream0->PAR  = (uint32_t)((uint32_t*)&logoImage + size);
-	DMA2_Stream0->M0AR = (uint32_t)((uint32_t*)&FrameBuffer + size);
-	DMA2_Stream0->CR |= DMA_SxCR_EN; // start DMA transfer
-	while((DMA2->LISR & DMA_LISR_TCIF0_Msk) == 0);   // wait transfer complete
-	DMA2->LIFCR |= DMA_LIFCR_CTCIF0; // must clear TC interrupt flag for next DMA
-
-	// close DMA RRC
-	//RCC->AHB1RSTR |= RCC_AHB1RSTR_DMA2RST;
 }
 
 void fillRect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t color)

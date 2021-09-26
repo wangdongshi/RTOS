@@ -35,7 +35,7 @@ uint8_t i2c3Read1Byte(uint8_t slaveAddr, uint8_t devAddr);
 
 void toggleLED1(void);
 void showLogo(void);
-void FillRect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t color);
+void fillRect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t color);
 void drawImage(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t addr);
 
 uint32_t getRandomData(void);
