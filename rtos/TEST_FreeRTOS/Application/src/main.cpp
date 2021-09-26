@@ -12,7 +12,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "assert_param.h"
-#include "stm32f746g_disco_driver.h"
+#include "stm32f746g_disco.h"
 #include "FreeRTOS.h"
 #include "task.h"
 
@@ -64,12 +64,13 @@ void mainTask(void *pvParameters)
 {
 	// initialization
 	printf("Welcome to STM32F746G-DISCO ^_^\r\n"); // print banner
-	showLogo(); // show LOGO image by normal DMA
-	checkDevices(); // check all drivers
+	showLogo();			// show LOGO image by normal DMA
+	vTaskDelay(400);	// wait FT5336 stable
+	checkDevices();		// check all drivers
 
 	// main loop
 	while(1) {
-		vTaskDelay(1000);
+		vTaskDelay(2000);
 	}
 }
 

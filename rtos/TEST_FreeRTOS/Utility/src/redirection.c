@@ -9,7 +9,7 @@
  *
  **********************************************************************/
 #include <stdio.h>
-#include "stm32f746g_disco_driver.h"
+#include "stm32f746g_disco.h"
 
 #ifndef MODE_STAND_ALONE
 

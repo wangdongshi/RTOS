@@ -2,7 +2,7 @@
  * Copyright (c) 2018 - 2021 by Wang Yu
  * All rights reserved
  *
- * Filename:  stm32f746g_disco_driver.c
+ * Filename:  stm32f746g_disco.c
  * Project:   Minimum RTOS platform
  * Date:      2021/9/5
  * Author:    Wang Yu
@@ -11,7 +11,8 @@
 #include <stdint.h>
 #include <string.h>
 #include "stm32f746xx.h"
-#include "stm32f746g_disco_driver.h"
+#include "stm32f746g_disco.h"
+#include "ft5336.h"
 #include "image.h"
 
 // Clock constant value definition
@@ -243,7 +244,7 @@ uint16_t checkSDRAM(void)
 
 uint16_t checkTouchPanel(void)
 {
-	uint8_t chipID = i2c3Read1Byte(0x70, 0xA8);
+	uint8_t chipID = readFT5336ChipID();
 	return (chipID == 0x51);
 }
 
@@ -753,7 +754,8 @@ static void initTouchPanel(void)
 	initEXTI15_10Int();
 
 	// Enable FT5336 interrupt to host
-	i2c3Write1Byte(0x70, 0xA4, 0x00);
+	enableFT5336Int();
+	//printf("GMODE = %d.\r\n", (int)i2c3Read1Byte(0x70, 0xA4));
 }
 
 // for 7bits slave address and 8bits memory address
