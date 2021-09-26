@@ -16,7 +16,9 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
-uint32_t checkDevices(void);
+static void printBanner(void);
+static uint32_t checkDevices(void);
+
 void startTask(void *pvParameters);
 void mainTask(void *pvParameters);
 void led1Task(void *pvParameters);
@@ -63,10 +65,10 @@ void led1Task(void *pvParameters)
 void mainTask(void *pvParameters)
 {
 	// initialization
-	printf("Welcome to STM32F746G-DISCO ^_^\r\n"); // print banner
-	showLogo();			// show LOGO image by normal DMA
-	vTaskDelay(400);	// wait FT5336 stable
-	checkDevices();		// check all drivers
+	printBanner();
+	showLogo();
+	vTaskDelay(400); // wait FT5336 stable
+	checkDevices();
 
 	// main loop
 	while(1) {
@@ -74,30 +76,45 @@ void mainTask(void *pvParameters)
 	}
 }
 
-uint32_t checkDevices(void)
+static void printBanner(void)
+{
+	printf("^_^ Welcome to STM32F746G-DISCO ^_^\r\n");
+	printf("###################################\r\n");
+	printf("########## ############# ##########\r\n");
+	printf("######### # ########### # #########\r\n");
+	printf("######## ### ######### ### ########\r\n");
+	printf("####### ##### ####### ##### #######\r\n");
+	printf("###### ####### ##### ####### ######\r\n");
+	printf("##### ######### ### ######### #####\r\n");
+	printf("#### ########### # ########### ####\r\n");
+	printf("##### ######### ### ######### #####\r\n");
+	printf("###### ####### ##### ####### ######\r\n");
+	printf("####### ##### ####### ##### #######\r\n");
+	printf("######## ### ######### ### ########\r\n");
+	printf("######### # ########### # #########\r\n");
+	printf("########## ############# ##########\r\n");
+	printf("###################################\r\n");
+	printf("\r\n");
+}
+
+static uint32_t checkDevices(void)
 {
 	//printf("Check FPU print with float value 99.99 (Display as %.2f).\r\n", 99.99f);
 
 	//assert_param(checkSDRAM());
-	if (checkSDRAM()) {
-		printf("SDRAM initialization success.\r\n");
-	} else {
+	if (!checkSDRAM()) {
 		printf("SDRAM initialization failure!\r\n");
 		return 0;
 	}
 
-	if (checkTouchPanel()) {
-		printf("Touch panel initialization success.\r\n");
-	} else {
+	if (!checkTouchPanel()) {
 		printf("Touch panel initialization failure!\r\n");
 		return 0;
 	}
 
 #ifdef MODE_TEST_DRIVER
-	uint32_t random = getRandomData();
-	if (checkDMA(random & 0x0000FFFF)) {
-		printf("DMA(M2M) transfer success.\r\n");
-	} else {
+	uint32_t random = 0x0000FFFF & getRandomData();
+	if (!checkDMA(random)) {
 		printf("DMA(M2M) transfer failure!\r\n");
 		return 0;
 	}
@@ -105,7 +122,7 @@ uint32_t checkDevices(void)
 
 #ifdef MODE_TEST_DRIVER
 	checkDMA2D();
-	printf("DMA2D transfer success.\r\n");
+	printf("DMA2D transfer complete.\r\n");
 #endif
 
 	return 1;

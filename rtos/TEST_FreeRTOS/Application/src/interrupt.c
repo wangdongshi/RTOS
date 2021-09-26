@@ -45,7 +45,8 @@ void EXTI15_10_IRQHandler(void)
 		if (gestureID == 0x00 && ptsNumber == 1 && eventFlag < 3) {
 			uint16_t x	= readFT5336PointX();
 			uint16_t y	= readFT5336PointY();
-			printf("Touch event (%s) arise, \t(%d, %d)\r\n", event[eventFlag], x, y);
+			char* space = eventFlag % 2 ? "\t\t" : "\t";
+			printf("[INFO] Touch event (%s) arise, %s(%d, %d)\r\n", event[eventFlag], space, x, y);
 		}
 	}
 	EXTI->PR |= EXTI_PR_PR13;

@@ -158,11 +158,16 @@ uint32_t checkDMA(uint16_t data)
 // TODO : DMA2D check should imply with start screen display (showLogo function)
 void checkDMA2D(void)
 {
-	FillRect(0, 0, 480, 272, 0xA9A9A9);
-	FillRect(100, 100, 30, 30, 0x8B0000);
+	fillRect(0, 0, 480, 272, 0xA9A9A9);
+	fillRect(100, 100, 30, 30, 0x8B0000);
 }
 
 void showLogo(void)
+{
+	drawImage(0, 0, 480, 272, (uint32_t)&logoImage);
+}
+
+void showLogo1(void)
 {
 	uint32_t size = LCD_FRAME_BUF_SIZE / sizeof(uint32_t) / 2; // it must lower than 65535
 
@@ -204,18 +209,36 @@ void showLogo(void)
 	//RCC->AHB1RSTR |= RCC_AHB1RSTR_DMA2RST;
 }
 
-void FillRect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t color)
+void fillRect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t color)
 {
+	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
+
 	DMA2D->CR 		&= ~DMA2D_CR_MODE_Msk;
 	DMA2D->CR 		|= 0b11 << DMA2D_CR_MODE_Pos; // register to memory
 	DMA2D->OCOLR	= color;
 	DMA2D->OMAR		= (uint32_t)(&(((uint8_t*)&FrameBuffer)[(y * LCD_ACTIVE_WIDTH + x) * LCD_COLOR_BYTES]));
 	DMA2D->OOR		= LCD_ACTIVE_WIDTH - w;
-	DMA2D->OPFCCR	= 0b01;
+	DMA2D->OPFCCR	= 0b01; // RGB888
 	DMA2D->NLR		= w << DMA2D_NLR_PL_Pos | h << DMA2D_NLR_NL_Pos;
 
 	DMA2D->CR   	|= DMA2D_CR_START;
-	while (DMA2D->CR & DMA2D_CR_START);
+}
+
+void drawImage(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t addr)
+{
+	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
+
+	DMA2D->CR 		&= ~DMA2D_CR_MODE_Msk;
+	DMA2D->CR 		|= 0b00 << DMA2D_CR_MODE_Pos; // memory to memory
+	DMA2D->FGMAR	= addr;
+	DMA2D->OMAR		= (uint32_t)(&(((uint8_t*)&FrameBuffer)[(y * LCD_ACTIVE_WIDTH + x) * LCD_COLOR_BYTES]));
+	DMA2D->FGOR		= LCD_ACTIVE_WIDTH - w;
+	DMA2D->OOR		= LCD_ACTIVE_WIDTH - w;
+	DMA2D->FGPFCCR	= 0b01; // RGB888
+	DMA2D->OPFCCR	= 0b01; // RGB888
+	DMA2D->NLR		= w << DMA2D_NLR_PL_Pos | h << DMA2D_NLR_NL_Pos;
+
+	DMA2D->CR   	|= DMA2D_CR_START;
 }
 
 uint16_t checkSDRAM(void)

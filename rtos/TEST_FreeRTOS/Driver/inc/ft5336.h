@@ -23,6 +23,7 @@ void disableFT5336Int(void);
 
 uint8_t readFT5336ChipID(void);
 uint8_t readFT5336DeviceMode(void);
+uint8_t readFT5336GMode(void);
 uint8_t readFT5336GestureID(void);
 uint8_t readFT5336PointNum(void);
 uint8_t readFT5336EventFlag(void);
