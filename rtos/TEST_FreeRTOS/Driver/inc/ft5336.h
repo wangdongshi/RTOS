@@ -30,4 +30,8 @@ uint8_t readFT5336EventFlag(void);
 uint16_t readFT5336PointX(void);
 uint16_t readFT5336PointY(void);
 
+#ifdef __cplusplus
+}
+#endif
+
 #endif

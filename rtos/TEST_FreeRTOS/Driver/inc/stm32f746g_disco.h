@@ -17,6 +17,10 @@ extern "C" {
 
 #include <stdint.h>
 
+// Font type definition
+#define FONT_SMALL				(0)
+#define FONT_MIDDLE				(1)
+
 //#define MODE_TEST_DRIVER
 //#define MODE_STAND_ALONE
 
@@ -35,8 +39,26 @@ uint8_t i2c3Read1Byte(uint8_t slaveAddr, uint8_t devAddr);
 
 void toggleLED1(void);
 void showLogo(void);
-void fillRect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t color);
-void drawImage(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t addr);
+
+void fillRect(
+		const uint16_t x,
+		const uint16_t y,
+		const uint16_t w,
+		const uint16_t h,
+		const uint32_t color);
+void drawImage(
+		const uint16_t x,
+		const uint16_t y,
+		const uint16_t w,
+		const uint16_t h,
+		const uint32_t addr);
+void drawChar(
+		const uint16_t x,
+		const uint16_t y,
+		const uint8_t  symbol,
+		const uint8_t  fontType,
+		const uint32_t foreColor,
+		const uint32_t backColor);
 
 uint32_t getRandomData(void);
 uint32_t checkDMA(uint16_t data);

@@ -167,7 +167,12 @@ void showLogo(void)
 	drawImage(0, 0, 480, 272, (uint32_t)&logoImage);
 }
 
-void fillRect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t color)
+void fillRect(
+		const uint16_t x,
+		const uint16_t y,
+		const uint16_t w,
+		const uint16_t h,
+		const uint32_t color)
 {
 	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
 
@@ -182,7 +187,64 @@ void fillRect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t color)
 	DMA2D->CR   	|= DMA2D_CR_START;
 }
 
-void drawImage(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t addr)
+void drawImage(
+		const uint16_t x,
+		const uint16_t y,
+		const uint16_t w,
+		const uint16_t h,
+		const uint32_t addr)
+{
+	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
+
+	DMA2D->CR 		&= ~DMA2D_CR_MODE_Msk;
+	DMA2D->CR 		|= 0b00 << DMA2D_CR_MODE_Pos; // memory to memory
+	DMA2D->FGMAR	= addr;
+	DMA2D->OMAR		= (uint32_t)(&(((uint8_t*)&FrameBuffer)[(y * LCD_ACTIVE_WIDTH + x) * LCD_COLOR_BYTES]));
+	DMA2D->FGOR		= LCD_ACTIVE_WIDTH - w;
+	DMA2D->OOR		= LCD_ACTIVE_WIDTH - w;
+	DMA2D->FGPFCCR	= 0b01; // RGB888
+	DMA2D->OPFCCR	= 0b01; // RGB888
+	DMA2D->NLR		= w << DMA2D_NLR_PL_Pos | h << DMA2D_NLR_NL_Pos;
+
+	DMA2D->CR   	|= DMA2D_CR_START;
+}
+
+void drawChar(
+		const uint16_t x,
+		const uint16_t y,
+		const uint8_t symbol,
+		const uint8_t fontType,
+		const uint32_t foreColor,
+		const uint32_t backColor)
+{
+	if (FONT_SMALL == fontType) {
+		drawSmallFontChar();
+	} else if (FONT_MIDDLE == fontType) {
+		drawMiddleFontChar();
+	}
+
+	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
+
+	DMA2D->CR 		&= ~DMA2D_CR_MODE_Msk;
+	DMA2D->CR 		|= 0b00 << DMA2D_CR_MODE_Pos; // memory to memory
+	DMA2D->FGMAR	= addr;
+	DMA2D->OMAR		= (uint32_t)(&(((uint8_t*)&FrameBuffer)[(y * LCD_ACTIVE_WIDTH + x) * LCD_COLOR_BYTES]));
+	DMA2D->FGOR		= LCD_ACTIVE_WIDTH - w;
+	DMA2D->OOR		= LCD_ACTIVE_WIDTH - w;
+	DMA2D->FGPFCCR	= 0b01; // RGB888
+	DMA2D->OPFCCR	= 0b01; // RGB888
+	DMA2D->NLR		= w << DMA2D_NLR_PL_Pos | h << DMA2D_NLR_NL_Pos;
+
+	DMA2D->CR   	|= DMA2D_CR_START;
+}
+
+void drawChar(
+		const uint16_t x,
+		const uint16_t y,
+		const uint8_t symbol,
+		const uint8_t fontType,
+		const uint32_t foreColor,
+		const uint32_t backColor)
 {
 	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
 
