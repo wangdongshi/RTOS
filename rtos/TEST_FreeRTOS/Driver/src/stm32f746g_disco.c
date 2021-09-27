@@ -13,6 +13,7 @@
 #include "stm32f746xx.h"
 #include "stm32f746g_disco.h"
 #include "ft5336.h"
+#include "font.h"
 #include "image.h"
 
 // Clock constant value definition
@@ -55,6 +56,13 @@ static void initSDRAMGPIO(void);
 static void initLCDGPIO(void);
 static void initDMA2D(void);
 static void initTouchPanelGPIO(void);
+
+static void drawSmallFontChar(
+		const uint16_t x,
+		const uint16_t y,
+		const uint8_t  symbol,
+		const uint32_t foreColor,
+		const uint32_t backColor);
 
 #ifdef MODE_STAND_ALONE
 static void initTIM7Int(void);
@@ -160,6 +168,7 @@ void checkDMA2D(void)
 {
 	fillRect(0, 0, 480, 272, 0xA9A9A9);
 	fillRect(100, 100, 30, 30, 0x8B0000);
+	drawChar(105, 105, '0', FONT_SMALL, 0xA9A9A9, 0x8B0000);
 }
 
 void showLogo(void)
@@ -212,51 +221,55 @@ void drawImage(
 void drawChar(
 		const uint16_t x,
 		const uint16_t y,
-		const uint8_t symbol,
-		const uint8_t fontType,
+		const uint8_t  symbol,
+		const uint8_t  fontType,
 		const uint32_t foreColor,
 		const uint32_t backColor)
 {
 	if (FONT_SMALL == fontType) {
-		drawSmallFontChar();
+		drawSmallFontChar(x, y, symbol, foreColor, backColor);
 	} else if (FONT_MIDDLE == fontType) {
-		drawMiddleFontChar();
+		drawSmallFontChar(x, y, symbol, foreColor, backColor);
+	}
+}
+
+static void drawSmallFontChar( // w = 6, h = 8
+		const uint16_t x,
+		const uint16_t y,
+		const uint8_t  symbol,
+		const uint32_t foreColor,
+		const uint32_t backColor)
+{
+	uint32_t row = sFont[symbol].lines;
+	uint32_t col = sFont[symbol].width;
+	uint8_t  buf[row * col * 3]; // RGB888
+
+	uint32_t cnt = 0;
+	for (uint32_t i = 0; i < row; i++) {
+		for (uint32_t j = 0; j < col; j++) {
+			if (sFont[symbol].fData[i][0] & (0b1 << (7 - j))) { // use fore color
+				buf[cnt++] = (foreColor >> 16) & 0xFF; // red
+				buf[cnt++] = (foreColor >>  8) & 0xFF; // green
+				buf[cnt++] = (foreColor >>  0) & 0xFF; // blue
+			} else { // use back color
+				buf[cnt++] = (backColor >> 16) & 0xFF; // red
+				buf[cnt++] = (backColor >>  8) & 0xFF; // green
+				buf[cnt++] = (backColor >>  0) & 0xFF; // blue
+			}
+		}
 	}
 
 	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
 
 	DMA2D->CR 		&= ~DMA2D_CR_MODE_Msk;
 	DMA2D->CR 		|= 0b00 << DMA2D_CR_MODE_Pos; // memory to memory
-	DMA2D->FGMAR	= addr;
+	DMA2D->FGMAR	= (uint32_t)&buf;
 	DMA2D->OMAR		= (uint32_t)(&(((uint8_t*)&FrameBuffer)[(y * LCD_ACTIVE_WIDTH + x) * LCD_COLOR_BYTES]));
-	DMA2D->FGOR		= LCD_ACTIVE_WIDTH - w;
-	DMA2D->OOR		= LCD_ACTIVE_WIDTH - w;
+	DMA2D->FGOR		= LCD_ACTIVE_WIDTH - col;
+	DMA2D->OOR		= LCD_ACTIVE_WIDTH - col;
 	DMA2D->FGPFCCR	= 0b01; // RGB888
 	DMA2D->OPFCCR	= 0b01; // RGB888
-	DMA2D->NLR		= w << DMA2D_NLR_PL_Pos | h << DMA2D_NLR_NL_Pos;
-
-	DMA2D->CR   	|= DMA2D_CR_START;
-}
-
-void drawChar(
-		const uint16_t x,
-		const uint16_t y,
-		const uint8_t symbol,
-		const uint8_t fontType,
-		const uint32_t foreColor,
-		const uint32_t backColor)
-{
-	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
-
-	DMA2D->CR 		&= ~DMA2D_CR_MODE_Msk;
-	DMA2D->CR 		|= 0b00 << DMA2D_CR_MODE_Pos; // memory to memory
-	DMA2D->FGMAR	= addr;
-	DMA2D->OMAR		= (uint32_t)(&(((uint8_t*)&FrameBuffer)[(y * LCD_ACTIVE_WIDTH + x) * LCD_COLOR_BYTES]));
-	DMA2D->FGOR		= LCD_ACTIVE_WIDTH - w;
-	DMA2D->OOR		= LCD_ACTIVE_WIDTH - w;
-	DMA2D->FGPFCCR	= 0b01; // RGB888
-	DMA2D->OPFCCR	= 0b01; // RGB888
-	DMA2D->NLR		= w << DMA2D_NLR_PL_Pos | h << DMA2D_NLR_NL_Pos;
+	DMA2D->NLR		= col << DMA2D_NLR_PL_Pos | row << DMA2D_NLR_NL_Pos;
 
 	DMA2D->CR   	|= DMA2D_CR_START;
 }

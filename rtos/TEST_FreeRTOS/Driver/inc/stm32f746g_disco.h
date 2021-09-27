@@ -21,7 +21,7 @@ extern "C" {
 #define FONT_SMALL				(0)
 #define FONT_MIDDLE				(1)
 
-//#define MODE_TEST_DRIVER
+#define MODE_TEST_DRIVER
 //#define MODE_STAND_ALONE
 
 // Defined in link script

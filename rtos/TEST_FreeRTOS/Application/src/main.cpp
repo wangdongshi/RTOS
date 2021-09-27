@@ -122,7 +122,6 @@ static uint32_t checkDevices(void)
 
 #ifdef MODE_TEST_DRIVER
 	checkDMA2D();
-	printf("DMA2D transfer complete.\r\n");
 #endif
 
 	return 1;
