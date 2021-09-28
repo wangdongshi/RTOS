@@ -10,11 +10,11 @@
  **********************************************************************/
 #include <stdint.h>
 #include <string.h>
+#include "font.h"
+#include "image.h"
 #include "stm32f746xx.h"
 #include "stm32f746g_disco.h"
 #include "ft5336.h"
-#include "font.h"
-#include "image.h"
 
 // Clock constant value definition
 #define PLLM					((uint32_t)( 25 <<  0))
@@ -35,6 +35,7 @@
 #define LCD_VBP					(2)
 #define LCD_VFP					(2)
 
+uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) )  charBuffer[12 * 16 * LCD_COLOR_BYTES]; // RGB888
 uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) ) FrameBuffer[LCD_FRAME_BUF_SIZE];
 
 static void initFPU(void);
@@ -57,10 +58,19 @@ static void initLCDGPIO(void);
 static void initDMA2D(void);
 static void initTouchPanelGPIO(void);
 
-static void drawSmallFontChar(
+static void setCharBuf06x08(
+		const uint8_t  symbol,
+		const uint32_t foreColor,
+		const uint32_t backColor);
+static void setCharBuf12x16(
+		const uint8_t  symbol,
+		const uint32_t foreColor,
+		const uint32_t backColor);
+static void drawChar(
 		const uint16_t x,
 		const uint16_t y,
 		const uint8_t  symbol,
+		const uint8_t  fontType,
 		const uint32_t foreColor,
 		const uint32_t backColor);
 
@@ -167,8 +177,10 @@ uint32_t checkDMA(uint16_t data)
 void checkDMA2D(void)
 {
 	fillRect(0, 0, 480, 272, 0xA9A9A9);
-	fillRect(100, 100, 30, 30, 0x8B0000);
-	drawChar(105, 105, '0', FONT_SMALL, 0xA9A9A9, 0x8B0000);
+	fillRect(50, 50, 380, 132, 0x8B0000);
+	drawString(70, 60, "Welcome to STM32F746G-DISCO!", 0xA9A9A9, 0x8B0000, FONT_MIDDLE);
+	drawString(280, 120, "Author : Wang.Yu", 0xA9A9A9, 0x8B0000, FONT_SMALL);
+	drawString(280, 150, "  Date : 2021/9/1", 0xA9A9A9, 0x8B0000, FONT_SMALL);
 }
 
 void showLogo(void)
@@ -190,7 +202,7 @@ void fillRect(
 	DMA2D->OCOLR	= color;
 	DMA2D->OMAR		= (uint32_t)(&(((uint8_t*)&FrameBuffer)[(y * LCD_ACTIVE_WIDTH + x) * LCD_COLOR_BYTES]));
 	DMA2D->OOR		= LCD_ACTIVE_WIDTH - w;
-	DMA2D->OPFCCR	= 0b01; // RGB888
+	DMA2D->OPFCCR	= 0b001; // RGB888
 	DMA2D->NLR		= w << DMA2D_NLR_PL_Pos | h << DMA2D_NLR_NL_Pos;
 
 	DMA2D->CR   	|= DMA2D_CR_START;
@@ -209,16 +221,34 @@ void drawImage(
 	DMA2D->CR 		|= 0b00 << DMA2D_CR_MODE_Pos; // memory to memory
 	DMA2D->FGMAR	= addr;
 	DMA2D->OMAR		= (uint32_t)(&(((uint8_t*)&FrameBuffer)[(y * LCD_ACTIVE_WIDTH + x) * LCD_COLOR_BYTES]));
-	DMA2D->FGOR		= LCD_ACTIVE_WIDTH - w;
+	DMA2D->FGOR		= 0;
 	DMA2D->OOR		= LCD_ACTIVE_WIDTH - w;
-	DMA2D->FGPFCCR	= 0b01; // RGB888
-	DMA2D->OPFCCR	= 0b01; // RGB888
+	DMA2D->FGPFCCR	= 0b0001; // RGB888
+	DMA2D->OPFCCR	= 0b001;  // RGB888
 	DMA2D->NLR		= w << DMA2D_NLR_PL_Pos | h << DMA2D_NLR_NL_Pos;
 
 	DMA2D->CR   	|= DMA2D_CR_START;
 }
 
-void drawChar(
+// It only can support 1 line string
+void drawString(
+		const uint16_t x,
+		const uint16_t y,
+		const char* const string,
+		const uint32_t foreColor,
+		const uint32_t backColor,
+		const uint8_t  fontType)
+{
+	uint16_t currentX = x;
+	char* pString = (char*)string;
+	while (*pString != '\0') {
+		drawChar(currentX, y, *pString, fontType, foreColor, backColor);
+		currentX += (FONT_SMALL == fontType) ? sFont.st.cdef[(uint32_t)(*pString)].width : mFont.st.cdef[(uint32_t)(*pString)].width;
+		pString++;
+	}
+}
+
+static void drawChar(
 		const uint16_t x,
 		const uint16_t y,
 		const uint8_t  symbol,
@@ -226,52 +256,78 @@ void drawChar(
 		const uint32_t foreColor,
 		const uint32_t backColor)
 {
+	uint32_t height = (FONT_SMALL == fontType) ? sFont.st.head.fontHeight    : mFont.st.head.fontHeight;
+	uint32_t width  = (FONT_SMALL == fontType) ? sFont.st.cdef[symbol].width : mFont.st.cdef[symbol].width;
+
+	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
+
 	if (FONT_SMALL == fontType) {
-		drawSmallFontChar(x, y, symbol, foreColor, backColor);
-	} else if (FONT_MIDDLE == fontType) {
-		drawSmallFontChar(x, y, symbol, foreColor, backColor);
+		setCharBuf06x08(symbol, foreColor, backColor);
+	} else {
+		setCharBuf12x16(symbol, foreColor, backColor);
 	}
+
+	DMA2D->CR 		&= ~DMA2D_CR_MODE_Msk;
+	DMA2D->CR 		|= 0b00 << DMA2D_CR_MODE_Pos; // memory to memory
+	DMA2D->FGMAR	= (uint32_t)&charBuffer;
+	DMA2D->OMAR		= (uint32_t)(&(((uint8_t*)&FrameBuffer)[(y * LCD_ACTIVE_WIDTH + x) * LCD_COLOR_BYTES]));
+	DMA2D->FGOR		= 0;
+	DMA2D->OOR		= LCD_ACTIVE_WIDTH - width;
+	DMA2D->FGPFCCR	= 0b0001; // RGB888
+	DMA2D->OPFCCR	= 0b001;  // RGB888
+	DMA2D->NLR		= width << DMA2D_NLR_PL_Pos | height << DMA2D_NLR_NL_Pos;
+
+	DMA2D->CR   	|= DMA2D_CR_START;
 }
 
-static void drawSmallFontChar( // w = 6, h = 8
-		const uint16_t x,
-		const uint16_t y,
+static void setCharBuf06x08(
 		const uint8_t  symbol,
 		const uint32_t foreColor,
 		const uint32_t backColor)
 {
-	uint32_t row = sFont[symbol].lines;
-	uint32_t col = sFont[symbol].width;
-	uint8_t  buf[row * col * 3]; // RGB888
+	uint32_t height = sFont.st.head.fontHeight;
+	uint32_t width  = sFont.st.cdef[symbol].width;
 
 	uint32_t cnt = 0;
-	for (uint32_t i = 0; i < row; i++) {
-		for (uint32_t j = 0; j < col; j++) {
-			if (sFont[symbol].fData[i][0] & (0b1 << (7 - j))) { // use fore color
-				buf[cnt++] = (foreColor >> 16) & 0xFF; // red
-				buf[cnt++] = (foreColor >>  8) & 0xFF; // green
-				buf[cnt++] = (foreColor >>  0) & 0xFF; // blue
+	for (uint32_t i = 0; i < height; i++) {
+		for (uint32_t j = 0; j < width; j++) {
+			// Because font file is rotated 90 degrees clockwise, the following i and j are exchanged.
+			if (sFont.st.cdef[symbol].data[j][0] & (0b1 << (7 - i))) { // use fore color
+				charBuffer[cnt++] = (foreColor >>  0) & 0xFF; // blue
+				charBuffer[cnt++] = (foreColor >>  8) & 0xFF; // green
+				charBuffer[cnt++] = (foreColor >> 16) & 0xFF; // red
 			} else { // use back color
-				buf[cnt++] = (backColor >> 16) & 0xFF; // red
-				buf[cnt++] = (backColor >>  8) & 0xFF; // green
-				buf[cnt++] = (backColor >>  0) & 0xFF; // blue
+				charBuffer[cnt++] = (backColor >>  0) & 0xFF; // blue
+				charBuffer[cnt++] = (backColor >>  8) & 0xFF; // green
+				charBuffer[cnt++] = (backColor >> 16) & 0xFF; // red
 			}
 		}
 	}
+}
 
-	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
+static void setCharBuf12x16(
+		const uint8_t  symbol,
+		const uint32_t foreColor,
+		const uint32_t backColor)
+{
+	uint32_t height = mFont.st.head.fontHeight;
+	uint32_t width  = mFont.st.cdef[symbol].width;
 
-	DMA2D->CR 		&= ~DMA2D_CR_MODE_Msk;
-	DMA2D->CR 		|= 0b00 << DMA2D_CR_MODE_Pos; // memory to memory
-	DMA2D->FGMAR	= (uint32_t)&buf;
-	DMA2D->OMAR		= (uint32_t)(&(((uint8_t*)&FrameBuffer)[(y * LCD_ACTIVE_WIDTH + x) * LCD_COLOR_BYTES]));
-	DMA2D->FGOR		= LCD_ACTIVE_WIDTH - col;
-	DMA2D->OOR		= LCD_ACTIVE_WIDTH - col;
-	DMA2D->FGPFCCR	= 0b01; // RGB888
-	DMA2D->OPFCCR	= 0b01; // RGB888
-	DMA2D->NLR		= col << DMA2D_NLR_PL_Pos | row << DMA2D_NLR_NL_Pos;
-
-	DMA2D->CR   	|= DMA2D_CR_START;
+	uint32_t cnt = 0;
+	for (uint32_t i = 0; i < height; i++) {
+		for (uint32_t j = 0; j < width; j++) {
+			// Because font file is rotated 90 degrees clockwise, the following i and j are exchanged.
+			if (mFont.st.cdef[symbol].data[j][i / 8] & (0b1 << (7 - i % 8))) { // use fore color
+				charBuffer[cnt++] = (foreColor >>  0) & 0xFF; // blue
+				charBuffer[cnt++] = (foreColor >>  8) & 0xFF; // green
+				charBuffer[cnt++] = (foreColor >> 16) & 0xFF; // red
+			} else { // use back color
+				charBuffer[cnt++] = (backColor >>  0) & 0xFF; // blue
+				charBuffer[cnt++] = (backColor >>  8) & 0xFF; // green
+				charBuffer[cnt++] = (backColor >> 16) & 0xFF; // red
+			}
+		}
+	}
 }
 
 uint16_t checkSDRAM(void)

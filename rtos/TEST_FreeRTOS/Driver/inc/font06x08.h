@@ -8,20 +8,31 @@
  * Author:    Wang Yu
  *
  **********************************************************************/
-#ifndef	_LCD_FONT06X08_H_
-#define	_LCD_FONT06X08_H_
+#ifndef	_FONT06X08_H_
+#define	_FONT06X08_H_
 
 #include <stdint.h>
 
-typedef struct _FONT_06X08 {
-	uint8_t	lines;			// font data lines (vertical)
-	uint8_t	bytes;			// font data bytes
-	uint8_t	width;			// font data effective width (bit number from first byte)
-	uint8_t	fData[8][1];	// font data
+typedef struct {
+    uint8_t		fontWidth;
+    uint8_t		fontHeight;
+} FONT_06X08_HEADER;
+
+typedef struct {
+	uint8_t		width;
+    uint8_t		data[6][1];
+} FONT_06X08_CONTENT;
+
+typedef struct {
+	FONT_06X08_HEADER	head;
+	FONT_06X08_CONTENT	cdef[255];
+} FONT_06X08_TABLE;
+
+typedef union {
+	FONT_06X08_TABLE	st;
+	uint8_t 			array[2 + 7 * 255];
 } FONT_06X08;
 
-typedef FONT_06X08 FONT_06X08_TBL[256];
-
-const FONT_06X08_TBL sFont;
+extern const FONT_06X08 sFont;
 
 #endif

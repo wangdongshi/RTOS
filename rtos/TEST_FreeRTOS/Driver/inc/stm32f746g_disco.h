@@ -52,13 +52,13 @@ void drawImage(
 		const uint16_t w,
 		const uint16_t h,
 		const uint32_t addr);
-void drawChar(
+void drawString(
 		const uint16_t x,
 		const uint16_t y,
-		const uint8_t  symbol,
-		const uint8_t  fontType,
+		const char* const string,
 		const uint32_t foreColor,
-		const uint32_t backColor);
+		const uint32_t backColor,
+		const uint8_t  fontType);
 
 uint32_t getRandomData(void);
 uint32_t checkDMA(uint16_t data);

@@ -8,15 +8,15 @@
  * Author:    Wang Yu
  *
  **********************************************************************/
-#ifndef	_LCD_FONT12X16_H_
-#define	_LCD_FONT12X16_H_
+#ifndef	_FONT_H_
+#define	_FONT_H_
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "font06x08.h"
 #include "font12x16.h"
+#include "font06x08.h"
 
 #ifdef __cplusplus
 }
