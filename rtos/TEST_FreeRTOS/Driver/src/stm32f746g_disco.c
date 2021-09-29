@@ -114,7 +114,7 @@ uint8_t usart1ReceiveChar(void)
 	return (uint8_t)(USART1->RDR & 0xFF);
 }
 
-void usart1SendBuffer(const uint8_t* message)
+void usart1Send(const uint8_t* message)
 {
 	USART1->CR1	|= USART_CR1_TE;
 	for(uint32_t i = 0; i < strlen((const char*)message); i++) {

@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
+#include "debug.h"
 #include "assert_param.h"
 #include "stm32f746g_disco.h"
 #include "FreeRTOS.h"
@@ -95,23 +96,23 @@ static void printBanner(void)
 
 static uint32_t checkDevices(void)
 {
-	//printf("Check FPU print with float value 99.99 (Display as %.2f).\r\n", 99.99f);
+	//TRACE("Check FPU print with float value 99.99 (Display as %.2f).\r\n", 99.99f);
 
 	//assert_param(checkSDRAM());
 	if (!checkSDRAM()) {
-		printf("SDRAM initialization failure!\r\n");
+		TRACE("SDRAM initialization failure!\r\n");
 		return 0;
 	}
 
 	if (!checkTouchPanel()) {
-		printf("Touch panel initialization failure!\r\n");
+		TRACE("Touch panel initialization failure!\r\n");
 		return 0;
 	}
 
 #ifdef MODE_TEST_DRIVER
 	uint32_t random = 0x0000FFFF & getRandomData();
 	if (!checkDMA(random)) {
-		printf("DMA(M2M) transfer failure!\r\n");
+		TRACE("DMA(M2M) transfer failure!\r\n");
 		return 0;
 	}
 #endif
