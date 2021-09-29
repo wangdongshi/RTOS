@@ -1,16 +1,14 @@
 /**********************************************************************
- * Copyright (c) 2018 - 2021 by Wang Yu
+ * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
  * Filename:  EHmiEvent.cpp
  * Project:   Minimum RTOS platform
  * Date:      2018/11/26
- * Author:    Wang Yu
+ * Author:    WangYu
  *
  **********************************************************************/
 #include "EHmiEvent.h"
-
-//using namespace std;
 
 /// function	EHmiEvent
 /// brief		constructor

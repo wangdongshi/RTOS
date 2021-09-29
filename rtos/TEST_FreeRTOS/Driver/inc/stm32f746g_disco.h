@@ -1,11 +1,11 @@
 /**********************************************************************
- * Copyright (c) 2018 - 2021 by Wang Yu
+ * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
  * Filename:  stm32f746g_disco.h
  * Project:   Minimum RTOS platform
  * Date:      2021/9/5
- * Author:    Wang Yu
+ * Author:    WangYu
  *
  **********************************************************************/
 #ifndef STM32F746G_DISCO_DRIVER_H

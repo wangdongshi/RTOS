@@ -43,12 +43,12 @@
 #define configUSE_PREEMPTION					1
 #define configUSE_IDLE_HOOK						0
 #define configUSE_TICK_HOOK						0
-#define configCPU_CLOCK_HZ						( ( unsigned long ) 216000000 )
+#define configCPU_CLOCK_HZ						( ( unsigned long ) 216000000 ) // modify by Wang.Yu 2021/9/5
 #define configTICK_RATE_HZ						( ( TickType_t ) 1000 )
 #define configMAX_PRIORITIES					( 5 )
 #define configMINIMAL_STACK_SIZE				( ( unsigned short ) 120 )
 #define configAPPLICATION_ALLOCATED_HEAP		1
-#define configTOTAL_HEAP_SIZE					( ( size_t ) ( 300 * 1024 ) )
+#define configTOTAL_HEAP_SIZE					( ( size_t ) ( 300 * 1024 ) ) // modify by Wang.Yu 2021/9/5
 #define configMAX_TASK_NAME_LEN					( 16 )
 #define configUSE_TRACE_FACILITY				1
 #define configUSE_16_BIT_TICKS					0
@@ -70,6 +70,7 @@
 /* Set the following definitions to 1 to include the API function, or zero
 to exclude the API function. */
 
+#define INCLUDE_xTaskGetHandle					1 // add by Wang.Yu 2021/9/5
 #define INCLUDE_vTaskPrioritySet				1
 #define INCLUDE_uxTaskPriorityGet				1
 #define INCLUDE_vTaskDelete						1
@@ -103,9 +104,9 @@ NVIC value of 255. */
 /*-----------------------------------------------------------
  * RTOS system interrupt handler.
  *-----------------------------------------------------------*/
-#define xPortPendSVHandler						PendSV_Handler
-#define xPortSysTickHandler						SysTick_Handler
-#define vPortSVCHandler							SVC_Handler
+#define xPortPendSVHandler						PendSV_Handler	// modify by Wang.Yu 2021/9/5
+#define xPortSysTickHandler						SysTick_Handler	// modify by Wang.Yu 2021/9/5
+#define vPortSVCHandler							SVC_Handler 	// modify by Wang.Yu 2021/9/5
 
 #endif /* FREERTOS_CONFIG_H */
 

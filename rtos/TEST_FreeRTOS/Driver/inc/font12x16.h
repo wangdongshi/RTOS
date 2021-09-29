@@ -1,11 +1,11 @@
 /**********************************************************************
- * Copyright (c) 2018 - 2021 by Wang Yu
+ * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
  * Filename:  font12X16.h
  * Project:   Minimum RTOS platform
  * Date:      2021/9/25
- * Author:    Wang Yu
+ * Author:    WangYu
  *
  **********************************************************************/
 #ifndef	_FONT12X16_H_

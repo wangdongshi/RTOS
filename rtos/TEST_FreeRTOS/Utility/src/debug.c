@@ -1,16 +1,13 @@
 /**********************************************************************
- * Copyright (c) 2018 - 2021 by Wang Yu
+ * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
  * Filename:  debug.c
  * Project:   Minimum RTOS platform
  * Date:      2018/11/26
- * Author:    Wang Yu
+ * Author:    WangYu
  *
  **********************************************************************/
-#include <stdio.h>
-#include <stdarg.h>
-#include "stm32f746g_disco.h"
 #include "debug.h"
 
 #ifdef DEBUG

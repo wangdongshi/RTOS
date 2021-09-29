@@ -1,11 +1,11 @@
 /**********************************************************************
- * Copyright (c) 2018 - 2021 by Wang Yu
+ * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
  * Filename:  main.c
  * Project:   Minimum RTOS platform
  * Date:      2021/9/5
- * Author:    Wang Yu
+ * Author:    WangYu
  *
  **********************************************************************/
 #include <stdint.h>
@@ -18,9 +18,7 @@
 #include "task.h"
 #include "EHmiMain.h"
 
-static void printBanner(void);
-static uint32_t checkDevices(void);
-
+int main(void);
 void startTask(void *pvParameters);
 void mainTask(void *pvParameters);
 void hmiTask(void *pHmi);
@@ -29,20 +27,21 @@ void led1Task(void *pvParameters);
 void executeCmd(const char* cmd);
 #endif
 
-TaskHandle_t startTaskHandler;
+static void printBanner(void);
+static uint32_t checkDevices(void);
 
 EHmiMain* pHmi = new EHmiMain();
 
 int main(void)
 {
 	// create start task
-	xTaskCreate(startTask,	"START_TASK",	400,	NULL,	2,	&startTaskHandler);
+	xTaskCreate(startTask,	"START_TASK",	400,	NULL,	2,	NULL);
 
 	// start FreeRTOS kernel
 	vTaskStartScheduler();
 
 	// It should not execute to here
-	printf("RTOS task schedule ERROR!!!\n");
+	TRACE("RTOS task schedule ERROR!!!\r\n");
 
 	return 0;
 }
@@ -54,7 +53,8 @@ void startTask(void *pvParameters)
 	xTaskCreate(led1Task,	"LED1_TASK",	400,	NULL,	2,	NULL);
 	xTaskCreate(hmiTask,	"HMI_TASK",		400,	pHmi,	2,	NULL);
 	xTaskCreate(mainTask,	"MAIN_TASK",	400,	NULL,	5,	NULL);
-	vTaskDelete(startTaskHandler);
+	TaskHandle_t handler = xTaskGetHandle("START_TASK");
+	vTaskDelete(handler);
 	taskEXIT_CRITICAL();
 }
 
@@ -68,7 +68,6 @@ void led1Task(void *pvParameters)
 
 void hmiTask(void * pHmi)
 {
-	TRACE("HMI main thread is setup!\r\n");
 	((EHmiMain*)pHmi)->Start();
 }
 
@@ -81,9 +80,13 @@ void mainTask(void *pvParameters)
 	checkDevices();
 
 	// main loop
+	TaskHandle_t handler = xTaskGetHandle("MAIN_TASK");
+	vTaskSuspend(handler);
+	/*
 	while(1) {
 		vTaskDelay(2000);
 	}
+	*/
 }
 
 void* operator new(size_t size)

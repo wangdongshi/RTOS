@@ -1,17 +1,18 @@
 /**********************************************************************
- * Copyright (c) 2018 - 2021 by Wang Yu
+ * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
  * Filename:  EHmiMain.cpp
  * Project:   Minimum RTOS platform
  * Date:      2018/11/26
- * Author:    Wang Yu
+ * Author:    WangYu
  *
  **********************************************************************/
 #include "debug.h"
 #include "EHmiMain.h"
 
-//using namespace std;
+#define HMI_EVENT_PROCESS_INTERVAL	(100)	// 100ms
+#define HMI_EVENT_QUEUE_DEPTH		(10)
 
 /// function	EHmiMain
 /// brief		constructor
@@ -19,7 +20,7 @@ EHmiMain::EHmiMain() :
 is_ready(false)
 {
 	mtx = xSemaphoreCreateMutex();
-	deq = xQueueCreate(20, sizeof(EHmiEvent));
+	deq = xQueueCreate(HMI_EVENT_QUEUE_DEPTH, sizeof(EHmiEvent));
 }
 
 /// function	~EHmiMain
@@ -30,7 +31,6 @@ EHmiMain::~EHmiMain()
 
 void EHmiMain::AddQueue(EHmiEvent ev)
 {
-	//deq.push_back(ev);
 	xQueueSend(deq, &ev, 0);
 }
 
@@ -41,39 +41,21 @@ void EHmiMain::AddQueue(EHmiEvent ev)
 /// return		none
 void EHmiMain::main(void)
 {
-    EHmiEvent ev(HMI_EV_NONE);
-	
-    while(true) {
-        // {
-            // unique_lock<mutex> lock(mtx);
-            // cv.wait(lock, [this]{return is_ready;});
-            // is_ready = false;
-        // }
-
-        // command process
-        while(true) {
-			//sleep(1);
-        	vTaskDelay(100);
-            {
-                //lock_guard<mutex> lock(mtx);
-                //if(deq.empty()) {
-        		xSemaphoreTake(mtx, 0);
-                if(uxQueueMessagesWaiting(deq) == 0) {
-                    // if queue is empty, break while.
-                    break;
-                }
-                else {
-                    // get event from queue
-					//ev = deq.front();
-                    //deq.pop_front();
-                	xQueueReceive(deq, &ev, 0);
-                }
-                xSemaphoreGive(mtx);
-            }
-            // event process
-            eventHandler(ev);
-        }
-    }
+	EHmiEvent ev(HMI_EV_NONE);
+	// command process
+	while(true) {
+		vTaskDelay(HMI_EVENT_PROCESS_INTERVAL); // HMI react per 100ms
+		xSemaphoreTake(this->Mutex(), 0);
+		if(uxQueueMessagesWaiting(deq) == 0) { // if queue is empty, break while.
+			xSemaphoreGive(this->Mutex());
+			continue;
+		}
+		else {
+			xQueueReceive(deq, &ev, 0); // get event for HMI
+			xSemaphoreGive(this->Mutex());
+			eventHandler(ev); // handle events
+		}
+	}
 }
 
 /// function	eventHandler
@@ -87,14 +69,13 @@ void EHmiMain::eventHandler(EHmiEvent& ev)
 	unsigned long param;
 	uint16_t x, y;
 
-    // get event type & param
-	type = ev.GetEvent();
+	type = ev.GetEvent(); // get event type & parameter
     switch(type) {
     case HMI_EV_KEYDOWN:
         param = ev.GetULArg();
         x = param >> 16 & 0xFFFF;
         y = param & 0xFFFF;
-        TRACE("key is pushed down! (x=%d, y=%d)\r\n", x, y);
+        printf("Finger press (x=%d, y=%d)\r\n", x, y);
         break;
     default: // HMI_EV_NONE or not defined
         break;

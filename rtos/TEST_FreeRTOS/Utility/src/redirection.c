@@ -1,11 +1,11 @@
 /**********************************************************************
- * Copyright (c) 2018 - 2021 by Wang Yu
+ * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
  * Filename:  redirection.c
  * Project:   Minimum RTOS platform
  * Date:      2021/9/6
- * Author:    Wang Yu
+ * Author:    WangYu
  *
  **********************************************************************/
 #include <stdio.h>

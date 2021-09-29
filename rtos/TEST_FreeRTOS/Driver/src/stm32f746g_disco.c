@@ -1,11 +1,11 @@
 /**********************************************************************
- * Copyright (c) 2018 - 2021 by Wang Yu
+ * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
  * Filename:  stm32f746g_disco.c
  * Project:   Minimum RTOS platform
  * Date:      2021/9/5
- * Author:    Wang Yu
+ * Author:    WangYu
  *
  **********************************************************************/
 #include <stdint.h>
@@ -1195,7 +1195,8 @@ static void drawChar(
 
 	if (FONT_SMALL == fontType) {
 		setCharBuf06x08(symbol, foreColor, backColor);
-	} else {
+	}
+	else {
 		setCharBuf12x16(symbol, foreColor, backColor);
 	}
 
@@ -1228,7 +1229,8 @@ static void setCharBuf06x08(
 				charBuffer[cnt++] = (foreColor >>  0) & 0xFF; // blue
 				charBuffer[cnt++] = (foreColor >>  8) & 0xFF; // green
 				charBuffer[cnt++] = (foreColor >> 16) & 0xFF; // red
-			} else { // use back color
+			}
+			else { // use back color
 				charBuffer[cnt++] = (backColor >>  0) & 0xFF; // blue
 				charBuffer[cnt++] = (backColor >>  8) & 0xFF; // green
 				charBuffer[cnt++] = (backColor >> 16) & 0xFF; // red
@@ -1253,7 +1255,8 @@ static void setCharBuf12x16(
 				charBuffer[cnt++] = (foreColor >>  0) & 0xFF; // blue
 				charBuffer[cnt++] = (foreColor >>  8) & 0xFF; // green
 				charBuffer[cnt++] = (foreColor >> 16) & 0xFF; // red
-			} else { // use back color
+			}
+			else { // use back color
 				charBuffer[cnt++] = (backColor >>  0) & 0xFF; // blue
 				charBuffer[cnt++] = (backColor >>  8) & 0xFF; // green
 				charBuffer[cnt++] = (backColor >> 16) & 0xFF; // red

@@ -1,11 +1,11 @@
 /**********************************************************************
- * Copyright (c) 2018 - 2021 by Wang Yu
+ * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
  * Filename:  debug.h
  * Project:   Minimum RTOS platform
  * Date:      2018/11/26
- * Author:    Wang Yu
+ * Author:    WangYu
  *
  **********************************************************************/
 #ifndef DEBUG_H
@@ -14,6 +14,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#include <stdio.h>
 
 #ifdef DEBUG
 

@@ -1,11 +1,11 @@
 /**********************************************************************
- * Copyright (c) 2018 - 2021 by Wang Yu
+ * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
  * Filename:  ft5336.c
  * Project:   Minimum RTOS platform
  * Date:      2021/9/20
- * Author:    Wang Yu
+ * Author:    WangYu
  *
  **********************************************************************/
 #include <stdint.h>

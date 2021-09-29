@@ -1,19 +1,16 @@
 /**********************************************************************
- * Copyright (c) 2018 - 2021 by Wang Yu
+ * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
  * Filename:  EHmiMain.h
  * Project:   Minimum RTOS platform
  * Date:      2018/11/26
- * Author:    Wang Yu
+ * Author:    WangYu
  *
  **********************************************************************/
 #ifndef __EHMI_MAIN_H__
 #define __EHMI_MAIN_H__
 
-//#include <queue>
-//#include <mutex>
-//#include <condition_variable>
 #include "FreeRTOS.h"
 #include "queue.h"
 #include "semphr.h"
@@ -32,10 +29,6 @@ public :
 	void Start(void) {main();}
     bool IsReady(void) {return(is_ready);}
     void SetReady(bool ready) {is_ready = ready;}
-    //std::mutex& Mutex(void) {return(mtx);}
-    //std::condition_variable& ConditionVariable(void) {
-	//	return(cv);
-	//}
     QueueHandle_t Mutex(void) {return(mtx);}
     void AddQueue(EHmiEvent ev);
 	
@@ -44,12 +37,9 @@ private :
 	void eventHandler(EHmiEvent& ev);
 
 private :
-    //std::deque<EHmiEvent>	deq;
-    //std::mutex				mtx;
-    //std::condition_variable	cv;
-    bool                	is_ready;
-	QueueHandle_t			mtx;
-	QueueHandle_t			deq;
+    bool			is_ready;
+	QueueHandle_t	mtx;
+	QueueHandle_t	deq;
 };
 
 #endif // __EHMI_MAIN_H__
