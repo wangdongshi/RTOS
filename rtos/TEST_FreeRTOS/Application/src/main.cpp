@@ -32,9 +32,7 @@ TaskHandle_t startTaskHandler;
 int main(void)
 {
 	// create start task
-	//xTaskCreate(startTask,	"START_TASK",	400,	NULL,	2,	&startTaskHandler);
-	xTaskCreate(led1Task,	"LED1_TASK",	400,	NULL,	2,	NULL);
-	xTaskCreate(mainTask,	"MAIN_TASK",	400,	NULL,	5,	NULL);
+	xTaskCreate(startTask,	"START_TASK",	400,	NULL,	2,	&startTaskHandler);
 
 	// start FreeRTOS kernel
 	vTaskStartScheduler();
@@ -48,8 +46,10 @@ int main(void)
 void startTask(void *pvParameters)
 {
 	// create task
+	EHmiMain* pHmi = new EHmiMain();
 	taskENTER_CRITICAL();
 	xTaskCreate(led1Task,	"LED1_TASK",	400,	NULL,	2,	NULL);
+	xTaskCreate(hmiTask,	"HMI_TASK",		400,	pHmi,	2,	NULL);
 	xTaskCreate(mainTask,	"MAIN_TASK",	400,	NULL,	5,	NULL);
 	vTaskDelete(startTaskHandler);
 	taskEXIT_CRITICAL();
@@ -61,6 +61,12 @@ void led1Task(void *pvParameters)
 		toggleLED1();
 		vTaskDelay(500);
 	}
+}
+
+void hmiTask(EHmiMain* pHmi)
+{
+	Trace("HMI main thread is setup!\n");
+	pHmi->start();
 }
 
 void mainTask(void *pvParameters)
