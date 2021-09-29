@@ -1,14 +1,17 @@
-///
-/// file		EHmiEvent.h
-/// brief		HMI main process file
-///
-/// author		Wang.Yu
-/// version 	00.01.00
-/// date		2018/11/26
-///
-
+/**********************************************************************
+ * Copyright (c) 2018 - 2021 by Wang Yu
+ * All rights reserved
+ *
+ * Filename:  EHmiEvent.h
+ * Project:   Minimum RTOS platform
+ * Date:      2018/11/26
+ * Author:    Wang Yu
+ *
+ **********************************************************************/
 #ifndef __EHMI_EVENT_H__
 #define __EHMI_EVENT_H__
+
+#include "FreeRTOS.h"
 
 typedef union _EHmiEventParam{
 	unsigned long	lp;

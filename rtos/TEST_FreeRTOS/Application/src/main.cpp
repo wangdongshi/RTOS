@@ -16,18 +16,22 @@
 #include "stm32f746g_disco.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include "EHmiMain.h"
 
 static void printBanner(void);
 static uint32_t checkDevices(void);
 
 void startTask(void *pvParameters);
 void mainTask(void *pvParameters);
+void hmiTask(void *pHmi);
 void led1Task(void *pvParameters);
 #ifdef MODE_STAND_ALONE
 void executeCmd(const char* cmd);
 #endif
 
 TaskHandle_t startTaskHandler;
+
+EHmiMain* pHmi = new EHmiMain();
 
 int main(void)
 {
@@ -46,7 +50,6 @@ int main(void)
 void startTask(void *pvParameters)
 {
 	// create task
-	EHmiMain* pHmi = new EHmiMain();
 	taskENTER_CRITICAL();
 	xTaskCreate(led1Task,	"LED1_TASK",	400,	NULL,	2,	NULL);
 	xTaskCreate(hmiTask,	"HMI_TASK",		400,	pHmi,	2,	NULL);
@@ -63,10 +66,10 @@ void led1Task(void *pvParameters)
 	}
 }
 
-void hmiTask(EHmiMain* pHmi)
+void hmiTask(void * pHmi)
 {
-	Trace("HMI main thread is setup!\n");
-	pHmi->start();
+	TRACE("HMI main thread is setup!\r\n");
+	((EHmiMain*)pHmi)->Start();
 }
 
 void mainTask(void *pvParameters)
@@ -81,6 +84,26 @@ void mainTask(void *pvParameters)
 	while(1) {
 		vTaskDelay(2000);
 	}
+}
+
+void* operator new(size_t size)
+{
+	return pvPortMalloc(size);
+}
+
+void* operator new[](size_t size)
+{
+	return pvPortMalloc(size);
+}
+
+void operator delete(void * ptr)
+{
+	vPortFree (ptr);
+}
+
+void operator delete[](void * ptr)
+{
+	vPortFree (ptr);
 }
 
 static void printBanner(void)

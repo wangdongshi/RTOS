@@ -1,14 +1,16 @@
-///
-/// file		EHmiEvent.cpp
-/// brief		HMI event class file
-///
-/// author		Wang.Yu
-/// version 	00.01.00
-/// date		2018/11/26
-///
+/**********************************************************************
+ * Copyright (c) 2018 - 2021 by Wang Yu
+ * All rights reserved
+ *
+ * Filename:  EHmiEvent.cpp
+ * Project:   Minimum RTOS platform
+ * Date:      2018/11/26
+ * Author:    Wang Yu
+ *
+ **********************************************************************/
 #include "EHmiEvent.h"
 
-using namespace std;
+//using namespace std;
 
 /// function	EHmiEvent
 /// brief		constructor
