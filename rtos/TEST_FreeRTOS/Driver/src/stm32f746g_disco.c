@@ -870,9 +870,9 @@ static void initNVICPriorityGroup(void)
 	while((SCB->AIRCR & SCB_AIRCR_PRIGROUP_Msk) != (0b011 << SCB_AIRCR_PRIGROUP_Pos));
 
 	// Global interrupt design in sample project can refer to the following setting.
-	// SVC(FreeRTOS)		: preemption:10, IRQn:11
-	// PendSV(FreeRTOS)		: preemption:15, IRQn:14
-	// Systick(FreeRTOS)	: preemption:6,  IRQn:15
+	// SVC(FreeRTOS)		: preemption:15, IRQn:11, This priority will be modified to lowest priority forcibly in RTOS.
+	// PendSV(FreeRTOS)		: preemption:15, IRQn:14, This priority will be modified to lowest priority forcibly in RTOS.
+	// Systick(FreeRTOS)	: preemption:15, IRQn:15, This priority will be modified to lowest priority forcibly in RTOS.
 	// USART1(Debug)		: preemption:14, IRQn:37
 	// TIMER7(LED1 flicker)	: preemption:14, IRQn:55
 	// EXIT13(TouchPanel)	: preemption:13, IRQn:40
@@ -881,7 +881,7 @@ static void initNVICPriorityGroup(void)
 // Initialize SVCall interrupt (IRQn:11)
 static void initSVCallInt(void)
 {
-	SCB->SHPR[2] |= 10 << (24 + 4);
+	SCB->SHPR[2] |= 15 << (24 + 4);
 	// SVC need not open. Executing SVC instrument will trigger SVC interrupt.
 }
 
@@ -895,7 +895,7 @@ static void initPendSVInt(void)
 // Initialize Systick interrupt (IRQn:15)
 static void initSystickInt(void)
 {
-	SCB->SHPR[3]  |= 6 << (24 + 4);
+	SCB->SHPR[3]  |= 15 << (24 + 4);
 	SysTick->CTRL |= 0b1 << SysTick_CTRL_TICKINT_Pos;
 }
 
