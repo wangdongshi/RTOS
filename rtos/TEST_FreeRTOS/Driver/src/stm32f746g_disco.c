@@ -39,25 +39,39 @@ uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) ) 
 uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) ) FrameBuffer[LCD_FRAME_BUF_SIZE];
 
 static void initFPU(void);
-static void initSDRAM(void);
-static void initLCD(void);
-static void initTouchPanel(void);
 static void initSystemClock(void);
+static void initSDRAM(void);
+static void initSystick(void);
+static void initUSART1(void);
+static void initTouchPanel(void);
+static void initLCD(void);
+static void initDMA2D(void);
+static void initLED1(void);
+#ifdef MODE_STAND_ALONE
+static void initTIM7(void);
+#endif
 static void initNVICPriorityGroup(void);
-static void initSystickInt(void);
 static void initSVCallInt(void);
 static void initPendSVInt(void);
-static void initSystick(void);
+static void initSystickInt(void);
 static void initUSART1Int(void);
-static void initLED1(void);
-static void initUSART1(void);
+static void initEXTI15_10Int(void);
+#ifdef MODE_STAND_ALONE
+static void initTIM7Int(void);
+#endif
+static void initSDRAMGPIO(void);
 static void initUartGPIO(void);
 static void initLED1GPIO(void);
-static void initSDRAMGPIO(void);
 static void initLCDGPIO(void);
-static void initDMA2D(void);
 static void initTouchPanelGPIO(void);
 
+static void drawChar(
+		const uint16_t x,
+		const uint16_t y,
+		const uint8_t  symbol,
+		const uint8_t  fontType,
+		const uint32_t foreColor,
+		const uint32_t backColor);
 static void setCharBuf06x08(
 		const uint8_t  symbol,
 		const uint32_t foreColor,
@@ -66,20 +80,8 @@ static void setCharBuf12x16(
 		const uint8_t  symbol,
 		const uint32_t foreColor,
 		const uint32_t backColor);
-static void drawChar(
-		const uint16_t x,
-		const uint16_t y,
-		const uint8_t  symbol,
-		const uint8_t  fontType,
-		const uint32_t foreColor,
-		const uint32_t backColor);
 
-#ifdef MODE_STAND_ALONE
-static void initTIM7Int(void);
-static void initTIM7(void);
-#endif
-
-// Hardware driver API
+// External API function group
 void SystemInit(void)
 {
 	SCB_EnableICache();
@@ -98,13 +100,6 @@ void SystemInit(void)
 #ifdef MODE_STAND_ALONE
 	initTIM7();
 #endif
-}
-
-void toggleLED1(void)
-{
-	uint32_t data = GPIOI->ODR & GPIO_ODR_OD1_Msk;
-	GPIOI->ODR &= ~GPIO_ODR_OD1_Msk;
-	GPIOI->ODR |= (~data) & GPIO_ODR_OD1_Msk;
 }
 
 void usart1SendChar(const uint8_t character)
@@ -130,745 +125,6 @@ void usart1SendBuffer(const uint8_t* message)
 	USART1->CR1	&= ~USART_CR1_TE;
 }
 
-uint32_t getRandomData(void)
-{
-	RCC->AHB2ENR |= RCC_AHB2ENR_RNGEN;
-	while((RCC->AHB2ENR & RCC_AHB2ENR_RNGEN_Msk) == 0);
-
-	RNG->CR = RNG_CR_RNGEN;
-	while((RNG->SR & RNG_SR_DRDY_Msk) == 0);
-
-	uint32_t random = RNG->DR;
-
-	RCC->AHB2RSTR |= RCC_AHB2RSTR_RNGRST;
-	return random;
-}
-
-uint32_t checkDMA(uint16_t data)
-{
-	uint32_t  size = 0x8000;
-	uint16_t* pSrc = &data;
-	uint16_t* pDes = (uint16_t*)((uint32_t)&_ssdram + (uint32_t)(0x500000/sizeof(uint16_t)));
-
-	RCC->AHB1ENR |= RCC_AHB1ENR_DMA2EN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_DMA2EN_Msk) == 0);
-
-	DMA2_Stream0->CR = 	DMA_SxCR_CHSEL_0 |	// Stream0, channel1
-						DMA_SxCR_PSIZE_0 |	// src data 16bits
-						DMA_SxCR_MSIZE_0 |	// des data 16bits
-						DMA_SxCR_MINC | 	// des address automatic increase
-						DMA_SxCR_PL_0 | DMA_SxCR_PL_1 | // highest DMA priority
-						DMA_SxCR_DIR_1; 	// memory to memory
-	DMA2_Stream0->NDTR = size/sizeof(uint16_t);	 // 32768 / 2 = 16 K half word
-	DMA2_Stream0->PAR  = (uint32_t)(pSrc);
-	DMA2_Stream0->M0AR = (uint32_t)(pDes);
-
-	DMA2_Stream0->CR |= DMA_SxCR_EN; // start DMA transfer
-
-	while((DMA2->LISR & DMA_LISR_TCIF0_Msk) == 0); // wait transfer complete
-	DMA2->LIFCR |= DMA_LIFCR_CTCIF0; // must clear TC interrupt flag for next DMA
-
-	//RCC->AHB1RSTR |= RCC_AHB1RSTR_DMA2RST;
-
-	return (*pDes == data && *(pDes + 0x3FF8) == data);
-}
-
-// DMA2D checked by logo showing
-void checkDMA2D(void)
-{
-	fillRect(0, 0, 480, 272, 0xA9A9A9);
-	fillRect(50, 50, 380, 132, 0x8B0000);
-	drawString(70, 60, "Welcome to STM32F746G-DISCO!", 0xA9A9A9, 0x8B0000, FONT_MIDDLE);
-	drawString(280, 120, "Author : Wang.Yu", 0xA9A9A9, 0x8B0000, FONT_SMALL);
-	drawString(280, 150, "  Date : 2021/9/1", 0xA9A9A9, 0x8B0000, FONT_SMALL);
-}
-
-void showLogo(void)
-{
-	drawImage(0, 0, 480, 272, (uint32_t)&logoImage);
-}
-
-void fillRect(
-		const uint16_t x,
-		const uint16_t y,
-		const uint16_t w,
-		const uint16_t h,
-		const uint32_t color)
-{
-	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
-
-	DMA2D->CR 		&= ~DMA2D_CR_MODE_Msk;
-	DMA2D->CR 		|= 0b11 << DMA2D_CR_MODE_Pos; // register to memory
-	DMA2D->OCOLR	= color;
-	DMA2D->OMAR		= (uint32_t)(&(((uint8_t*)&FrameBuffer)[(y * LCD_ACTIVE_WIDTH + x) * LCD_COLOR_BYTES]));
-	DMA2D->OOR		= LCD_ACTIVE_WIDTH - w;
-	DMA2D->OPFCCR	= 0b001; // RGB888
-	DMA2D->NLR		= w << DMA2D_NLR_PL_Pos | h << DMA2D_NLR_NL_Pos;
-
-	DMA2D->CR   	|= DMA2D_CR_START;
-}
-
-void drawImage(
-		const uint16_t x,
-		const uint16_t y,
-		const uint16_t w,
-		const uint16_t h,
-		const uint32_t addr)
-{
-	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
-
-	DMA2D->CR 		&= ~DMA2D_CR_MODE_Msk;
-	DMA2D->CR 		|= 0b00 << DMA2D_CR_MODE_Pos; // memory to memory
-	DMA2D->FGMAR	= addr;
-	DMA2D->OMAR		= (uint32_t)(&(((uint8_t*)&FrameBuffer)[(y * LCD_ACTIVE_WIDTH + x) * LCD_COLOR_BYTES]));
-	DMA2D->FGOR		= 0;
-	DMA2D->OOR		= LCD_ACTIVE_WIDTH - w;
-	DMA2D->FGPFCCR	= 0b0001; // RGB888
-	DMA2D->OPFCCR	= 0b001;  // RGB888
-	DMA2D->NLR		= w << DMA2D_NLR_PL_Pos | h << DMA2D_NLR_NL_Pos;
-
-	DMA2D->CR   	|= DMA2D_CR_START;
-}
-
-// It only can support 1 line string
-void drawString(
-		const uint16_t x,
-		const uint16_t y,
-		const char* const string,
-		const uint32_t foreColor,
-		const uint32_t backColor,
-		const uint8_t  fontType)
-{
-	uint16_t currentX = x;
-	char* pString = (char*)string;
-	while (*pString != '\0') {
-		drawChar(currentX, y, *pString, fontType, foreColor, backColor);
-		currentX += (FONT_SMALL == fontType) ? sFont.st.cdef[(uint32_t)(*pString)].width : mFont.st.cdef[(uint32_t)(*pString)].width;
-		pString++;
-	}
-}
-
-static void drawChar(
-		const uint16_t x,
-		const uint16_t y,
-		const uint8_t  symbol,
-		const uint8_t  fontType,
-		const uint32_t foreColor,
-		const uint32_t backColor)
-{
-	uint32_t height = (FONT_SMALL == fontType) ? sFont.st.head.fontHeight    : mFont.st.head.fontHeight;
-	uint32_t width  = (FONT_SMALL == fontType) ? sFont.st.cdef[symbol].width : mFont.st.cdef[symbol].width;
-
-	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
-
-	if (FONT_SMALL == fontType) {
-		setCharBuf06x08(symbol, foreColor, backColor);
-	} else {
-		setCharBuf12x16(symbol, foreColor, backColor);
-	}
-
-	DMA2D->CR 		&= ~DMA2D_CR_MODE_Msk;
-	DMA2D->CR 		|= 0b00 << DMA2D_CR_MODE_Pos; // memory to memory
-	DMA2D->FGMAR	= (uint32_t)&charBuffer;
-	DMA2D->OMAR		= (uint32_t)(&(((uint8_t*)&FrameBuffer)[(y * LCD_ACTIVE_WIDTH + x) * LCD_COLOR_BYTES]));
-	DMA2D->FGOR		= 0;
-	DMA2D->OOR		= LCD_ACTIVE_WIDTH - width;
-	DMA2D->FGPFCCR	= 0b0001; // RGB888
-	DMA2D->OPFCCR	= 0b001;  // RGB888
-	DMA2D->NLR		= width << DMA2D_NLR_PL_Pos | height << DMA2D_NLR_NL_Pos;
-
-	DMA2D->CR   	|= DMA2D_CR_START;
-}
-
-static void setCharBuf06x08(
-		const uint8_t  symbol,
-		const uint32_t foreColor,
-		const uint32_t backColor)
-{
-	uint32_t height = sFont.st.head.fontHeight;
-	uint32_t width  = sFont.st.cdef[symbol].width;
-
-	uint32_t cnt = 0;
-	for (uint32_t i = 0; i < height; i++) {
-		for (uint32_t j = 0; j < width; j++) {
-			// Because font file is rotated 90 degrees clockwise, the following i and j are exchanged.
-			if (sFont.st.cdef[symbol].data[j][0] & (0b1 << (7 - i))) { // use fore color
-				charBuffer[cnt++] = (foreColor >>  0) & 0xFF; // blue
-				charBuffer[cnt++] = (foreColor >>  8) & 0xFF; // green
-				charBuffer[cnt++] = (foreColor >> 16) & 0xFF; // red
-			} else { // use back color
-				charBuffer[cnt++] = (backColor >>  0) & 0xFF; // blue
-				charBuffer[cnt++] = (backColor >>  8) & 0xFF; // green
-				charBuffer[cnt++] = (backColor >> 16) & 0xFF; // red
-			}
-		}
-	}
-}
-
-static void setCharBuf12x16(
-		const uint8_t  symbol,
-		const uint32_t foreColor,
-		const uint32_t backColor)
-{
-	uint32_t height = mFont.st.head.fontHeight;
-	uint32_t width  = mFont.st.cdef[symbol].width;
-
-	uint32_t cnt = 0;
-	for (uint32_t i = 0; i < height; i++) {
-		for (uint32_t j = 0; j < width; j++) {
-			// Because font file is rotated 90 degrees clockwise, the following i and j are exchanged.
-			if (mFont.st.cdef[symbol].data[j][i / 8] & (0b1 << (7 - i % 8))) { // use fore color
-				charBuffer[cnt++] = (foreColor >>  0) & 0xFF; // blue
-				charBuffer[cnt++] = (foreColor >>  8) & 0xFF; // green
-				charBuffer[cnt++] = (foreColor >> 16) & 0xFF; // red
-			} else { // use back color
-				charBuffer[cnt++] = (backColor >>  0) & 0xFF; // blue
-				charBuffer[cnt++] = (backColor >>  8) & 0xFF; // green
-				charBuffer[cnt++] = (backColor >> 16) & 0xFF; // red
-			}
-		}
-	}
-}
-
-uint16_t checkSDRAM(void)
-{
-	uint8_t* p;
-	uint8_t* startAddr	= (uint8_t*)&_ssdram;
-	uint8_t* endAddr	= (uint8_t*)((uint32_t)&_ssdram + (uint32_t)&_sdram_size - 1);
-
-	// check after write
-	for (p = startAddr; p <= endAddr; p += 0x100000) {
-		*p = 0xA5;
-		if ((*p) != 0xA5) return 0;
-	}
-	*endAddr = 0x5A;
-	if ((*endAddr) != 0x5A) return 0;
-
-	// check delay
-	for (volatile uint32_t i = 0; i < 1000000; i++);
-	for (p = startAddr; p <= endAddr; p += 0x100000) {
-		if ((*p) != 0xA5) return 0;
-	}
-	if ((*endAddr) != 0x5A) return 0;
-
-	return 1;
-}
-
-uint16_t checkTouchPanel(void)
-{
-	uint8_t chipID = readFT5336ChipID();
-	return (chipID == 0x51);
-}
-
-// The following initialization process is write for STM32F746G-DISCO
-// FPU initialization
-static void initFPU(void)
-{
-	SCB->CPACR |= 	0b11 << 20 | // CP10
-					0b11 << 22;  // CP11
-	while((SCB->CPACR & (0b1111 << 20)) != (0b1111 << 20));
-}
-
-// System clock initialization
-static void initSystemClock(void)
-{
-	// 1. Set HSE and reset RCC_CIR
-	RCC->CR |= RCC_CR_HSEBYP | RCC_CR_HSEON;
-	while((RCC->CR & RCC_CR_HSERDY_Msk) == 0);
-	RCC->CIR = 0x00000000; // disable all RCC interrupts
-
-	// 2. Set FLASH latency
-	FLASH->ACR |= FLASH_ACR_LATENCY_7WS; // need be set in 216MHz
-	while((FLASH->ACR & FLASH_ACR_LATENCY_Msk) != FLASH_ACR_LATENCY_7WS);
-	//FLASH->ACR |= FLASH_ACR_ARTEN | FLASH_ACR_PRFTEN;
-	//PWR->CR1 |= 0b11 << PWR_CR1_VOS_Pos; // default value has set to 0b11 in reset
-
-	// 3. Enable PWR clock
-	RCC->APB1ENR |= RCC_APB1ENR_PWREN;
-	while((RCC->APB1ENR & RCC_APB1ENR_PWREN_Msk) == 0);
-
-	// 4. Activation OverDrive Mode
-	PWR->CR1 |= PWR_CR1_ODEN;
-	while((PWR->CSR1 & PWR_CSR1_ODRDY_Msk) == 0);
-
-	// 5. Activation OverDrive Switching
-	PWR->CR1 |= PWR_CR1_ODSWEN;
-	while((PWR->CSR1 & PWR_CSR1_ODSWRDY_Msk) == 0);
-
-	// 6. Main PLL configuration and activation
-	RCC->PLLCFGR = PLLM | PLLN | PLLP | PLLSRC | PLLQ;
-	RCC->CR |= RCC_CR_PLLON;
-	while((RCC->CR & RCC_CR_PLLRDY_Msk) == 0);
-
-	// 7. System clock activation on the main PLL
-	RCC->CFGR |=	RCC_CFGR_HPRE_DIV1 |	 // set HPRE  (AHB  pre-scaler) to 1 (216 MHz)
-					RCC_CFGR_PPRE1_DIV4 |	 // set PPRE1 (APB1 pre-scaler) to 4 (54  MHz)
-					RCC_CFGR_PPRE2_DIV2;	 // set PPRE2 (APB2 pre-scaler) to 2 (108 MHz)
-	// Attention : before switching System clock to PLL, it must wait all pre-scale value set to CFGR.
-	while((RCC->CFGR & (RCC_CFGR_HPRE_Msk | RCC_CFGR_PPRE1_Msk | RCC_CFGR_PPRE2_Msk)) !=
-		(RCC_CFGR_HPRE_DIV1 | RCC_CFGR_PPRE1_DIV4 | RCC_CFGR_PPRE2_DIV2));
-	RCC->CFGR |=	RCC_CFGR_SW_PLL; // switch main clock to PLL
-	while((RCC->CFGR & RCC_CFGR_SWS_Msk) != RCC_CFGR_SWS_PLL);
-}
-
-// Set global NVIC priority group
-static void initNVICPriorityGroup(void)
-{
-	// STM32F756XX-PM can not refer here, because ST has own design in interrupt priority.
-	// ST interrupt priority group setting can refer to the following.
-	//   IPR just use the higher 4 bit indicating priority, the lower 4 bit should be set to 0.
-	//   The assignment of AIRCR-PRIGROUP can be refer to the following rule.
-	//   ----------------|------------------------------------------------
-	//                   |                  IPRn / SHPRn
-	//    AIRCR-PRIGROUP |------------------------------------------------
-	//                   |  preemption priority  |    sub-priority
-	//   ----------------|------------------------------------------------
-	//     0xb011 :      |  [7:4], 16 level      |    None , None
-	//     0xb100 :      |  [7:5], 8 level       |    [4]  , 2 level
-	//     0xb011 :      |  [7:6], 4 level       |    [5:4], 4 level
-	//     0xb011 :      |  [7]  , 2 level       |    [6:4], 8 level
-	//     0xb011 :      |  None , None          |    [7:4], 16 level
-	//   ----------------|------------------------------------------------
-
-	// "|=" can not be used here, because VECTKEY write key is "0x05FA" and "|=" will change it
-	SCB->AIRCR =	0x05FA << SCB_AIRCR_VECTKEY_Pos |
-					0b011  << SCB_AIRCR_PRIGROUP_Pos; // PRIGROUP = 0b011 (preemption:16, sub:0)
-	while((SCB->AIRCR & SCB_AIRCR_PRIGROUP_Msk) != (0b011 << SCB_AIRCR_PRIGROUP_Pos));
-
-	// Global interrupt design in sample project can refer to the following setting.
-	// SVC(FreeRTOS)		: preemption:10, IRQn:11
-	// PendSV(FreeRTOS)		: preemption:15, IRQn:14
-	// Systick(FreeRTOS)	: preemption:6,  IRQn:15
-	// USART1(Debug)		: preemption:14, IRQn:37
-	// TIMER7(LED1 flicker)	: preemption:14, IRQn:55
-	// EXIT13(TouchPanel)	: preemption:13, IRQn:40
-}
-
-// Initialize SVCall interrupt (IRQn:11)
-static void initSVCallInt(void)
-{
-	SCB->SHPR[2] |= 10 << (24 + 4);
-	// SVC need not open. Executing SVC instrument will trigger SVC interrupt.
-}
-
-// Initialize PendSV interrupt (IRQn:14)
-static void initPendSVInt(void)
-{
-	SCB->SHPR[3] |= 15 << (16 + 4);
-	// PendSV need not open. Setting ICSR the 28th bit will trigger pendSV interrupt.
-}
-
-// Initialize Systick interrupt (IRQn:15)
-static void initSystickInt(void)
-{
-	SCB->SHPR[3]  |= 6 << (24 + 4);
-	SysTick->CTRL |= 0b1 << SysTick_CTRL_TICKINT_Pos;
-}
-
-// Initialize USART1 interrupt (IRQn:37)
-static void initUSART1Int(void)
-{
-	NVIC->IP[37]  |= 14 << 4;
-	NVIC->ISER[1] |= 0b1 << (37 - 32);
-}
-
-// Initialize EXTI15_10 interrupt (IRQn:40)
-static void initEXTI15_10Int(void)
-{
-	NVIC->IP[40]  |= 13 << 4;
-	NVIC->ISER[1] |= 0b1 << (40 - 32);
-}
-
-// LED1 initialization
-static void initLED1(void)
-{
-	initLED1GPIO();
-}
-
-// USART1 initialization
-static void initUSART1(void)
-{
-	// Initialize USART1 TX/RX pin
-	initUartGPIO();
-
-	// Enable APB2 USART1 RCC
-	RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
-	while((RCC->APB2ENR & RCC_APB2ENR_USART1EN_Msk) == 0);
-
-	// Set USART1 parameter
-	//USART1->BRR = 0x2BF2;	// baud rate = 9600(fCK=108MHz, CR1/OVER8=0, 0x2BF2 = 108000000/9600)
-	USART1->BRR = 0x03AA;	// baud rate = 15200(fCK=108MHz, CR1/OVER8=0, 0x03AA = 108000000/115200)
-	USART1->CR1 &= ~USART_CR1_M;	// data bits = 8(M[1:0]=00)
-	USART1->CR2 &= ~USART_CR2_STOP;	// stop bits = 1(STOP[1:0]=00)
-	USART1->CR1 &= ~USART_CR1_PCE;	// parity = off(parity = on, odd:0x00000600, even:0x00000400)
-	USART1->CR3 &= ~(USART_CR3_CTSE | USART_CR3_RTSE); // disable CTS and RTS
-
-	// Enable USART1 global interrupt
-	initUSART1Int();
-
-	// Disable RX interrupt in console log mode
-	//USART1->CR1 |&= USART_CR1_RXNEIE;
-
-	// Enable USART1
-	USART1->CR1 |= USART_CR1_UE;
-
-	// Enable TX and RE
-	USART1->CR1 |= USART_CR1_TE | USART_CR1_RE;
-}
-
-// System tick initialization
-static void initSystick(void)
-{
-	// Enable Systick global interrupt
-	initSystickInt();
-
-	// Set RELOAD value (216000000 / 1000 = 216000)
-	SysTick->LOAD = 0x00034BC0 - 1;
-
-	// Set current value by default value
-	//SysTick->VAL = 0x00000000;
-
-	// Set CLKSOURCE, ENABLE
-	SysTick->CTRL |= 	0b1 << SysTick_CTRL_CLKSOURCE_Pos |	// clk-source : processor clock
-						0b1 << SysTick_CTRL_ENABLE_Pos;		// enable systick counter
-}
-
-#ifdef MODE_STAND_ALONE
-// Initialize TIM7 interrupt
-static void initTIM7Int(void)
-{
-	// Set TIM7 interrupt priority for LED1 flicker
-	NVIC->IP[13] |= 14 << (24 + 4);
-
-	// Enable TIM7 global interrupt (IRQn=55)
-	NVIC->ISER[1] |= 0b1 << (55 - 32);
-
-	// Enable TIM7 update interrupt
-	TIM7->DIER |= TIM_DIER_UIE;
-}
-
-// TIM7 initialization for low speed timer(500ms)
-static void initTIM7(void)
-{
-	// Enable APB1 TIM7 RCC
-	RCC->APB1ENR |= RCC_APB1ENR_TIM7EN;
-	while((RCC->APB1ENR & RCC_APB1ENR_TIM7EN_Msk) == 0);
-	
-	// Enable TIM7 interrupt
-	initTIM7Int();
-
-	// Initialize TIM7
-	TIM7->CR1 |= TIM_CR1_ARPE;			// Enable pre-load ARPE
-	TIM7->PSC = 4000 - 1;				// timer frequency = 108MHz / 4000 = 27KHz (APB pre-sacle is not 1, so fCK_PSC = 54MHz * 2 = 108MHz)
-	TIM7->CNT &= TIM_CNT_UIFCPY_Msk;	// set bit[30:0] to 0
-	TIM7->SR  &= ~TIM_SR_UIF;			// Clear timer update interrupt flag
-	TIM7->ARR = 13500 - 1;				// Set 13500 to reload value
-	TIM7->CR1 |= TIM_CR1_CEN;			// Enable TIM7 CEN
-}
-#endif
-
-// USART TX pin initialization
-static void initUartGPIO(void)
-{
-	// GPIOA
-	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOAEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOAEN_Msk) == 0);
-	// PA9  --> USART1 TX
-	GPIOA->MODER	|=	0b10	<< GPIO_MODER_MODER9_Pos;		// MODER = Multiple(0b10)
-	GPIOA->OTYPER	|=	0b0		<< GPIO_OTYPER_OT9_Pos;
-	GPIOA->OSPEEDR	|=	0b11	<< GPIO_OSPEEDR_OSPEEDR9_Pos;
-	GPIOA->PUPDR	|=	0b01	<< GPIO_PUPDR_PUPDR9_Pos;
-	GPIOA->AFR[1]	|=	7		<< GPIO_AFRH_AFRH1_Pos;			// AF7
-
-	// GPIOB
-	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOBEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOBEN_Msk) == 0);
-	// PB7  --> USART1 RX
-	GPIOB->MODER	|=	0b10	<< GPIO_MODER_MODER7_Pos;		// MODER = Multiple(0b10)
-	GPIOB->OTYPER	|=	0b0		<< GPIO_OTYPER_OT9_Pos;
-	// RX line need not to set OSPEEDR and PUPDR
-	GPIOB->AFR[0]	|=	7		<< GPIO_AFRL_AFRL7_Pos;			// AF7
-}
-
-// LED1 pin initialization
-static void initLED1GPIO(void)
-{
-	// GPIOI
-	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOIEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOIEN_Msk) == 0);
-	// PI1  --> LED1
-	GPIOI->MODER	|=	0b01	<< GPIO_MODER_MODER1_Pos;		// MODER = Output
-	GPIOI->OTYPER	|=	0b0		<< GPIO_OTYPER_OT1_Pos;
-	GPIOI->OSPEEDR	|=	0b11	<< GPIO_OSPEEDR_OSPEEDR1_Pos;
-	GPIOI->PUPDR	|=	0b01	<< GPIO_PUPDR_PUPDR1_Pos;
-}
-
-// SDRAM pin initialization
-//  FMC_SDCLK
-//  FMC_NBL0   / FMC_NBL1
-//  FMC_SDNRAS / FMC_SDNCAS
-//  FMC_SDCKE0
-//  FMC_SDNE0
-//  FMC_SDNWE
-//  FMC_BA[0:1]
-//  FMC_A[0:11]
-//  FMC_D[0:15]
-static void initSDRAMGPIO(void)
-{
-	// GPIOC
-	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOCEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOCEN_Msk) == 0);
-	// PC3  --> FMC_SDCKE0
-	GPIOC->MODER	|=	0b10	<< GPIO_MODER_MODER3_Pos;		// MODER = Multiple(0b10)
-	GPIOC->OTYPER	|=	0b0		<< GPIO_OTYPER_OT3_Pos;			// OTYPER = PP
-	GPIOC->OSPEEDR	|=	0b11	<< GPIO_OSPEEDR_OSPEEDR3_Pos;	// OSPEEDR = Full
-	GPIOC->PUPDR	|=	0b00	<< GPIO_PUPDR_PUPDR3_Pos;		// PUPDR = No Pull
-	GPIOC->AFR[0]	|=	12		<< GPIO_AFRL_AFRL3_Pos;			// AF12
-
-	// GPIOD
-	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIODEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIODEN_Msk) == 0);
-	// PD0  --> FMC_D2
-	// PD1  --> FMC_D3
-	// PD8  --> FMC_D13
-	// PD9  --> FMC_D14
-	// PD10 --> FMC_D15
-	// PD14 --> FMC_D0
-	// PD15 --> FMC_D1
-	GPIOD->MODER	|=	0xA02A000A;	// MODER = Multiple(0b10)
-	GPIOD->OTYPER	|=	0x00000000;	// OTYPER = PP
-	GPIOD->OSPEEDR	|=	0xF03F000F;	// OSPEEDR = Full
-	GPIOD->PUPDR	|=	0x00000000;	// PUPDR = No Pull
-	GPIOD->AFR[0]	|=	0x000000CC;	// AF12
-	GPIOD->AFR[1]	|=	0xCC000CCC;	// AF12
-
-	// GPIOE
-	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOEEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOEEN_Msk) == 0);
-	// PE0  --> FMC_NBL0
-	// PE1  --> FMC_NBL1
-	// PE7  --> FMC_D4
-	// PE8  --> FMC_D5
-	// PE9  --> FMC_D6
-	// PE10 --> FMC_D7
-	// PE11 --> FMC_D8
-	// PE12 --> FMC_D9
-	// PE13 --> FMC_D10
-	// PE14 --> FMC_D11
-	// PE15 --> FMC_D12
-	GPIOE->MODER	|=	0xAAAA800A;	// MODER = Multiple(0b10)
-	GPIOE->OTYPER	|=	0x00000000;	// OTYPER = PP
-	GPIOE->OSPEEDR	|=	0xFFFFC00F;	// OSPEEDR = Full
-	GPIOE->PUPDR	|=	0x00000000;	// PUPDR = No Pull
-	GPIOE->AFR[0]	|=	0xC00000CC;	// AF12
-	GPIOE->AFR[1]	|=	0xCCCCCCCC;	// AF12
-
-	// GPIOF
-	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOFEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOFEN_Msk) == 0);
-	// PF0  --> FMC_A0
-	// PF1  --> FMC_A1
-	// PF2  --> FMC_A2
-	// PF3  --> FMC_A3
-	// PF4  --> FMC_A4
-	// PF5  --> FMC_A5
-	// PF11 --> FMC_SDNRAS
-	// PF12 --> FMC_A6
-	// PF13 --> FMC_A7
-	// PF14 --> FMC_A8
-	// PF15 --> FMC_A9
-	GPIOF->MODER	|=	0xAA800AAA;	// MODER = Multiple(0b10)
-	GPIOF->OTYPER	|=	0x00000000;	// OTYPER = PP
-	GPIOF->OSPEEDR	|=	0xFFC00FFF;	// OSPEEDR = Full
-	GPIOF->PUPDR	|=	0x00000000;	// PUPDR = No Pull
-	GPIOF->AFR[0]	|=	0x00CCCCCC;	// AF12
-	GPIOF->AFR[1]	|=	0xCCCCC000;	// AF12
-
-	// GPIOG
-	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOGEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOGEN_Msk) == 0);
-	// PG0  --> FMC_A10
-	// PG1  --> FMC_A11
-	// PG4  --> FMC_BA0
-	// PG5  --> FMC_BA1
-	// PG8  --> FMC_SDCLK
-	// PG15 --> FMC_SDNCAS
-	GPIOG->MODER	|=	0x80020A0A;	// MODER = Multiple(0b10)
-	GPIOG->OTYPER	|=	0x00000000;	// OTYPER = PP
-	GPIOG->OSPEEDR	|=	0xC0030F0F;	// OSPEEDR = Full
-	GPIOG->PUPDR	|=	0x00000000;	// PUPDR = No Pull
-	GPIOG->AFR[0]	|=	0x00CC00CC;	// AF12
-	GPIOG->AFR[1]	|=	0xC000000C;	// AF12
-
-	// GPIOH
-	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOHEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOHEN_Msk) == 0);
-	// PH3  --> FMC_SDNE0
-	// PH5  --> FMC_SDNWE
-	GPIOH->MODER	|=	0x00000880;	// MODER = Multiple(0b10)
-	GPIOH->OTYPER	|=	0x00000000;	// OTYPER = PP
-	GPIOH->OSPEEDR	|=	0x00000CC0;	// OSPEEDR = Full
-	GPIOH->PUPDR	|=	0x00000000;	// PUPDR = No Pull
-	GPIOH->AFR[0]	|=	0x00C0C000;	// AF12
-}
-
-static void initDMA2D(void)
-{
-	RCC->AHB1ENR	|= RCC_AHB1ENR_DMA2DEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_DMA2DEN_Msk) == 0);
-}
-
-// LCD pin initialization
-static void initLCDGPIO(void)
-{
-	// GPIOE
-	RCC->AHB1ENR	|= RCC_AHB1ENR_GPIOEEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOEEN_Msk) == 0);
-	// PE4  --> LTDC_B0
-	GPIOE->MODER	|=	0b10	<< GPIO_MODER_MODER4_Pos;		// MODER = Multiple(0b10)
-	GPIOE->AFR[0]	|=	14		<< GPIO_AFRL_AFRL4_Pos;			// AF14
-
-	// GPIOG
-	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOGEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOGEN_Msk) == 0);
-	// PG12 --> LTDC_B4
-	GPIOG->MODER	|=	0b10	<< GPIO_MODER_MODER12_Pos;		// MODER = Multiple(0b10)
-	GPIOG->AFR[1]	|=	14		<< GPIO_AFRH_AFRH4_Pos;			// AF14
-
-	// GPIOI
-	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOIEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOIEN_Msk) == 0);
-	// PI9  --> LTDC_VSYNC
-	// PI10 --> LTDC_HSYNC
-	// PI14 --> LTDC_CLK
-	// PI15 --> LTDC_R0
-	GPIOI->MODER	|=	0b10	<< GPIO_MODER_MODER9_Pos |		// MODER = Multiple(0b10)
-						0b10	<< GPIO_MODER_MODER10_Pos |
-						0b10	<< GPIO_MODER_MODER14_Pos |
-						0b10	<< GPIO_MODER_MODER15_Pos;
-	GPIOI->AFR[1]	|=	14		<< GPIO_AFRH_AFRH1_Pos |		// AF14
-						14		<< GPIO_AFRH_AFRH2_Pos |
-						14		<< GPIO_AFRH_AFRH6_Pos |
-						14		<< GPIO_AFRH_AFRH7_Pos;
-
-	// GPIOJ
-	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOJEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOJEN_Msk) == 0);
-	// PJ0  --> LTDC_R1
-	// PJ1  --> LTDC_R2
-	// PJ2  --> LTDC_R3
-	// PJ3  --> LTDC_R4
-	// PJ4  --> LTDC_R5
-	// PJ5  --> LTDC_R6
-	// PJ6  --> LTDC_R7
-	// PJ7  --> LTDC_G0
-	// PJ8  --> LTDC_G1
-	// PJ9  --> LTDC_G2
-	// PJ10 --> LTDC_G3
-	// PJ11 --> LTDC_G4
-	// PJ13 --> LTDC_B1
-	// PJ14 --> LTDC_B2
-	// PJ15 --> LTDC_B3
-	GPIOJ->MODER	|=	0xA8AAAAAA;	// MODER = Multiple(0b10)
-	GPIOJ->AFR[0]	|=	0xEEEEEEEE; // AF14
-	GPIOJ->AFR[1]	|=	0xEEE0EEEE; // AF14
-
-	// GPIOK
-	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOKEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOKEN_Msk) == 0);
-	// PK0  --> LTDC_G5
-	// PK1  --> LTDC_G6
-	// PK2  --> LTDC_G7
-	// PK4  --> LTDC_B5
-	// PK5  --> LTDC_B6
-	// PK6  --> LTDC_B7
-	// PK7  --> LTDC_DE
-	GPIOK->MODER	|=	0x0000AA2A;	// MODER = Multiple(0b10)
-	GPIOK->AFR[0]	|=	0xEEEE0EEE; // AF = AF14
-
-	// GPIOI12 --> LCD_DISP (must be manually controlled)
-	GPIOI->MODER	|=	0b01 << GPIO_MODER_MODER12_Pos;		// MODER = Output(0b01)
-	GPIOI->OTYPER	|=	0b0  << GPIO_OTYPER_OT12_Pos;		// OTYPER = PP
-	GPIOI->BSRR		|=	0b1  << GPIO_BSRR_BS12_Pos;			// Bit Set
-
-	// GPIOK3  --> LCD_BL_CTRL (must be manually controlled)
-	GPIOK->MODER	|=	0b01 << GPIO_MODER_MODER3_Pos;		// MODER = Output(0b01)
-	GPIOK->OTYPER	|=	0b0  << GPIO_OTYPER_OT3_Pos;		// OTYPER = PP
-	GPIOK->BSRR		|=	0b1  << GPIO_BSRR_BS3_Pos;			// Bit Set
-}
-
-// Touch panel pin initialization
-static void initTouchPanelGPIO(void)
-{
-	// GPIOH RCC
-	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOHEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOHEN_Msk) == 0);
-	// PH7  --> I2C3_SCL (for FT5336 Control)
-	// PH8  --> I2C3_SDA (for FT5336 Control)
-	GPIOH->MODER	|=	0b10	<< GPIO_MODER_MODER7_Pos |		// MODER = Multiple(0b10)
-						0b10	<< GPIO_MODER_MODER8_Pos;
-	GPIOH->OTYPER	|=	0b1		<< GPIO_OTYPER_OT7_Pos |		// Open Drain
-						0b1		<< GPIO_OTYPER_OT8_Pos;
-	GPIOH->OSPEEDR	|=	0b11	<< GPIO_OSPEEDR_OSPEEDR7_Pos |	// Very high speed
-						0b11	<< GPIO_OSPEEDR_OSPEEDR8_Pos;
-	GPIOH->PUPDR	|=	0b01	<< GPIO_PUPDR_PUPDR7_Pos |		// Pull-up
-						0b01	<< GPIO_PUPDR_PUPDR8_Pos;
-	GPIOH->AFR[0]	|=	4		<< GPIO_AFRL_AFRL7_Pos;			// AF4
-	GPIOH->AFR[1]	|=	4		<< GPIO_AFRH_AFRH0_Pos;			// AF4
-
-	// GPIOI RCC
-	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOIEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOIEN_Msk) == 0);
-	// PI13 --> LCD_INT (for FT5336 Control)
-	GPIOI->MODER	|=	0b00	<< GPIO_MODER_MODER13_Pos;		// MODER = Multiple(0b10)
-	GPIOI->OTYPER	|=	0b0		<< GPIO_OTYPER_OT13_Pos;		// Push and pull
-	GPIOI->OSPEEDR	|=	0b10	<< GPIO_OSPEEDR_OSPEEDR13_Pos;	// High speed
-	GPIOI->PUPDR	|=	0b00	<< GPIO_PUPDR_PUPDR13_Pos;		// No Pull
-}
-
-// Touch panel initialization (I2C3 and EXIT13)
-static void initTouchPanel(void)
-{
-	// ---- Initialize I2C3 ----
-	// Initialize GPIO for I2C3
-	initTouchPanelGPIO();
-
-	// Enable I2C3 RCC
-	RCC->APB1ENR	|=	RCC_APB1ENR_I2C3EN;
-	while((RCC->APB1ENR & RCC_APB1ENR_I2C3EN_Msk) == 0);
-
-	// Set I2C3 clock
-	RCC->DCKCFGR2	&=	~RCC_DCKCFGR2_I2C3SEL_Msk;
-	RCC->DCKCFGR2	|=	0b00 << RCC_DCKCFGR2_I2C3SEL_Pos; // APB1 clock (54MHz)
-
-	// Set I2C3 register
-	I2C3->CR1		&=	~I2C_CR1_PE_Msk;
-	I2C3->TIMINGR	=	0x30C03444; // calculate by CubeMX (I2C Frequency = 100KHz, Rise time = 700ns, Fall time = 100ns)
-	//I2C3->TIMINGR	=	0x40912732; // from ST sample
-	//I2C3->TIMINGR	=	0x20404768; // from https://github.com/haidongqing/i2c3test-xy/blob/master/
-	I2C3->OAR1		&=	~(I2C_OAR1_OA1_Msk | I2C_OAR1_OA1MODE_Msk | I2C_OAR1_OA1EN_Msk);
-	I2C3->OAR1		|=	0b1 << I2C_OAR1_OA1EN_Pos;
-
-	// Reset I2C3
-	while(I2C3->CR1 & I2C_CR1_PE_Msk);
-	I2C3->CR1		|=	I2C_CR1_PE;
-
-	// ---- Initialize EXTI13 ----
-	// Mapping PI13 in SYSCFG register
-	RCC->APB2ENR	|=	RCC_APB2ENR_SYSCFGEN;
-	while((RCC->APB2ENR & RCC_APB2ENR_SYSCFGEN) == 0);
-	SYSCFG->EXTICR[3] &= ~SYSCFG_EXTICR4_EXTI13_Msk;
-	SYSCFG->EXTICR[3] |= SYSCFG_EXTICR4_EXTI13_PI;
-
-	// Initialize EXTI15_10 interrupt
-	EXTI->IMR		|=	EXTI_IMR_MR13;  // EXT INT 13
-	EXTI->RTSR		|=	EXTI_RTSR_TR13; // Rising edge trigger
-	initEXTI15_10Int();
-
-	// Enable FT5336 interrupt to host
-	enableFT5336Int();
-	//printf("GMODE = %d.\r\n", (int)i2c3Read1Byte(0x70, 0xA4));
-}
 
 // for 7bits slave address and 8bits memory address
 void i2c3Write1Byte(uint8_t slaveAddr, uint8_t devAddr, uint8_t data)
@@ -923,6 +179,212 @@ uint8_t i2c3Read1Byte(uint8_t slaveAddr, uint8_t devAddr)
 	I2C3->ICR	|=	I2C_ICR_STOPCF;
 
 	return data;
+}
+
+void toggleLED1(void)
+{
+	uint32_t data = GPIOI->ODR & GPIO_ODR_OD1_Msk;
+	GPIOI->ODR &= ~GPIO_ODR_OD1_Msk;
+	GPIOI->ODR |= (~data) & GPIO_ODR_OD1_Msk;
+}
+
+void showLogo(void)
+{
+	drawImage(0, 0, 480, 272, (uint32_t)&logoImage);
+}
+
+void checkDMA2D(void)
+{
+	fillRect(0, 0, 480, 272, 0xA9A9A9);
+	fillRect(50, 50, 380, 132, 0x8B0000);
+	drawString(70, 60, "Welcome to STM32F746G-DISCO!", 0xA9A9A9, 0x8B0000, FONT_MIDDLE);
+	drawString(280, 120, "Author : Wang.Yu", 0xA9A9A9, 0x8B0000, FONT_SMALL);
+	drawString(280, 150, "  Date : 2021/9/1", 0xA9A9A9, 0x8B0000, FONT_SMALL);
+}
+
+uint16_t checkSDRAM(void)
+{
+	uint8_t* p;
+	uint8_t* startAddr	= (uint8_t*)&_ssdram;
+	uint8_t* endAddr	= (uint8_t*)((uint32_t)&_ssdram + (uint32_t)&_sdram_size - 1);
+
+	// check after write
+	for (p = startAddr; p <= endAddr; p += 0x100000) {
+		*p = 0xA5;
+		if ((*p) != 0xA5) return 0;
+	}
+	*endAddr = 0x5A;
+	if ((*endAddr) != 0x5A) return 0;
+
+	// check delay
+	for (volatile uint32_t i = 0; i < 1000000; i++);
+	for (p = startAddr; p <= endAddr; p += 0x100000) {
+		if ((*p) != 0xA5) return 0;
+	}
+	if ((*endAddr) != 0x5A) return 0;
+
+	return 1;
+}
+
+uint16_t checkTouchPanel(void)
+{
+	uint8_t chipID = readFT5336ChipID();
+	return (chipID == 0x51);
+}
+
+void fillRect(
+		const uint16_t x,
+		const uint16_t y,
+		const uint16_t w,
+		const uint16_t h,
+		const uint32_t color)
+{
+	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
+
+	DMA2D->CR 		&= ~DMA2D_CR_MODE_Msk;
+	DMA2D->CR 		|= 0b11 << DMA2D_CR_MODE_Pos; // register to memory
+	DMA2D->OCOLR	= color;
+	DMA2D->OMAR		= (uint32_t)(&(((uint8_t*)&FrameBuffer)[(y * LCD_ACTIVE_WIDTH + x) * LCD_COLOR_BYTES]));
+	DMA2D->OOR		= LCD_ACTIVE_WIDTH - w;
+	DMA2D->OPFCCR	= 0b001; // RGB888
+	DMA2D->NLR		= w << DMA2D_NLR_PL_Pos | h << DMA2D_NLR_NL_Pos;
+
+	DMA2D->CR   	|= DMA2D_CR_START;
+}
+
+void drawImage(
+		const uint16_t x,
+		const uint16_t y,
+		const uint16_t w,
+		const uint16_t h,
+		const uint32_t addr)
+{
+	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
+
+	DMA2D->CR 		&= ~DMA2D_CR_MODE_Msk;
+	DMA2D->CR 		|= 0b00 << DMA2D_CR_MODE_Pos; // memory to memory
+	DMA2D->FGMAR	= addr;
+	DMA2D->OMAR		= (uint32_t)(&(((uint8_t*)&FrameBuffer)[(y * LCD_ACTIVE_WIDTH + x) * LCD_COLOR_BYTES]));
+	DMA2D->FGOR		= 0;
+	DMA2D->OOR		= LCD_ACTIVE_WIDTH - w;
+	DMA2D->FGPFCCR	= 0b0001; // RGB888
+	DMA2D->OPFCCR	= 0b001;  // RGB888
+	DMA2D->NLR		= w << DMA2D_NLR_PL_Pos | h << DMA2D_NLR_NL_Pos;
+
+	DMA2D->CR   	|= DMA2D_CR_START;
+}
+
+void drawString( // It only can support 1 line string
+		const uint16_t x,
+		const uint16_t y,
+		const char* const string,
+		const uint32_t foreColor,
+		const uint32_t backColor,
+		const uint8_t  fontType)
+{
+	uint16_t currentX = x;
+	char* pString = (char*)string;
+	while (*pString != '\0') {
+		drawChar(currentX, y, *pString, fontType, foreColor, backColor);
+		currentX += (FONT_SMALL == fontType) ? sFont.st.cdef[(uint32_t)(*pString)].width : mFont.st.cdef[(uint32_t)(*pString)].width;
+		pString++;
+	}
+}
+
+uint32_t getRandomData(void)
+{
+	RCC->AHB2ENR |= RCC_AHB2ENR_RNGEN;
+	while((RCC->AHB2ENR & RCC_AHB2ENR_RNGEN_Msk) == 0);
+
+	RNG->CR = RNG_CR_RNGEN;
+	while((RNG->SR & RNG_SR_DRDY_Msk) == 0);
+
+	uint32_t random = RNG->DR;
+
+	RCC->AHB2RSTR |= RCC_AHB2RSTR_RNGRST;
+	return random;
+}
+
+uint32_t checkDMA(uint16_t data)
+{
+	uint32_t  size = 0x8000;
+	uint16_t* pSrc = &data;
+	uint16_t* pDes = (uint16_t*)((uint32_t)&_ssdram + (uint32_t)(0x500000/sizeof(uint16_t)));
+
+	RCC->AHB1ENR |= RCC_AHB1ENR_DMA2EN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_DMA2EN_Msk) == 0);
+
+	DMA2_Stream0->CR = 	DMA_SxCR_CHSEL_0 |	// Stream0, channel1
+						DMA_SxCR_PSIZE_0 |	// src data 16bits
+						DMA_SxCR_MSIZE_0 |	// des data 16bits
+						DMA_SxCR_MINC | 	// des address automatic increase
+						DMA_SxCR_PL_0 | DMA_SxCR_PL_1 | // highest DMA priority
+						DMA_SxCR_DIR_1; 	// memory to memory
+	DMA2_Stream0->NDTR = size/sizeof(uint16_t);	 // 32768 / 2 = 16 K half word
+	DMA2_Stream0->PAR  = (uint32_t)(pSrc);
+	DMA2_Stream0->M0AR = (uint32_t)(pDes);
+
+	DMA2_Stream0->CR |= DMA_SxCR_EN; // start DMA transfer
+
+	while((DMA2->LISR & DMA_LISR_TCIF0_Msk) == 0); // wait transfer complete
+	DMA2->LIFCR |= DMA_LIFCR_CTCIF0; // must clear TC interrupt flag for next DMA
+
+	//RCC->AHB1RSTR |= RCC_AHB1RSTR_DMA2RST;
+
+	return (*pDes == data && *(pDes + 0x3FF8) == data);
+}
+
+// Internal API function group
+
+// The following initialization process is write for STM32F746G-DISCO
+// FPU initialization
+static void initFPU(void)
+{
+	SCB->CPACR |= 	0b11 << 20 | // CP10
+					0b11 << 22;  // CP11
+	while((SCB->CPACR & (0b1111 << 20)) != (0b1111 << 20));
+}
+
+// System clock initialization
+static void initSystemClock(void)
+{
+	// 1. Set HSE and reset RCC_CIR
+	RCC->CR |= RCC_CR_HSEBYP | RCC_CR_HSEON;
+	while((RCC->CR & RCC_CR_HSERDY_Msk) == 0);
+	RCC->CIR = 0x00000000; // disable all RCC interrupts
+
+	// 2. Set FLASH latency
+	FLASH->ACR |= FLASH_ACR_LATENCY_7WS; // need be set in 216MHz
+	while((FLASH->ACR & FLASH_ACR_LATENCY_Msk) != FLASH_ACR_LATENCY_7WS);
+	//FLASH->ACR |= FLASH_ACR_ARTEN | FLASH_ACR_PRFTEN;
+	//PWR->CR1 |= 0b11 << PWR_CR1_VOS_Pos; // default value has set to 0b11 in reset
+
+	// 3. Enable PWR clock
+	RCC->APB1ENR |= RCC_APB1ENR_PWREN;
+	while((RCC->APB1ENR & RCC_APB1ENR_PWREN_Msk) == 0);
+
+	// 4. Activation OverDrive Mode
+	PWR->CR1 |= PWR_CR1_ODEN;
+	while((PWR->CSR1 & PWR_CSR1_ODRDY_Msk) == 0);
+
+	// 5. Activation OverDrive Switching
+	PWR->CR1 |= PWR_CR1_ODSWEN;
+	while((PWR->CSR1 & PWR_CSR1_ODSWRDY_Msk) == 0);
+
+	// 6. Main PLL configuration and activation
+	RCC->PLLCFGR = PLLM | PLLN | PLLP | PLLSRC | PLLQ;
+	RCC->CR |= RCC_CR_PLLON;
+	while((RCC->CR & RCC_CR_PLLRDY_Msk) == 0);
+
+	// 7. System clock activation on the main PLL
+	RCC->CFGR |=	RCC_CFGR_HPRE_DIV1 |	 // set HPRE  (AHB  pre-scaler) to 1 (216 MHz)
+					RCC_CFGR_PPRE1_DIV4 |	 // set PPRE1 (APB1 pre-scaler) to 4 (54  MHz)
+					RCC_CFGR_PPRE2_DIV2;	 // set PPRE2 (APB2 pre-scaler) to 2 (108 MHz)
+	// Attention : before switching System clock to PLL, it must wait all pre-scale value set to CFGR.
+	while((RCC->CFGR & (RCC_CFGR_HPRE_Msk | RCC_CFGR_PPRE1_Msk | RCC_CFGR_PPRE2_Msk)) !=
+		(RCC_CFGR_HPRE_DIV1 | RCC_CFGR_PPRE1_DIV4 | RCC_CFGR_PPRE2_DIV2));
+	RCC->CFGR |=	RCC_CFGR_SW_PLL; // switch main clock to PLL
+	while((RCC->CFGR & RCC_CFGR_SWS_Msk) != RCC_CFGR_SWS_PLL);
 }
 
 // SDRAM initialization
@@ -1103,6 +565,98 @@ static void initSDRAM(void)
 	 */
 }
 
+// System tick initialization
+static void initSystick(void)
+{
+	// Enable Systick global interrupt
+	initSystickInt();
+
+	// Set RELOAD value (216000000 / 1000 = 216000)
+	SysTick->LOAD = 0x00034BC0 - 1;
+
+	// Set current value by default value
+	//SysTick->VAL = 0x00000000;
+
+	// Set CLKSOURCE, ENABLE
+	SysTick->CTRL |= 	0b1 << SysTick_CTRL_CLKSOURCE_Pos |	// clk-source : processor clock
+						0b1 << SysTick_CTRL_ENABLE_Pos;		// enable systick counter
+}
+
+// USART1 initialization
+static void initUSART1(void)
+{
+	// Initialize USART1 TX/RX pin
+	initUartGPIO();
+
+	// Enable APB2 USART1 RCC
+	RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
+	while((RCC->APB2ENR & RCC_APB2ENR_USART1EN_Msk) == 0);
+
+	// Set USART1 parameter
+	//USART1->BRR = 0x2BF2;	// baud rate = 9600(fCK=108MHz, CR1/OVER8=0, 0x2BF2 = 108000000/9600)
+	USART1->BRR = 0x03AA;	// baud rate = 15200(fCK=108MHz, CR1/OVER8=0, 0x03AA = 108000000/115200)
+	USART1->CR1 &= ~USART_CR1_M;	// data bits = 8(M[1:0]=00)
+	USART1->CR2 &= ~USART_CR2_STOP;	// stop bits = 1(STOP[1:0]=00)
+	USART1->CR1 &= ~USART_CR1_PCE;	// parity = off(parity = on, odd:0x00000600, even:0x00000400)
+	USART1->CR3 &= ~(USART_CR3_CTSE | USART_CR3_RTSE); // disable CTS and RTS
+
+	// Enable USART1 global interrupt
+	initUSART1Int();
+
+	// Disable RX interrupt in console log mode
+	//USART1->CR1 |&= USART_CR1_RXNEIE;
+
+	// Enable USART1
+	USART1->CR1 |= USART_CR1_UE;
+
+	// Enable TX and RE
+	USART1->CR1 |= USART_CR1_TE | USART_CR1_RE;
+}
+
+// Touch panel initialization (I2C3 and EXIT13)
+static void initTouchPanel(void)
+{
+	// ---- Initialize I2C3 ----
+	// Initialize GPIO for I2C3
+	initTouchPanelGPIO();
+
+	// Enable I2C3 RCC
+	RCC->APB1ENR	|=	RCC_APB1ENR_I2C3EN;
+	while((RCC->APB1ENR & RCC_APB1ENR_I2C3EN_Msk) == 0);
+
+	// Set I2C3 clock
+	RCC->DCKCFGR2	&=	~RCC_DCKCFGR2_I2C3SEL_Msk;
+	RCC->DCKCFGR2	|=	0b00 << RCC_DCKCFGR2_I2C3SEL_Pos; // APB1 clock (54MHz)
+
+	// Set I2C3 register
+	I2C3->CR1		&=	~I2C_CR1_PE_Msk;
+	I2C3->TIMINGR	=	0x30C03444; // calculate by CubeMX (I2C Frequency = 100KHz, Rise time = 700ns, Fall time = 100ns)
+	//I2C3->TIMINGR	=	0x40912732; // from ST sample
+	//I2C3->TIMINGR	=	0x20404768; // from https://github.com/haidongqing/i2c3test-xy/blob/master/
+	I2C3->OAR1		&=	~(I2C_OAR1_OA1_Msk | I2C_OAR1_OA1MODE_Msk | I2C_OAR1_OA1EN_Msk);
+	I2C3->OAR1		|=	0b1 << I2C_OAR1_OA1EN_Pos;
+
+	// Reset I2C3
+	while(I2C3->CR1 & I2C_CR1_PE_Msk);
+	I2C3->CR1		|=	I2C_CR1_PE;
+
+	// ---- Initialize EXTI13 ----
+	// Mapping PI13 in SYSCFG register
+	RCC->APB2ENR	|=	RCC_APB2ENR_SYSCFGEN;
+	while((RCC->APB2ENR & RCC_APB2ENR_SYSCFGEN) == 0);
+	SYSCFG->EXTICR[3] &= ~SYSCFG_EXTICR4_EXTI13_Msk;
+	SYSCFG->EXTICR[3] |= SYSCFG_EXTICR4_EXTI13_PI;
+
+	// Initialize EXTI15_10 interrupt
+	EXTI->IMR		|=	EXTI_IMR_MR13;  // EXT INT 13
+	EXTI->RTSR		|=	EXTI_RTSR_TR13; // Rising edge trigger
+	initEXTI15_10Int();
+
+	// Enable FT5336 interrupt to host
+	enableFT5336Int();
+	//printf("GMODE = %d.\r\n", (int)i2c3Read1Byte(0x70, 0xA4));
+}
+
 // LTDC initialization
 static void initLCD(void)
 {
@@ -1257,4 +811,453 @@ static void initLCD(void)
 	// 12. All layer parameters can be modified on the fly except the CLUT. The new configuration
 	//    has to be either reloaded immediately or during vertical blanking period by configuring
 	//    the LTDC_SRCR register.
+}
+
+static void initDMA2D(void)
+{
+	RCC->AHB1ENR	|= RCC_AHB1ENR_DMA2DEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_DMA2DEN_Msk) == 0);
+}
+
+// LED1 initialization
+static void initLED1(void)
+{
+	initLED1GPIO();
+}
+
+#ifdef MODE_STAND_ALONE
+static void initTIM7(void) // TIM7 initialization for low speed timer(500ms)
+{
+	// Enable APB1 TIM7 RCC
+	RCC->APB1ENR |= RCC_APB1ENR_TIM7EN;
+	while((RCC->APB1ENR & RCC_APB1ENR_TIM7EN_Msk) == 0);
+
+	// Enable TIM7 interrupt
+	initTIM7Int();
+
+	// Initialize TIM7
+	TIM7->CR1 |= TIM_CR1_ARPE;			// Enable pre-load ARPE
+	TIM7->PSC = 4000 - 1;				// timer frequency = 108MHz / 4000 = 27KHz (APB pre-sacle is not 1, so fCK_PSC = 54MHz * 2 = 108MHz)
+	TIM7->CNT &= TIM_CNT_UIFCPY_Msk;	// set bit[30:0] to 0
+	TIM7->SR  &= ~TIM_SR_UIF;			// Clear timer update interrupt flag
+	TIM7->ARR = 13500 - 1;				// Set 13500 to reload value
+	TIM7->CR1 |= TIM_CR1_CEN;			// Enable TIM7 CEN
+}
+#endif
+
+// Set global NVIC priority group
+static void initNVICPriorityGroup(void)
+{
+	// STM32F756XX-PM can not refer here, because ST has own design in interrupt priority.
+	// ST interrupt priority group setting can refer to the following.
+	//   IPR just use the higher 4 bit indicating priority, the lower 4 bit should be set to 0.
+	//   The assignment of AIRCR-PRIGROUP can be refer to the following rule.
+	//   ----------------|------------------------------------------------
+	//                   |                  IPRn / SHPRn
+	//    AIRCR-PRIGROUP |------------------------------------------------
+	//                   |  preemption priority  |    sub-priority
+	//   ----------------|------------------------------------------------
+	//     0xb011 :      |  [7:4], 16 level      |    None , None
+	//     0xb100 :      |  [7:5], 8 level       |    [4]  , 2 level
+	//     0xb011 :      |  [7:6], 4 level       |    [5:4], 4 level
+	//     0xb011 :      |  [7]  , 2 level       |    [6:4], 8 level
+	//     0xb011 :      |  None , None          |    [7:4], 16 level
+	//   ----------------|------------------------------------------------
+
+	// "|=" can not be used here, because VECTKEY write key is "0x05FA" and "|=" will change it
+	SCB->AIRCR =	0x05FA << SCB_AIRCR_VECTKEY_Pos |
+					0b011  << SCB_AIRCR_PRIGROUP_Pos; // PRIGROUP = 0b011 (preemption:16, sub:0)
+	while((SCB->AIRCR & SCB_AIRCR_PRIGROUP_Msk) != (0b011 << SCB_AIRCR_PRIGROUP_Pos));
+
+	// Global interrupt design in sample project can refer to the following setting.
+	// SVC(FreeRTOS)		: preemption:10, IRQn:11
+	// PendSV(FreeRTOS)		: preemption:15, IRQn:14
+	// Systick(FreeRTOS)	: preemption:6,  IRQn:15
+	// USART1(Debug)		: preemption:14, IRQn:37
+	// TIMER7(LED1 flicker)	: preemption:14, IRQn:55
+	// EXIT13(TouchPanel)	: preemption:13, IRQn:40
+}
+
+// Initialize SVCall interrupt (IRQn:11)
+static void initSVCallInt(void)
+{
+	SCB->SHPR[2] |= 10 << (24 + 4);
+	// SVC need not open. Executing SVC instrument will trigger SVC interrupt.
+}
+
+// Initialize PendSV interrupt (IRQn:14)
+static void initPendSVInt(void)
+{
+	SCB->SHPR[3] |= 15 << (16 + 4);
+	// PendSV need not open. Setting ICSR the 28th bit will trigger pendSV interrupt.
+}
+
+// Initialize Systick interrupt (IRQn:15)
+static void initSystickInt(void)
+{
+	SCB->SHPR[3]  |= 6 << (24 + 4);
+	SysTick->CTRL |= 0b1 << SysTick_CTRL_TICKINT_Pos;
+}
+
+// Initialize USART1 interrupt (IRQn:37)
+static void initUSART1Int(void)
+{
+	NVIC->IP[37]  |= 14 << 4;
+	NVIC->ISER[1] |= 0b1 << (37 - 32);
+}
+
+// Initialize EXTI15_10 interrupt (IRQn:40)
+static void initEXTI15_10Int(void)
+{
+	NVIC->IP[40]  |= 13 << 4;
+	NVIC->ISER[1] |= 0b1 << (40 - 32);
+}
+
+#ifdef MODE_STAND_ALONE
+static void initTIM7Int(void) // Initialize TIM7 interrupt
+{
+	// Set TIM7 interrupt priority for LED1 flicker
+	NVIC->IP[13] |= 14 << (24 + 4);
+
+	// Enable TIM7 global interrupt (IRQn=55)
+	NVIC->ISER[1] |= 0b1 << (55 - 32);
+
+	// Enable TIM7 update interrupt
+	TIM7->DIER |= TIM_DIER_UIE;
+}
+#endif
+
+// SDRAM pin initialization
+//  FMC_SDCLK
+//  FMC_NBL0   / FMC_NBL1
+//  FMC_SDNRAS / FMC_SDNCAS
+//  FMC_SDCKE0
+//  FMC_SDNE0
+//  FMC_SDNWE
+//  FMC_BA[0:1]
+//  FMC_A[0:11]
+//  FMC_D[0:15]
+static void initSDRAMGPIO(void)
+{
+	// GPIOC
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOCEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOCEN_Msk) == 0);
+	// PC3  --> FMC_SDCKE0
+	GPIOC->MODER	|=	0b10	<< GPIO_MODER_MODER3_Pos;		// MODER = Multiple(0b10)
+	GPIOC->OTYPER	|=	0b0		<< GPIO_OTYPER_OT3_Pos;			// OTYPER = PP
+	GPIOC->OSPEEDR	|=	0b11	<< GPIO_OSPEEDR_OSPEEDR3_Pos;	// OSPEEDR = Full
+	GPIOC->PUPDR	|=	0b00	<< GPIO_PUPDR_PUPDR3_Pos;		// PUPDR = No Pull
+	GPIOC->AFR[0]	|=	12		<< GPIO_AFRL_AFRL3_Pos;			// AF12
+
+	// GPIOD
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIODEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIODEN_Msk) == 0);
+	// PD0  --> FMC_D2
+	// PD1  --> FMC_D3
+	// PD8  --> FMC_D13
+	// PD9  --> FMC_D14
+	// PD10 --> FMC_D15
+	// PD14 --> FMC_D0
+	// PD15 --> FMC_D1
+	GPIOD->MODER	|=	0xA02A000A;	// MODER = Multiple(0b10)
+	GPIOD->OTYPER	|=	0x00000000;	// OTYPER = PP
+	GPIOD->OSPEEDR	|=	0xF03F000F;	// OSPEEDR = Full
+	GPIOD->PUPDR	|=	0x00000000;	// PUPDR = No Pull
+	GPIOD->AFR[0]	|=	0x000000CC;	// AF12
+	GPIOD->AFR[1]	|=	0xCC000CCC;	// AF12
+
+	// GPIOE
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOEEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOEEN_Msk) == 0);
+	// PE0  --> FMC_NBL0
+	// PE1  --> FMC_NBL1
+	// PE7  --> FMC_D4
+	// PE8  --> FMC_D5
+	// PE9  --> FMC_D6
+	// PE10 --> FMC_D7
+	// PE11 --> FMC_D8
+	// PE12 --> FMC_D9
+	// PE13 --> FMC_D10
+	// PE14 --> FMC_D11
+	// PE15 --> FMC_D12
+	GPIOE->MODER	|=	0xAAAA800A;	// MODER = Multiple(0b10)
+	GPIOE->OTYPER	|=	0x00000000;	// OTYPER = PP
+	GPIOE->OSPEEDR	|=	0xFFFFC00F;	// OSPEEDR = Full
+	GPIOE->PUPDR	|=	0x00000000;	// PUPDR = No Pull
+	GPIOE->AFR[0]	|=	0xC00000CC;	// AF12
+	GPIOE->AFR[1]	|=	0xCCCCCCCC;	// AF12
+
+	// GPIOF
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOFEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOFEN_Msk) == 0);
+	// PF0  --> FMC_A0
+	// PF1  --> FMC_A1
+	// PF2  --> FMC_A2
+	// PF3  --> FMC_A3
+	// PF4  --> FMC_A4
+	// PF5  --> FMC_A5
+	// PF11 --> FMC_SDNRAS
+	// PF12 --> FMC_A6
+	// PF13 --> FMC_A7
+	// PF14 --> FMC_A8
+	// PF15 --> FMC_A9
+	GPIOF->MODER	|=	0xAA800AAA;	// MODER = Multiple(0b10)
+	GPIOF->OTYPER	|=	0x00000000;	// OTYPER = PP
+	GPIOF->OSPEEDR	|=	0xFFC00FFF;	// OSPEEDR = Full
+	GPIOF->PUPDR	|=	0x00000000;	// PUPDR = No Pull
+	GPIOF->AFR[0]	|=	0x00CCCCCC;	// AF12
+	GPIOF->AFR[1]	|=	0xCCCCC000;	// AF12
+
+	// GPIOG
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOGEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOGEN_Msk) == 0);
+	// PG0  --> FMC_A10
+	// PG1  --> FMC_A11
+	// PG4  --> FMC_BA0
+	// PG5  --> FMC_BA1
+	// PG8  --> FMC_SDCLK
+	// PG15 --> FMC_SDNCAS
+	GPIOG->MODER	|=	0x80020A0A;	// MODER = Multiple(0b10)
+	GPIOG->OTYPER	|=	0x00000000;	// OTYPER = PP
+	GPIOG->OSPEEDR	|=	0xC0030F0F;	// OSPEEDR = Full
+	GPIOG->PUPDR	|=	0x00000000;	// PUPDR = No Pull
+	GPIOG->AFR[0]	|=	0x00CC00CC;	// AF12
+	GPIOG->AFR[1]	|=	0xC000000C;	// AF12
+
+	// GPIOH
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOHEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOHEN_Msk) == 0);
+	// PH3  --> FMC_SDNE0
+	// PH5  --> FMC_SDNWE
+	GPIOH->MODER	|=	0x00000880;	// MODER = Multiple(0b10)
+	GPIOH->OTYPER	|=	0x00000000;	// OTYPER = PP
+	GPIOH->OSPEEDR	|=	0x00000CC0;	// OSPEEDR = Full
+	GPIOH->PUPDR	|=	0x00000000;	// PUPDR = No Pull
+	GPIOH->AFR[0]	|=	0x00C0C000;	// AF12
+}
+
+// USART TX pin initialization
+static void initUartGPIO(void)
+{
+	// GPIOA
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOAEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOAEN_Msk) == 0);
+	// PA9  --> USART1 TX
+	GPIOA->MODER	|=	0b10	<< GPIO_MODER_MODER9_Pos;		// MODER = Multiple(0b10)
+	GPIOA->OTYPER	|=	0b0		<< GPIO_OTYPER_OT9_Pos;
+	GPIOA->OSPEEDR	|=	0b11	<< GPIO_OSPEEDR_OSPEEDR9_Pos;
+	GPIOA->PUPDR	|=	0b01	<< GPIO_PUPDR_PUPDR9_Pos;
+	GPIOA->AFR[1]	|=	7		<< GPIO_AFRH_AFRH1_Pos;			// AF7
+
+	// GPIOB
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOBEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOBEN_Msk) == 0);
+	// PB7  --> USART1 RX
+	GPIOB->MODER	|=	0b10	<< GPIO_MODER_MODER7_Pos;		// MODER = Multiple(0b10)
+	GPIOB->OTYPER	|=	0b0		<< GPIO_OTYPER_OT9_Pos;
+	// RX line need not to set OSPEEDR and PUPDR
+	GPIOB->AFR[0]	|=	7		<< GPIO_AFRL_AFRL7_Pos;			// AF7
+}
+
+// LED1 pin initialization
+static void initLED1GPIO(void)
+{
+	// GPIOI
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOIEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOIEN_Msk) == 0);
+	// PI1  --> LED1
+	GPIOI->MODER	|=	0b01	<< GPIO_MODER_MODER1_Pos;		// MODER = Output
+	GPIOI->OTYPER	|=	0b0		<< GPIO_OTYPER_OT1_Pos;
+	GPIOI->OSPEEDR	|=	0b11	<< GPIO_OSPEEDR_OSPEEDR1_Pos;
+	GPIOI->PUPDR	|=	0b01	<< GPIO_PUPDR_PUPDR1_Pos;
+}
+
+// LCD pin initialization
+static void initLCDGPIO(void)
+{
+	// GPIOE
+	RCC->AHB1ENR	|= RCC_AHB1ENR_GPIOEEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOEEN_Msk) == 0);
+	// PE4  --> LTDC_B0
+	GPIOE->MODER	|=	0b10	<< GPIO_MODER_MODER4_Pos;		// MODER = Multiple(0b10)
+	GPIOE->AFR[0]	|=	14		<< GPIO_AFRL_AFRL4_Pos;			// AF14
+
+	// GPIOG
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOGEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOGEN_Msk) == 0);
+	// PG12 --> LTDC_B4
+	GPIOG->MODER	|=	0b10	<< GPIO_MODER_MODER12_Pos;		// MODER = Multiple(0b10)
+	GPIOG->AFR[1]	|=	14		<< GPIO_AFRH_AFRH4_Pos;			// AF14
+
+	// GPIOI
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOIEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOIEN_Msk) == 0);
+	// PI9  --> LTDC_VSYNC
+	// PI10 --> LTDC_HSYNC
+	// PI14 --> LTDC_CLK
+	// PI15 --> LTDC_R0
+	GPIOI->MODER	|=	0b10	<< GPIO_MODER_MODER9_Pos |		// MODER = Multiple(0b10)
+						0b10	<< GPIO_MODER_MODER10_Pos |
+						0b10	<< GPIO_MODER_MODER14_Pos |
+						0b10	<< GPIO_MODER_MODER15_Pos;
+	GPIOI->AFR[1]	|=	14		<< GPIO_AFRH_AFRH1_Pos |		// AF14
+						14		<< GPIO_AFRH_AFRH2_Pos |
+						14		<< GPIO_AFRH_AFRH6_Pos |
+						14		<< GPIO_AFRH_AFRH7_Pos;
+
+	// GPIOJ
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOJEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOJEN_Msk) == 0);
+	// PJ0  --> LTDC_R1
+	// PJ1  --> LTDC_R2
+	// PJ2  --> LTDC_R3
+	// PJ3  --> LTDC_R4
+	// PJ4  --> LTDC_R5
+	// PJ5  --> LTDC_R6
+	// PJ6  --> LTDC_R7
+	// PJ7  --> LTDC_G0
+	// PJ8  --> LTDC_G1
+	// PJ9  --> LTDC_G2
+	// PJ10 --> LTDC_G3
+	// PJ11 --> LTDC_G4
+	// PJ13 --> LTDC_B1
+	// PJ14 --> LTDC_B2
+	// PJ15 --> LTDC_B3
+	GPIOJ->MODER	|=	0xA8AAAAAA;	// MODER = Multiple(0b10)
+	GPIOJ->AFR[0]	|=	0xEEEEEEEE; // AF14
+	GPIOJ->AFR[1]	|=	0xEEE0EEEE; // AF14
+
+	// GPIOK
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOKEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOKEN_Msk) == 0);
+	// PK0  --> LTDC_G5
+	// PK1  --> LTDC_G6
+	// PK2  --> LTDC_G7
+	// PK4  --> LTDC_B5
+	// PK5  --> LTDC_B6
+	// PK6  --> LTDC_B7
+	// PK7  --> LTDC_DE
+	GPIOK->MODER	|=	0x0000AA2A;	// MODER = Multiple(0b10)
+	GPIOK->AFR[0]	|=	0xEEEE0EEE; // AF = AF14
+
+	// GPIOI12 --> LCD_DISP (must be manually controlled)
+	GPIOI->MODER	|=	0b01 << GPIO_MODER_MODER12_Pos;		// MODER = Output(0b01)
+	GPIOI->OTYPER	|=	0b0  << GPIO_OTYPER_OT12_Pos;		// OTYPER = PP
+	GPIOI->BSRR		|=	0b1  << GPIO_BSRR_BS12_Pos;			// Bit Set
+
+	// GPIOK3  --> LCD_BL_CTRL (must be manually controlled)
+	GPIOK->MODER	|=	0b01 << GPIO_MODER_MODER3_Pos;		// MODER = Output(0b01)
+	GPIOK->OTYPER	|=	0b0  << GPIO_OTYPER_OT3_Pos;		// OTYPER = PP
+	GPIOK->BSRR		|=	0b1  << GPIO_BSRR_BS3_Pos;			// Bit Set
+}
+
+// Touch panel pin initialization
+static void initTouchPanelGPIO(void)
+{
+	// GPIOH RCC
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOHEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOHEN_Msk) == 0);
+	// PH7  --> I2C3_SCL (for FT5336 Control)
+	// PH8  --> I2C3_SDA (for FT5336 Control)
+	GPIOH->MODER	|=	0b10	<< GPIO_MODER_MODER7_Pos |		// MODER = Multiple(0b10)
+						0b10	<< GPIO_MODER_MODER8_Pos;
+	GPIOH->OTYPER	|=	0b1		<< GPIO_OTYPER_OT7_Pos |		// Open Drain
+						0b1		<< GPIO_OTYPER_OT8_Pos;
+	GPIOH->OSPEEDR	|=	0b11	<< GPIO_OSPEEDR_OSPEEDR7_Pos |	// Very high speed
+						0b11	<< GPIO_OSPEEDR_OSPEEDR8_Pos;
+	GPIOH->PUPDR	|=	0b01	<< GPIO_PUPDR_PUPDR7_Pos |		// Pull-up
+						0b01	<< GPIO_PUPDR_PUPDR8_Pos;
+	GPIOH->AFR[0]	|=	4		<< GPIO_AFRL_AFRL7_Pos;			// AF4
+	GPIOH->AFR[1]	|=	4		<< GPIO_AFRH_AFRH0_Pos;			// AF4
+
+	// GPIOI RCC
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOIEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOIEN_Msk) == 0);
+	// PI13 --> LCD_INT (for FT5336 Control)
+	GPIOI->MODER	|=	0b00	<< GPIO_MODER_MODER13_Pos;		// MODER = Multiple(0b10)
+	GPIOI->OTYPER	|=	0b0		<< GPIO_OTYPER_OT13_Pos;		// Push and pull
+	GPIOI->OSPEEDR	|=	0b10	<< GPIO_OSPEEDR_OSPEEDR13_Pos;	// High speed
+	GPIOI->PUPDR	|=	0b00	<< GPIO_PUPDR_PUPDR13_Pos;		// No Pull
+}
+
+static void drawChar(
+		const uint16_t x,
+		const uint16_t y,
+		const uint8_t  symbol,
+		const uint8_t  fontType,
+		const uint32_t foreColor,
+		const uint32_t backColor)
+{
+	uint32_t height = (FONT_SMALL == fontType) ? sFont.st.head.fontHeight    : mFont.st.head.fontHeight;
+	uint32_t width  = (FONT_SMALL == fontType) ? sFont.st.cdef[symbol].width : mFont.st.cdef[symbol].width;
+
+	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
+
+	if (FONT_SMALL == fontType) {
+		setCharBuf06x08(symbol, foreColor, backColor);
+	} else {
+		setCharBuf12x16(symbol, foreColor, backColor);
+	}
+
+	DMA2D->CR 		&= ~DMA2D_CR_MODE_Msk;
+	DMA2D->CR 		|= 0b00 << DMA2D_CR_MODE_Pos; // memory to memory
+	DMA2D->FGMAR	= (uint32_t)&charBuffer;
+	DMA2D->OMAR		= (uint32_t)(&(((uint8_t*)&FrameBuffer)[(y * LCD_ACTIVE_WIDTH + x) * LCD_COLOR_BYTES]));
+	DMA2D->FGOR		= 0;
+	DMA2D->OOR		= LCD_ACTIVE_WIDTH - width;
+	DMA2D->FGPFCCR	= 0b0001; // RGB888
+	DMA2D->OPFCCR	= 0b001;  // RGB888
+	DMA2D->NLR		= width << DMA2D_NLR_PL_Pos | height << DMA2D_NLR_NL_Pos;
+
+	DMA2D->CR   	|= DMA2D_CR_START;
+}
+
+static void setCharBuf06x08(
+		const uint8_t  symbol,
+		const uint32_t foreColor,
+		const uint32_t backColor)
+{
+	uint32_t height = sFont.st.head.fontHeight;
+	uint32_t width  = sFont.st.cdef[symbol].width;
+
+	uint32_t cnt = 0;
+	for (uint32_t i = 0; i < height; i++) {
+		for (uint32_t j = 0; j < width; j++) {
+			// Because font file is rotated 90 degrees clockwise, the following i and j are exchanged.
+			if (sFont.st.cdef[symbol].data[j][0] & (0b1 << (7 - i))) { // use fore color
+				charBuffer[cnt++] = (foreColor >>  0) & 0xFF; // blue
+				charBuffer[cnt++] = (foreColor >>  8) & 0xFF; // green
+				charBuffer[cnt++] = (foreColor >> 16) & 0xFF; // red
+			} else { // use back color
+				charBuffer[cnt++] = (backColor >>  0) & 0xFF; // blue
+				charBuffer[cnt++] = (backColor >>  8) & 0xFF; // green
+				charBuffer[cnt++] = (backColor >> 16) & 0xFF; // red
+			}
+		}
+	}
+}
+
+static void setCharBuf12x16(
+		const uint8_t  symbol,
+		const uint32_t foreColor,
+		const uint32_t backColor)
+{
+	uint32_t height = mFont.st.head.fontHeight;
+	uint32_t width  = mFont.st.cdef[symbol].width;
+
+	uint32_t cnt = 0;
+	for (uint32_t i = 0; i < height; i++) {
+		for (uint32_t j = 0; j < width; j++) {
+			// Because font file is rotated 90 degrees clockwise, the following i and j are exchanged.
+			if (mFont.st.cdef[symbol].data[j][i / 8] & (0b1 << (7 - i % 8))) { // use fore color
+				charBuffer[cnt++] = (foreColor >>  0) & 0xFF; // blue
+				charBuffer[cnt++] = (foreColor >>  8) & 0xFF; // green
+				charBuffer[cnt++] = (foreColor >> 16) & 0xFF; // red
+			} else { // use back color
+				charBuffer[cnt++] = (backColor >>  0) & 0xFF; // blue
+				charBuffer[cnt++] = (backColor >>  8) & 0xFF; // green
+				charBuffer[cnt++] = (backColor >> 16) & 0xFF; // red
+			}
+		}
+	}
 }

@@ -39,6 +39,9 @@ uint8_t i2c3Read1Byte(uint8_t slaveAddr, uint8_t devAddr);
 
 void toggleLED1(void);
 void showLogo(void);
+void checkDMA2D(void);
+uint16_t checkSDRAM(void);
+uint16_t checkTouchPanel(void);
 
 void fillRect(
 		const uint16_t x,
@@ -62,9 +65,6 @@ void drawString(
 
 uint32_t getRandomData(void);
 uint32_t checkDMA(uint16_t data);
-void checkDMA2D(void);
-uint16_t checkSDRAM(void);
-uint16_t checkTouchPanel(void);
 
 #ifdef __cplusplus
 }
