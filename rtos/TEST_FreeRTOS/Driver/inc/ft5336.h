@@ -8,8 +8,8 @@
  * Author:    WangYu
  *
  **********************************************************************/
-#ifndef FT5336_H
-#define FT5336_H
+#ifndef __FT5336_H__
+#define __FT5336_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,4 +34,4 @@ uint16_t readFT5336PointY(void);
 }
 #endif
 
-#endif
+#endif // __FT5336_H__

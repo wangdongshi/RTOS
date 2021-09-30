@@ -8,8 +8,8 @@
  * Author:    WangYu
  *
  **********************************************************************/
-#ifndef DEBUG_H
-#define DEBUG_H
+#ifndef __DEBUG_H__
+#define __DEBUG_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,4 +33,4 @@ inline void TRACE(const char *format, ...)
 }
 #endif
 
-#endif // DEBUG_H
+#endif // __DEBUG_H__

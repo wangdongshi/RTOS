@@ -8,13 +8,8 @@
  * Author:    WangYu
  *
  **********************************************************************/
-#include <stdio.h>
-#include "assert_param.h"
 #include "stm32f746xx.h"
-#include "ft5336.h"
-#include "stm32f746g_disco.h"
-#include "FreeRTOS.h"
-#include "semphr.h"
+#include "platform.h"
 #include "EHmiEvent.h"
 #include "interrupt.h"
 

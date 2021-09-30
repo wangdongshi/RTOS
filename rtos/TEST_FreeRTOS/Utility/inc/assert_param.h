@@ -8,8 +8,8 @@
  * Author:    WangYu
  *
  **********************************************************************/
-#ifndef ASSERT_PARAM_H
-#define ASSERT_PARAM_H
+#ifndef __ASSERT_PARAM_H__
+#define __ASSERT_PARAM_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,4 +27,4 @@ extern "C" {
 }
 #endif
 
-#endif
+#endif // __ASSERT_PARAM_H__

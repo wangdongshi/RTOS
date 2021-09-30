@@ -8,8 +8,8 @@
  * Author:    WangYu
  *
  **********************************************************************/
-#ifndef STM32F746G_DISCO_DRIVER_H
-#define STM32F746G_DISCO_DRIVER_H
+#ifndef __STM32F746G_DISCO_H__
+#define __STM32F746G_DISCO_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -70,4 +70,4 @@ uint32_t checkDMA(uint16_t data);
 }
 #endif
 
-#endif
+#endif // __STM32F746G_DISCO_H__

@@ -8,8 +8,8 @@
  * Author:    WangYu
  *
  **********************************************************************/
-#ifndef __IMAGE_H
-#define __IMAGE_H
+#ifndef __IMAGE_H__
+#define __IMAGE_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,4 +23,4 @@ extern const uint8_t logoImage[391680];
 }
 #endif
 
-#endif
+#endif // __IMAGE_H__

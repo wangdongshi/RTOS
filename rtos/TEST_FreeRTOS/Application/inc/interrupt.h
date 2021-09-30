@@ -8,8 +8,8 @@
  * Author:    WangYu
  *
  **********************************************************************/
-#ifndef INTERRUPT_H
-#define INTERRUPT_H
+#ifndef __INTERRUPT_H__
+#define __INTERRUPT_H__
 
 #include "EHmiMain.h"
 
@@ -33,4 +33,4 @@ void EXTI15_10_IRQHandler(void);
 }
 #endif
 
-#endif // INTERRUPT_H
+#endif // __INTERRUPT_H__

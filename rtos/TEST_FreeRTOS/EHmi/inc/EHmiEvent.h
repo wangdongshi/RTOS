@@ -11,15 +11,15 @@
 #ifndef __EHMI_EVENT_H__
 #define __EHMI_EVENT_H__
 
-#include "FreeRTOS.h"
+#include "platform.h"
 
 typedef union _EHmiEventParam{
-	unsigned long	lp;
-	unsigned int    ip[2];
-	unsigned short  sp[4];
+	uint64_t	lp;
+	uint32_t	ip[2];
+	uint16_t	sp[4];
 	
 	_EHmiEventParam() {}
-	_EHmiEventParam(unsigned long ul) {lp = ul;}
+	_EHmiEventParam(uint64_t ul) {lp = ul;}
 } EHmiEventParam;
 
 typedef enum {
@@ -27,31 +27,27 @@ typedef enum {
     HMI_EV_KEYDOWN, // for test
 } EHmiEventType;
 
-///
-/// class : EHmiEvent
-/// HMI event class
-///
 class EHmiEvent {
 public :
     EHmiEvent();
     EHmiEvent(EHmiEventType ev);
-    EHmiEvent(EHmiEventType ev, unsigned long lp);
-	/*
+    EHmiEvent(EHmiEventType ev, uint64_t lp);
+#if 0
     EHmiEventInfo(EHmiEventType ev, 
-			unsigned int ip1,
-			unsigned int ip2
+			uint32_t ip1,
+			uint32_t ip2
 			);
     EHmiEventInfo(EHmiEventType ev,
-			unsigned short sp1,
-			unsigned short sp2,
-			unsigned short sp3,
-			unsigned short sp4
+			uint16_t sp1,
+			uint16_t sp2,
+			uint16_t sp3,
+			uint16_t sp4
 			);
-	*/
+#endif
     ~EHmiEvent();
     EHmiEventType GetEvent() {return(type);}
-    unsigned long GetULArg() {return(arg.lp);}
-	void SetULArg(unsigned long ul) {arg.lp = ul;}
+    uint64_t GetULArg() {return(arg.lp);}
+	void SetULArg(uint64_t ul) {arg.lp = ul;}
 	
 private :
     EHmiEventType	type;

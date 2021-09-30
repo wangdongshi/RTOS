@@ -8,8 +8,8 @@
  * Author:    WangYu
  *
  **********************************************************************/
-#ifndef	_FONT_H_
-#define	_FONT_H_
+#ifndef	__FONT_H__
+#define	__FONT_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -22,4 +22,4 @@ extern "C" {
 }
 #endif
 
-#endif
+#endif // __FONT_H__

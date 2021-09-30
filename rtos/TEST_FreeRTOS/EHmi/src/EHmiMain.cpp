@@ -8,14 +8,11 @@
  * Author:    WangYu
  *
  **********************************************************************/
-#include "debug.h"
 #include "EHmiMain.h"
 
 #define HMI_EVENT_PROCESS_INTERVAL	(100)	// 100ms
 #define HMI_EVENT_QUEUE_DEPTH		(10)
 
-/// function	EHmiMain
-/// brief		constructor
 EHmiMain::EHmiMain() :
 is_ready(false)
 {
@@ -23,8 +20,6 @@ is_ready(false)
 	deq = xQueueCreate(HMI_EVENT_QUEUE_DEPTH, sizeof(EHmiEvent));
 }
 
-/// function	~EHmiMain
-/// brief		deconstructor
 EHmiMain::~EHmiMain()
 {
 }
@@ -34,11 +29,6 @@ void EHmiMain::AddQueue(EHmiEvent ev)
 	xQueueSend(deq, &ev, 0);
 }
 
-/// function	main
-/// brief		HMI main process function
-///
-/// param		none
-/// return		none
 void EHmiMain::main(void)
 {
 	EHmiEvent ev(HMI_EV_NONE);
@@ -58,15 +48,10 @@ void EHmiMain::main(void)
 	}
 }
 
-/// function	eventHandler
-/// brief		HMI main event process function
-///
-/// param		ev	: event popped from queue
-/// return		none
 void EHmiMain::eventHandler(EHmiEvent& ev)
 {
     EHmiEventType type = HMI_EV_NONE;
-	unsigned long param;
+	uint64_t param;
 	uint16_t x, y;
 
 	type = ev.GetEvent(); // get event type & parameter

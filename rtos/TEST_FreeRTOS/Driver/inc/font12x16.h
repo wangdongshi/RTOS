@@ -8,8 +8,8 @@
  * Author:    WangYu
  *
  **********************************************************************/
-#ifndef	_FONT12X16_H_
-#define	_FONT12X16_H_
+#ifndef	__FONT12X16_H__
+#define	__FONT12X16_H__
 
 #include <stdint.h>
 
@@ -35,4 +35,4 @@ typedef union {
 
 extern const FONT_12X16 mFont;
 
-#endif
+#endif // __FONT12X16_H__

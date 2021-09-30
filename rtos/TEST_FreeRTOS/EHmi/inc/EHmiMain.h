@@ -11,15 +11,9 @@
 #ifndef __EHMI_MAIN_H__
 #define __EHMI_MAIN_H__
 
-#include "FreeRTOS.h"
-#include "queue.h"
-#include "semphr.h"
+#include "platform.h"
 #include "EHmiEvent.h"
 
-///
-/// class : EHmiMain
-/// HMI main class
-///
 class EHmiMain {
 public :
     EHmiMain();

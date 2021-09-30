@@ -8,20 +8,14 @@
  * Author:    WangYu
  *
  **********************************************************************/
-#include <stdint.h>
-#include <string.h>
-#include <stdio.h>
-#include "debug.h"
-#include "assert_param.h"
-#include "stm32f746g_disco.h"
-#include "FreeRTOS.h"
-#include "task.h"
+//#include <string.h>
+#include "platform.h"
 #include "EHmiMain.h"
 
 int main(void);
 void startTask(void *pvParameters);
 void mainTask(void *pvParameters);
-void hmiTask(void *pHmi);
+void hmiTask(void *pvParameters);
 void led1Task(void *pvParameters);
 #ifdef MODE_STAND_ALONE
 void executeCmd(const char* cmd);
@@ -51,7 +45,7 @@ void startTask(void *pvParameters)
 	// create task
 	taskENTER_CRITICAL();
 	xTaskCreate(led1Task,	"LED1_TASK",	400,	NULL,	2,	NULL);
-	xTaskCreate(hmiTask,	"HMI_TASK",		400,	pHmi,	2,	NULL);
+	xTaskCreate(hmiTask,	"HMI_TASK",		400,	NULL,	2,	NULL);
 	xTaskCreate(mainTask,	"MAIN_TASK",	400,	NULL,	5,	NULL);
 	TaskHandle_t handler = xTaskGetHandle("START_TASK");
 	vTaskDelete(handler);
@@ -66,9 +60,9 @@ void led1Task(void *pvParameters)
 	}
 }
 
-void hmiTask(void * pHmi)
+void hmiTask(void * pvParameters)
 {
-	((EHmiMain*)pHmi)->Start();
+	(static_cast<EHmiMain*>(pHmi))->Start();
 }
 
 void mainTask(void *pvParameters)

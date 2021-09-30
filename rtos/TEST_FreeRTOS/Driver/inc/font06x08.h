@@ -8,8 +8,8 @@
  * Author:    WangYu
  *
  **********************************************************************/
-#ifndef	_FONT06X08_H_
-#define	_FONT06X08_H_
+#ifndef	__FONT06X08_H__
+#define	__FONT06X08_H__
 
 #include <stdint.h>
 
@@ -35,4 +35,4 @@ typedef union {
 
 extern const FONT_06X08 sFont;
 
-#endif
+#endif // __FONT06X08_H__

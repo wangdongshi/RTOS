@@ -10,38 +10,20 @@
  **********************************************************************/
 #include "EHmiEvent.h"
 
-/// function	EHmiEvent
-/// brief		constructor
-///
-/// param		none
-/// return		none
 EHmiEvent::EHmiEvent() : type(HMI_EV_NONE)
 {
 }
 
-/// function	EHmiEvent
-/// brief		constructor
-///
-/// param		ev : event type
-/// return		none
 EHmiEvent::EHmiEvent(EHmiEventType ev) : type(ev)
 {
 }
 
-/// function	EHmiEvent
-/// brief		constructor
-///
-/// param		ev : event type
-/// param		ul : event type
-/// return		none
-EHmiEvent::EHmiEvent(EHmiEventType ev, unsigned long ul) :
+EHmiEvent::EHmiEvent(EHmiEventType ev, uint64_t ul) :
 	type(ev),
 	arg(ul)
 {
 }
 
-/// function	~EHmiEvent
-/// brief		deconstructor
 EHmiEvent::~EHmiEvent()
 {
 }
