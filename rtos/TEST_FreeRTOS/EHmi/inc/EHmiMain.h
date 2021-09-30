@@ -24,7 +24,8 @@ public :
     bool IsReady(void) {return(is_ready);}
     void SetReady(bool ready) {is_ready = ready;}
     QueueHandle_t Mutex(void) {return(mtx);}
-    void AddQueue(EHmiEvent ev);
+    void SendQueue(EHmiEvent ev);
+    void SendQueueFromISR(EHmiEvent ev);
 	
 private :
 	void main(void);

@@ -24,9 +24,14 @@ EHmiMain::~EHmiMain()
 {
 }
 
-void EHmiMain::AddQueue(EHmiEvent ev)
+void EHmiMain::SendQueue(EHmiEvent ev)
 {
 	xQueueSend(deq, &ev, 0);
+}
+
+void EHmiMain::SendQueueFromISR(EHmiEvent ev)
+{
+	xQueueSendFromISR(deq, &ev, 0);
 }
 
 void EHmiMain::main(void)
@@ -51,18 +56,31 @@ void EHmiMain::main(void)
 void EHmiMain::eventHandler(EHmiEvent& ev)
 {
     EHmiEventType type = HMI_EV_NONE;
-	uint64_t param;
 	uint16_t x, y;
 
-	type = ev.GetEvent(); // get event type & parameter
+	type = ev.GetEvent();
     switch(type) {
-    case HMI_EV_KEYDOWN:
-        param = ev.GetULArg();
-        x = param >> 16 & 0xFFFF;
-        y = param & 0xFFFF;
-        printf("Finger press (x=%d, y=%d)\r\n", x, y);
+    case HMI_EV_NONE:
+    case HMI_EV_DATA_UPDATE:
+    case HMI_EV_CYCLIC_REFRESH:
+    	break;
+    case HMI_EV_TOUCH_DOWN:
+        x = ev.GetUInt(0);
+        y = ev.GetUInt(1);
+        TRACE("Touch Down\t(x=%d, y=%d).\r\n", x, y);
         break;
-    default: // HMI_EV_NONE or not defined
+    case HMI_EV_TOUCH_UP:
+        x = ev.GetUInt(0);
+        y = ev.GetUInt(1);
+        TRACE("Touch Up\t(x=%d, y=%d).\r\n", x, y);
+        break;
+    case HMI_EV_TOUCH_MOVE:
+        x = ev.GetUInt(0);
+        y = ev.GetUInt(1);
+        TRACE("Touch Move\t(x=%d, y=%d).\r\n", x, y);
+        break;
+    case HMI_EV_SCREEN_CHG:
+    default:
         break;
     }
 }

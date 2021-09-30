@@ -21,8 +21,8 @@ void led1Task(void *pvParameters);
 void executeCmd(const char* cmd);
 #endif
 
-static void printBanner(void);
 static uint32_t checkDevices(void);
+static void printBanner(void);
 
 EHmiMain* pHmi = new EHmiMain();
 
@@ -44,7 +44,7 @@ void startTask(void *pvParameters)
 {
 	// create task
 	taskENTER_CRITICAL();
-	xTaskCreate(led1Task,	"LED1_TASK",	400,	NULL,	2,	NULL);
+	xTaskCreate(led1Task,	"LED1_TASK",	400,	NULL,	2,	NULL); // for monitor board
 	xTaskCreate(hmiTask,	"HMI_TASK",		400,	NULL,	2,	NULL);
 	xTaskCreate(mainTask,	"MAIN_TASK",	400,	NULL,	5,	NULL);
 	TaskHandle_t handler = xTaskGetHandle("START_TASK");
@@ -103,23 +103,6 @@ void operator delete[](void * ptr)
 	vPortFree (ptr);
 }
 
-static void printBanner(void)
-{
-	// create from "http://patorjk.com/software/taag/"
-	printf("^_^ Welcome to STM32F746G-DISCO ^_^\r\n");
-	printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\r\n");
-	printf("@                                 @\r\n");
-	printf("@    @@@@     @@@@                @\r\n");
-	printf("@     @@   @@  @@ @@@@   @@@@     @\r\n");
-	printf("@      @@ @@@ @@   @@@   @@@      @\r\n");
-	printf("@       @@@ @@@     @@@ @@@       @\r\n");
-	printf("@        @   @        @@@@        @\r\n");
-	printf("@                  @@@@@@         @\r\n");
-	printf("@                                 @\r\n");
-	printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\r\n");
-	printf("\r\n");
-}
-
 static uint32_t checkDevices(void)
 {
 	//TRACE("Check FPU print with float value 99.99 (Display as %.2f).\r\n", 99.99f);
@@ -150,6 +133,22 @@ static uint32_t checkDevices(void)
 	return 1;
 }
 
+static void printBanner(void)
+{
+	// create from "http://patorjk.com/software/taag/"
+	printf("^_^ Welcome to STM32F746G-DISCO ^_^\r\n");
+	printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\r\n");
+	printf("@                                 @\r\n");
+	printf("@    @@@@     @@@@                @\r\n");
+	printf("@     @@   @@  @@ @@@@   @@@@     @\r\n");
+	printf("@      @@ @@@ @@   @@@   @@@      @\r\n");
+	printf("@       @@@ @@@     @@@ @@@       @\r\n");
+	printf("@        @   @        @@@@        @\r\n");
+	printf("@                  @@@@@@         @\r\n");
+	printf("@                                 @\r\n");
+	printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\r\n");
+	printf("\r\n");
+}
 
 #ifdef MODE_STAND_ALONE
 
