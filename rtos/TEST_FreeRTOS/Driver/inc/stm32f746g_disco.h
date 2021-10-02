@@ -18,8 +18,23 @@ extern "C" {
 #include <stdint.h>
 
 // Font type definition
+#define LAYER_BG				(0) // background layer
+#define LAYER_FG				(1) // foreground layer
+
 #define FONT_SMALL				(0)
 #define FONT_MIDDLE				(1)
+
+#define COLOR_ARGB8888			(0b0000)
+#define COLOR_RGB888			(0b0001)
+#define COLOR_RGB565			(0b0010)
+#define COLOR_ARGB1555			(0b0011)
+#define COLOR_ARGB4444			(0b0100)
+#define COLOR_L8				(0b0101)
+#define COLOR_AL44				(0b0110)
+#define COLOR_AL88				(0b0111)
+#define COLOR_L4				(0b1000)
+#define COLOR_A8				(0b1001)
+#define COLOR_A4				(0b1010)
 
 #define MODE_TEST_DRIVER
 //#define MODE_STAND_ALONE
@@ -48,20 +63,24 @@ void fillRect(
 		const uint16_t y,
 		const uint16_t w,
 		const uint16_t h,
-		const uint32_t color);
+		const uint32_t color,
+		const uint8_t  layer);
 void drawImage(
 		const uint16_t x,
 		const uint16_t y,
 		const uint16_t w,
 		const uint16_t h,
-		const uint32_t addr);
+		const uint32_t addr,
+		const uint8_t  format,
+		const uint8_t  layer);
 void drawString(
 		const uint16_t x,
 		const uint16_t y,
-		const char* const string,
 		const uint32_t foreColor,
 		const uint32_t backColor,
-		const uint8_t  fontType);
+		const char* const string,
+		const uint8_t  fontType,
+		const uint8_t  layer);
 
 uint32_t getRandomData(void);
 uint32_t checkDMA(uint16_t data);

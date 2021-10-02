@@ -10,6 +10,7 @@
  **********************************************************************/
 #include <stdint.h>
 #include <string.h>
+#include "assert_param.h"
 #include "font.h"
 #include "image.h"
 #include "stm32f746xx.h"
@@ -24,8 +25,10 @@
 #define PLLQ					((uint32_t)(  9 << 24))
 
 // LCD constant value definition
-#define LCD_FRAME_BUF_SIZE		(LCD_COLOR_BYTES * LCD_ACTIVE_WIDTH * LCD_ACTIVE_HEIGHT)
-#define LCD_COLOR_BYTES			(3)
+#define COLOR_BYTE_ARGB8888		(4)
+#define COLOR_BYTE_RGB888		(3)
+#define LCD_FRAME_BUF_BYTES		COLOR_BYTE_ARGB8888
+#define LCD_FRAME_BUF_SIZE		(LCD_FRAME_BUF_BYTES * LCD_ACTIVE_WIDTH * LCD_ACTIVE_HEIGHT)
 #define LCD_ACTIVE_WIDTH		(480)
 #define LCD_ACTIVE_HEIGHT		(272)
 #define LCD_HSYNC				(41)
@@ -35,8 +38,9 @@
 #define LCD_VBP					(2)
 #define LCD_VFP					(2)
 
-uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) )  charBuffer[12 * 16 * LCD_COLOR_BYTES]; // RGB888
-uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) ) FrameBuffer[LCD_FRAME_BUF_SIZE];
+uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) )   charBuffer[12 * 16 * COLOR_BYTE_ARGB8888];
+uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) ) FrameBuffer1[LCD_FRAME_BUF_SIZE];
+uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) ) FrameBuffer2[LCD_FRAME_BUF_SIZE];
 
 static void initFPU(void);
 static void initSystemClock(void);
@@ -68,16 +72,17 @@ static void initTouchPanelGPIO(void);
 static void drawChar(
 		const uint16_t x,
 		const uint16_t y,
-		const uint8_t  symbol,
-		const uint8_t  fontType,
 		const uint32_t foreColor,
-		const uint32_t backColor);
+		const uint32_t backColor,
+		const uint16_t symbol,
+		const uint8_t  fontType,
+		const uint8_t  layer);
 static void setCharBuf06x08(
-		const uint8_t  symbol,
+		const uint16_t  symbol,
 		const uint32_t foreColor,
 		const uint32_t backColor);
 static void setCharBuf12x16(
-		const uint8_t  symbol,
+		const uint16_t  symbol,
 		const uint32_t foreColor,
 		const uint32_t backColor);
 
@@ -190,16 +195,20 @@ void toggleLED1(void)
 
 void showLogo(void)
 {
-	drawImage(0, 0, 480, 272, (uint32_t)&logoImage);
+	drawImage(0, 0, 480, 272, (uint32_t)&logoImage, COLOR_RGB888, LAYER_FG);
+	for (uint32_t i = 0; i <= 1000000; i++);
+	fillRect(0, 0, 480, 272, 0x00000000, LAYER_FG);
 }
 
 void checkDMA2D(void)
 {
-	fillRect(0, 0, 480, 272, 0xA9A9A9);
-	fillRect(50, 50, 380, 132, 0x8B0000);
-	drawString(70, 60, "Welcome to STM32F746G-DISCO!", 0xA9A9A9, 0x8B0000, FONT_MIDDLE);
-	drawString(280, 120, "Author : Wang.Yu", 0xA9A9A9, 0x8B0000, FONT_SMALL);
-	drawString(280, 150, "  Date : 2021/9/1", 0xA9A9A9, 0x8B0000, FONT_SMALL);
+	fillRect(0,  0,  480, 272, 0xFFA9A9A9, LAYER_BG);
+	fillRect(50, 50, 380, 132, 0xFF8B0000, LAYER_BG);
+	drawString(70,  60,  0xFFA9A9A9, 0x008B0000, "Welcome to STM32F746G-DISCO!", FONT_MIDDLE, LAYER_FG);
+	drawString(280, 120, 0xFFA9A9A9, 0x008B0000, "Author : Wang.Yu", FONT_SMALL, LAYER_FG);
+	drawString(280, 150, 0xFFA9A9A9, 0x008B0000, "  Date : 2021/9/1", FONT_SMALL, LAYER_FG);
+	//drawString(70,  80,  0xFFA9A9A9, 0x008B0000, "abcdefghijklmnopqrstuvwxyz", FONT_SMALL, LAYER_FG);
+	//drawString(70,  100, 0xFFA9A9A9, 0x008B0000, "abcdefghijklmnopqrstuvwxyz", FONT_MIDDLE, LAYER_FG);
 }
 
 uint16_t checkSDRAM(void)
@@ -237,16 +246,18 @@ void fillRect(
 		const uint16_t y,
 		const uint16_t w,
 		const uint16_t h,
-		const uint32_t color)
+		const uint32_t color,
+		const uint8_t  layer)
 {
+	uint8_t* pFB = (uint8_t*)((layer == LAYER_BG) ? &FrameBuffer1 : &FrameBuffer2);
 	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
 
 	DMA2D->CR 		&= ~DMA2D_CR_MODE_Msk;
 	DMA2D->CR 		|= 0b11 << DMA2D_CR_MODE_Pos; // register to memory
 	DMA2D->OCOLR	= color;
-	DMA2D->OMAR		= (uint32_t)(&(((uint8_t*)&FrameBuffer)[(y * LCD_ACTIVE_WIDTH + x) * LCD_COLOR_BYTES]));
+	DMA2D->OMAR		= (uint32_t)(&(pFB[(y * LCD_ACTIVE_WIDTH + x) * LCD_FRAME_BUF_BYTES]));
 	DMA2D->OOR		= LCD_ACTIVE_WIDTH - w;
-	DMA2D->OPFCCR	= 0b001; // RGB888
+	DMA2D->OPFCCR	= 0b000; // ARGB8888
 	DMA2D->NLR		= w << DMA2D_NLR_PL_Pos | h << DMA2D_NLR_NL_Pos;
 
 	DMA2D->CR   	|= DMA2D_CR_START;
@@ -257,18 +268,21 @@ void drawImage(
 		const uint16_t y,
 		const uint16_t w,
 		const uint16_t h,
-		const uint32_t addr)
+		const uint32_t addr,
+		const uint8_t  format,
+		const uint8_t  layer)
 {
+	uint8_t* pFB = (uint8_t*)((layer == LAYER_BG) ? &FrameBuffer1 : &FrameBuffer2);
 	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
 
 	DMA2D->CR 		&= ~DMA2D_CR_MODE_Msk;
-	DMA2D->CR 		|= 0b00 << DMA2D_CR_MODE_Pos; // memory to memory
+	DMA2D->CR 		|= 0b01 << DMA2D_CR_MODE_Pos; // FG PFC
 	DMA2D->FGMAR	= addr;
-	DMA2D->OMAR		= (uint32_t)(&(((uint8_t*)&FrameBuffer)[(y * LCD_ACTIVE_WIDTH + x) * LCD_COLOR_BYTES]));
+	DMA2D->OMAR		= (uint32_t)(&(pFB[(y * LCD_ACTIVE_WIDTH + x) * LCD_FRAME_BUF_BYTES]));
 	DMA2D->FGOR		= 0;
 	DMA2D->OOR		= LCD_ACTIVE_WIDTH - w;
-	DMA2D->FGPFCCR	= 0b0001; // RGB888
-	DMA2D->OPFCCR	= 0b001;  // RGB888
+	DMA2D->FGPFCCR	= format; // fore-ground color type
+	DMA2D->OPFCCR	= 0b000;  // ARGB8888
 	DMA2D->NLR		= w << DMA2D_NLR_PL_Pos | h << DMA2D_NLR_NL_Pos;
 
 	DMA2D->CR   	|= DMA2D_CR_START;
@@ -277,15 +291,16 @@ void drawImage(
 void drawString( // It only can support 1 line string
 		const uint16_t x,
 		const uint16_t y,
-		const char* const string,
 		const uint32_t foreColor,
 		const uint32_t backColor,
-		const uint8_t  fontType)
+		const char* const string,
+		const uint8_t  fontType,
+		const uint8_t  layer)
 {
 	uint16_t currentX = x;
 	char* pString = (char*)string;
 	while (*pString != '\0') {
-		drawChar(currentX, y, *pString, fontType, foreColor, backColor);
+		drawChar(currentX, y, foreColor, backColor, *pString, fontType, LAYER_FG);
 		currentX += (FONT_SMALL == fontType) ? sFont.st.cdef[(uint32_t)(*pString)].width : mFont.st.cdef[(uint32_t)(*pString)].width;
 		pString++;
 	}
@@ -760,6 +775,7 @@ static void initLCD(void)
 	// (*) Temporarily donn't enable LTDC interrupt.
 
 	// 7. Configure the layer1/2 parameters by:
+	// ---- for layer1 ----
 	//    – programming the layer window horizontal and vertical position in the
 	//      LTDC_LxWHPCR and LTDC_WVPCR registers. The layer window must be in the
 	//      active data area.
@@ -771,16 +787,15 @@ static void initLCD(void)
 							(LCD_ACTIVE_HEIGHT + bpcrAvbp1)   << LTDC_LxWVPCR_WVSPPOS_Pos;
 
 	//    – programming the pixel input format in the LTDC_LxPFCR register
-	LTDC_Layer1->PFCR	=	0b001; // RGB888, AM480272H3TMQW-T01H LCD use RGB565
+	LTDC_Layer1->PFCR	=	0b000; // ARGB8888
 
 	//    – programming the color frame buffer start address in the LTDC_LxCFBAR register
-	LTDC_Layer1->CFBAR	=	(uint32_t)&FrameBuffer; // Frame Buffer
+	LTDC_Layer1->CFBAR	=	(uint32_t)&FrameBuffer1; // Frame Buffer
 
 	//    – programming the line length and pitch of the color frame buffer in the
 	//      LTDC_LxCFBLR register
-	LTDC_Layer1->CFBLR	=	(LCD_ACTIVE_WIDTH * LCD_COLOR_BYTES) << LTDC_LxCFBLR_CFBP_Pos |
-							(LCD_ACTIVE_WIDTH * LCD_COLOR_BYTES + 3) << LTDC_LxCFBLR_CFBLL_Pos;
-	// AM480272H3TMQW-T01H should multiply 2
+	LTDC_Layer1->CFBLR	=	(LCD_ACTIVE_WIDTH * LCD_FRAME_BUF_BYTES) << LTDC_LxCFBLR_CFBP_Pos |
+							(LCD_ACTIVE_WIDTH * LCD_FRAME_BUF_BYTES + 3) << LTDC_LxCFBLR_CFBLL_Pos;
 
 	//    – programming the number of lines of the color frame buffer in the
 	//      LTDC_LxCFBLNR register
@@ -795,8 +810,44 @@ static void initLCD(void)
 	// (*) Default color and the blending factors respectively set by default value
 	// (*) (constant alpha = 255, pixel alpha = 0, blending factor 1/2 = constant alpha * pixel alpha)
 
+	// ---- for layer2 ----
+	//    – programming the layer window horizontal and vertical position in the
+	//      LTDC_LxWHPCR and LTDC_WVPCR registers. The layer window must be in the
+	//      active data area.
+	uint16_t bpcrAhbp2	=	((LTDC->BPCR & LTDC_BPCR_AHBP_Msk) >> LTDC_BPCR_AHBP_Pos) + 1;
+	uint16_t bpcrAvbp2	=	((LTDC->BPCR & LTDC_BPCR_AVBP_Msk) >> LTDC_BPCR_AVBP_Pos) + 1;
+	LTDC_Layer2->WHPCR	=	(0 + bpcrAhbp2) << LTDC_LxWHPCR_WHSTPOS_Pos |
+							(LCD_ACTIVE_WIDTH + bpcrAhbp2 - 1)   << LTDC_LxWHPCR_WHSPPOS_Pos;
+	LTDC_Layer2->WVPCR	=	(0 + bpcrAvbp2 + 1) << LTDC_LxWVPCR_WVSTPOS_Pos |
+							(LCD_ACTIVE_HEIGHT + bpcrAvbp2)   << LTDC_LxWVPCR_WVSPPOS_Pos;
+
+	//    – programming the pixel input format in the LTDC_LxPFCR register
+	LTDC_Layer2->PFCR	=	0b000; // ARGB8888
+
+	//    – programming the color frame buffer start address in the LTDC_LxCFBAR register
+	LTDC_Layer2->CFBAR	=	(uint32_t)&FrameBuffer2; // Frame Buffer
+
+	//    – programming the line length and pitch of the color frame buffer in the
+	//      LTDC_LxCFBLR register
+	LTDC_Layer2->CFBLR	=	(LCD_ACTIVE_WIDTH * LCD_FRAME_BUF_BYTES) << LTDC_LxCFBLR_CFBP_Pos |
+							(LCD_ACTIVE_WIDTH * LCD_FRAME_BUF_BYTES + 3) << LTDC_LxCFBLR_CFBLL_Pos;
+
+	//    – programming the number of lines of the color frame buffer in the
+	//      LTDC_LxCFBLNR register
+	LTDC_Layer2->CFBLNR	=	LCD_ACTIVE_HEIGHT;
+
+	//    – if needed, loading the CLUT with the RGB values and its address in the
+	//      LTDC_LxCLUTWR register
+	// (*) Temporarily needn't CLUT function.
+
+	//    – If needed, configuring the default color and the blending factors respectively in the
+	//      LTDC_LxDCCR and LTDC_LxBFCR registers
+	// (*) Default color and the blending factors respectively set by default value
+	// (*) (constant alpha = 255, pixel alpha = 0, blending factor 1/2 = constant alpha * pixel alpha)
+
 	// 8. Enable layer1/2 and if needed the CLUT in the LTDC_LxCR register.
 	LTDC_Layer1->CR |= LTDC_LxCR_LEN;
+	LTDC_Layer2->CR |= LTDC_LxCR_LEN;
 
 	// 9. If needed, enable dithering and color keying respectively in the LTDC_GCR and
 	//    LTDC_LxCKCR registers. They can be also enabled on the fly.
@@ -1183,13 +1234,15 @@ static void initTouchPanelGPIO(void)
 static void drawChar(
 		const uint16_t x,
 		const uint16_t y,
-		const uint8_t  symbol,
-		const uint8_t  fontType,
 		const uint32_t foreColor,
-		const uint32_t backColor)
+		const uint32_t backColor,
+		const uint16_t symbol,
+		const uint8_t  fontType,
+		const uint8_t  layer)
 {
 	uint32_t height = (FONT_SMALL == fontType) ? sFont.st.head.fontHeight    : mFont.st.head.fontHeight;
 	uint32_t width  = (FONT_SMALL == fontType) ? sFont.st.cdef[symbol].width : mFont.st.cdef[symbol].width;
+	uint8_t* pFB = (uint8_t*)((layer == LAYER_BG) ? &FrameBuffer1 : &FrameBuffer2);
 
 	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
 
@@ -1201,23 +1254,25 @@ static void drawChar(
 	}
 
 	DMA2D->CR 		&= ~DMA2D_CR_MODE_Msk;
-	DMA2D->CR 		|= 0b00 << DMA2D_CR_MODE_Pos; // memory to memory
+	DMA2D->CR 		|= 0b01 << DMA2D_CR_MODE_Pos; // FG PFC
 	DMA2D->FGMAR	= (uint32_t)&charBuffer;
-	DMA2D->OMAR		= (uint32_t)(&(((uint8_t*)&FrameBuffer)[(y * LCD_ACTIVE_WIDTH + x) * LCD_COLOR_BYTES]));
+	DMA2D->OMAR		= (uint32_t)(&(pFB[(y * LCD_ACTIVE_WIDTH + x) * LCD_FRAME_BUF_BYTES]));
 	DMA2D->FGOR		= 0;
 	DMA2D->OOR		= LCD_ACTIVE_WIDTH - width;
-	DMA2D->FGPFCCR	= 0b0001; // RGB888
-	DMA2D->OPFCCR	= 0b001;  // RGB888
+	DMA2D->FGPFCCR	= 0b0000; // ARGB8888
+	DMA2D->OPFCCR	= 0b000;  // ARGB8888
 	DMA2D->NLR		= width << DMA2D_NLR_PL_Pos | height << DMA2D_NLR_NL_Pos;
 
 	DMA2D->CR   	|= DMA2D_CR_START;
 }
 
 static void setCharBuf06x08(
-		const uint8_t  symbol,
+		const uint16_t symbol,
 		const uint32_t foreColor,
 		const uint32_t backColor)
 {
+	assert_param(symbol < 128);
+
 	uint32_t height = sFont.st.head.fontHeight;
 	uint32_t width  = sFont.st.cdef[symbol].width;
 
@@ -1229,21 +1284,25 @@ static void setCharBuf06x08(
 				charBuffer[cnt++] = (foreColor >>  0) & 0xFF; // blue
 				charBuffer[cnt++] = (foreColor >>  8) & 0xFF; // green
 				charBuffer[cnt++] = (foreColor >> 16) & 0xFF; // red
+				charBuffer[cnt++] = (foreColor >> 24) & 0xFF; // alpha
 			}
 			else { // use back color
 				charBuffer[cnt++] = (backColor >>  0) & 0xFF; // blue
 				charBuffer[cnt++] = (backColor >>  8) & 0xFF; // green
 				charBuffer[cnt++] = (backColor >> 16) & 0xFF; // red
+				charBuffer[cnt++] = (backColor >> 24) & 0xFF; // alpha
 			}
 		}
 	}
 }
 
 static void setCharBuf12x16(
-		const uint8_t  symbol,
+		const uint16_t symbol,
 		const uint32_t foreColor,
 		const uint32_t backColor)
 {
+	assert_param(symbol < 128);
+
 	uint32_t height = mFont.st.head.fontHeight;
 	uint32_t width  = mFont.st.cdef[symbol].width;
 
@@ -1255,11 +1314,13 @@ static void setCharBuf12x16(
 				charBuffer[cnt++] = (foreColor >>  0) & 0xFF; // blue
 				charBuffer[cnt++] = (foreColor >>  8) & 0xFF; // green
 				charBuffer[cnt++] = (foreColor >> 16) & 0xFF; // red
+				charBuffer[cnt++] = (foreColor >> 24) & 0xFF; // alpha
 			}
 			else { // use back color
 				charBuffer[cnt++] = (backColor >>  0) & 0xFF; // blue
 				charBuffer[cnt++] = (backColor >>  8) & 0xFF; // green
 				charBuffer[cnt++] = (backColor >> 16) & 0xFF; // red
+				charBuffer[cnt++] = (backColor >> 24) & 0xFF; // alpha
 			}
 		}
 	}

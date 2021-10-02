@@ -70,7 +70,6 @@ void mainTask(void *pvParameters)
 	// initialization
 	printBanner();
 	showLogo();
-	vTaskDelay(400); // wait FT5336 stable
 	checkDevices();
 
 	// main loop
