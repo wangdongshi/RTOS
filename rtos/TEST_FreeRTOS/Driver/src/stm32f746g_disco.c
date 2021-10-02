@@ -29,8 +29,6 @@
 #define COLOR_BYTE_RGB888		(3)
 #define LCD_FRAME_BUF_BYTES		COLOR_BYTE_ARGB8888
 #define LCD_FRAME_BUF_SIZE		(LCD_FRAME_BUF_BYTES * LCD_ACTIVE_WIDTH * LCD_ACTIVE_HEIGHT)
-#define LCD_ACTIVE_WIDTH		(480)
-#define LCD_ACTIVE_HEIGHT		(272)
 #define LCD_HSYNC				(41)
 #define LCD_VSYNC				(10)
 #define LCD_HBP					(13)
@@ -69,14 +67,6 @@ static void initLED1GPIO(void);
 static void initLCDGPIO(void);
 static void initTouchPanelGPIO(void);
 
-static void drawChar(
-		const uint16_t x,
-		const uint16_t y,
-		const uint32_t foreColor,
-		const uint32_t backColor,
-		const uint16_t symbol,
-		const uint8_t  fontType,
-		const uint8_t  layer);
 static void setCharBuf06x08(
 		const uint16_t  symbol,
 		const uint32_t foreColor,
@@ -196,12 +186,11 @@ void toggleLED1(void)
 void showLogo(void)
 {
 	drawImage(0, 0, 480, 272, (uint32_t)&logoImage, COLOR_RGB888, LAYER_FG);
-	for (uint32_t i = 0; i <= 1000000; i++);
-	fillRect(0, 0, 480, 272, 0x00000000, LAYER_FG);
 }
 
 void checkDMA2D(void)
 {
+	fillRect(0,  0,  480, 272, 0x00000000, LAYER_FG); // clear logo
 	fillRect(0,  0,  480, 272, 0xFFA9A9A9, LAYER_BG);
 	fillRect(50, 50, 380, 132, 0xFF8B0000, LAYER_BG);
 	drawString(70,  60,  0xFFA9A9A9, 0x008B0000, "Welcome to STM32F746G-DISCO!", FONT_MIDDLE, LAYER_FG);
@@ -284,6 +273,41 @@ void drawImage(
 	DMA2D->FGPFCCR	= format; // fore-ground color type
 	DMA2D->OPFCCR	= 0b000;  // ARGB8888
 	DMA2D->NLR		= w << DMA2D_NLR_PL_Pos | h << DMA2D_NLR_NL_Pos;
+
+	DMA2D->CR   	|= DMA2D_CR_START;
+}
+
+void drawChar(
+		const uint16_t x,
+		const uint16_t y,
+		const uint32_t foreColor,
+		const uint32_t backColor,
+		const uint16_t symbol,
+		const uint8_t  fontType,
+		const uint8_t  layer)
+{
+	uint32_t height = (FONT_SMALL == fontType) ? sFont.st.head.fontHeight    : mFont.st.head.fontHeight;
+	uint32_t width  = (FONT_SMALL == fontType) ? sFont.st.cdef[symbol].width : mFont.st.cdef[symbol].width;
+	uint8_t* pFB = (uint8_t*)((layer == LAYER_BG) ? &FrameBuffer1 : &FrameBuffer2);
+
+	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
+
+	if (FONT_SMALL == fontType) {
+		setCharBuf06x08(symbol, foreColor, backColor);
+	}
+	else {
+		setCharBuf12x16(symbol, foreColor, backColor);
+	}
+
+	DMA2D->CR 		&= ~DMA2D_CR_MODE_Msk;
+	DMA2D->CR 		|= 0b01 << DMA2D_CR_MODE_Pos; // FG PFC
+	DMA2D->FGMAR	= (uint32_t)&charBuffer;
+	DMA2D->OMAR		= (uint32_t)(&(pFB[(y * LCD_ACTIVE_WIDTH + x) * LCD_FRAME_BUF_BYTES]));
+	DMA2D->FGOR		= 0;
+	DMA2D->OOR		= LCD_ACTIVE_WIDTH - width;
+	DMA2D->FGPFCCR	= 0b0000; // ARGB8888
+	DMA2D->OPFCCR	= 0b000;  // ARGB8888
+	DMA2D->NLR		= width << DMA2D_NLR_PL_Pos | height << DMA2D_NLR_NL_Pos;
 
 	DMA2D->CR   	|= DMA2D_CR_START;
 }
@@ -1229,41 +1253,6 @@ static void initTouchPanelGPIO(void)
 	GPIOI->OTYPER	|=	0b0		<< GPIO_OTYPER_OT13_Pos;		// Push and pull
 	GPIOI->OSPEEDR	|=	0b10	<< GPIO_OSPEEDR_OSPEEDR13_Pos;	// High speed
 	GPIOI->PUPDR	|=	0b00	<< GPIO_PUPDR_PUPDR13_Pos;		// No Pull
-}
-
-static void drawChar(
-		const uint16_t x,
-		const uint16_t y,
-		const uint32_t foreColor,
-		const uint32_t backColor,
-		const uint16_t symbol,
-		const uint8_t  fontType,
-		const uint8_t  layer)
-{
-	uint32_t height = (FONT_SMALL == fontType) ? sFont.st.head.fontHeight    : mFont.st.head.fontHeight;
-	uint32_t width  = (FONT_SMALL == fontType) ? sFont.st.cdef[symbol].width : mFont.st.cdef[symbol].width;
-	uint8_t* pFB = (uint8_t*)((layer == LAYER_BG) ? &FrameBuffer1 : &FrameBuffer2);
-
-	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
-
-	if (FONT_SMALL == fontType) {
-		setCharBuf06x08(symbol, foreColor, backColor);
-	}
-	else {
-		setCharBuf12x16(symbol, foreColor, backColor);
-	}
-
-	DMA2D->CR 		&= ~DMA2D_CR_MODE_Msk;
-	DMA2D->CR 		|= 0b01 << DMA2D_CR_MODE_Pos; // FG PFC
-	DMA2D->FGMAR	= (uint32_t)&charBuffer;
-	DMA2D->OMAR		= (uint32_t)(&(pFB[(y * LCD_ACTIVE_WIDTH + x) * LCD_FRAME_BUF_BYTES]));
-	DMA2D->FGOR		= 0;
-	DMA2D->OOR		= LCD_ACTIVE_WIDTH - width;
-	DMA2D->FGPFCCR	= 0b0000; // ARGB8888
-	DMA2D->OPFCCR	= 0b000;  // ARGB8888
-	DMA2D->NLR		= width << DMA2D_NLR_PL_Pos | height << DMA2D_NLR_NL_Pos;
-
-	DMA2D->CR   	|= DMA2D_CR_START;
 }
 
 static void setCharBuf06x08(

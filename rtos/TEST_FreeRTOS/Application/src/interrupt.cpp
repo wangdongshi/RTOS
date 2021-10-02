@@ -47,7 +47,6 @@ void EXTI15_10_IRQHandler(void)
 			EHmiEventType type = static_cast<EHmiEventType>(HMI_EV_TOUCH_DOWN + eventFlag);
 			EHmiEvent ev(type, x, y);
 			xSemaphoreTake(pHmi->Mutex(), 0);
-			pHmi->SetReady(true);
 			pHmi->SendQueueFromISR(ev);
 			xSemaphoreGive(pHmi->Mutex());
 		}

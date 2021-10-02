@@ -11,7 +11,7 @@
 #ifndef __EHMIALLOC_H__
 #define __EHMIALLOC_H__
 
-//#include <new>
+#include <new>
 #include "platform.h"
 
 class EHmiAlloc {

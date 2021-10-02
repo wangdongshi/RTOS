@@ -8,7 +8,6 @@
  * Author:    WangYu
  *
  **********************************************************************/
-//#include <string.h>
 #include "platform.h"
 #include "EHmiMain.h"
 

@@ -13,6 +13,14 @@
 
 #include "platform.h"
 #include "EHmiEvent.h"
+#include "SCBoard.h"
+
+enum _SCRENN_ID {
+	SCREEN_NONE		= -1,
+	SCREEN_TEST1,
+	SCREEN_TEST2,
+	SCREEN_TEST3,
+};
 
 class EHmiMain {
 public :
@@ -20,7 +28,7 @@ public :
     virtual ~EHmiMain();
 	
 public :
-	void Start(void) {main();}
+	void Start(void) {run();}
     bool IsReady(void) {return(is_ready);}
     void SetReady(bool ready) {is_ready = ready;}
     QueueHandle_t Mutex(void) {return(mtx);}
@@ -28,13 +36,18 @@ public :
     void SendQueueFromISR(EHmiEvent ev);
 	
 private :
+    void run(void);
 	void main(void);
 	void eventHandler(EHmiEvent& ev);
+	void startScreen(void);
+	void changeScreen(const short id, const EHmiEvent& ev);
 
 private :
     bool			is_ready;
 	QueueHandle_t	mtx;
 	QueueHandle_t	deq;
+	short           m_screen_id;
+	SCBoard*        m_screen;
 };
 
 #endif // __EHMI_MAIN_H__

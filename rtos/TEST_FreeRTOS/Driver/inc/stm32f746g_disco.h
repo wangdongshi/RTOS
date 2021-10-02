@@ -36,6 +36,9 @@ extern "C" {
 #define COLOR_A8				(0b1001)
 #define COLOR_A4				(0b1010)
 
+#define LCD_ACTIVE_WIDTH		(480)
+#define LCD_ACTIVE_HEIGHT		(272)
+
 #define MODE_TEST_DRIVER
 //#define MODE_STAND_ALONE
 
@@ -72,6 +75,14 @@ void drawImage(
 		const uint16_t h,
 		const uint32_t addr,
 		const uint8_t  format,
+		const uint8_t  layer);
+void drawChar(
+		const uint16_t x,
+		const uint16_t y,
+		const uint32_t foreColor,
+		const uint32_t backColor,
+		const uint16_t symbol,
+		const uint8_t  fontType,
 		const uint8_t  layer);
 void drawString(
 		const uint16_t x,

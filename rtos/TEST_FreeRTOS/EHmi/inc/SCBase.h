@@ -8,9 +8,31 @@
  * Author:    WangYu
  *
  **********************************************************************/
-
 #ifndef __SCL_BASE_H__
 #define __SCL_BASE_H__
+
+#define SC_FONT_SMALL		FONT_SMALL
+#define SC_FONT_MIDDLE		FONT_MIDDLE
+
+#define SC_COLOR_TRANS		(0x00000000)
+#define SC_COLOR_WHITE		(0xFFFFFFFF)
+#define SC_COLOR_BLACK		(0xFF000000)
+#define SC_COLOR_RED		(0xFFFF0000)
+#define SC_COLOR_YELLOW		(0xFFFFFF00)
+#define SC_COLOR_BLUE		(0xFF0000FF)
+#define SC_COLOR_GREEN		(0xFF00FF00)
+#define SC_COLOR_GRAY		(0xFFBEBEBE)
+#define SC_COLOR_LIGHT_GRAY	(0xFFD3D3D3)
+#define SC_COLOR_DARK_GRAY	(0xFFA9A9A9)
+#define SC_COLOR_ROYAL_BLUE	(0xFF4169E1)
+
+#define ARRANGE_LEFT		(0)
+#define ARRANGE_MIDDLE		(1)
+#define ARRANGE_RIGHT		(2)
+
+// base window size
+#define WINDOW_WIDTH		LCD_ACTIVE_WIDTH
+#define WINDOW_HEIGHT		LCD_ACTIVE_HEIGHT
 
 class SCPoint {
 public :
