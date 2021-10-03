@@ -49,7 +49,7 @@ bool SCLabel::Draw(void)
 	return res;
 }
 
-void SCLabel::setStr(const char* mes)
+void SCLabel::SetStr(const char* mes)
 {
 	int i = 0;
 	while (mes[i] != '\0' && i < SC_LABEL_STRING_MAX)
@@ -60,7 +60,7 @@ void SCLabel::setStr(const char* mes)
 	m_label[i] = 0x0000;
 }
 
-void SCLabel::setStr(const unsigned short* mes)
+void SCLabel::SetStr(const unsigned short* mes)
 {
 	int i = 0;
 	while (mes[i] != 0x0000 && i < SC_LABEL_STRING_MAX)
@@ -71,3 +71,19 @@ void SCLabel::setStr(const unsigned short* mes)
 	m_label[i] = 0x0000;
 }
 
+bool SCLabel::drawString(void)
+{
+	unsigned int x = 0;
+	unsigned int y = m_area.y + m_area.height / 2 - 7;
+
+	unsigned int str_width = GetStrWidth(m_label, m_font);
+	if (m_arrangement == ARRANGE_MIDDLE) {
+		x = m_area.x + m_area.width / 2 - str_width / 2;
+	} else if (m_arrangement == ARRANGE_LEFT) {
+		x = m_area.x + 2;
+	} else if (m_arrangement == ARRANGE_RIGHT) {
+		x = m_area.x + m_area.width - 2 - str_width;
+	}
+
+	return MakeString(x, y, m_label, m_fore_color, SC_COLOR_TRANS, m_font);
+}

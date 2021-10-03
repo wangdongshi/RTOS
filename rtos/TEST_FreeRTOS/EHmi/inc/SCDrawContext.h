@@ -21,7 +21,7 @@ public :
 	SCDrawContext();
 	virtual ~SCDrawContext();
 
-	static void 	Initialize(void);
+	static bool 	Initialize(void);
 	static bool 	IsTransparent(uint32_t color){return color == SC_COLOR_TRANS;}
 
 protected :

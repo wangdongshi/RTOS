@@ -19,10 +19,12 @@ SCDrawContext::~SCDrawContext()
 {
 }
 
-void SCDrawContext::Initialize(void)
+bool SCDrawContext::Initialize(void)
 {
 	fillRect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, SC_COLOR_TRANS,      LAYER_FG);
 	fillRect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, SC_COLOR_LIGHT_GRAY, LAYER_BG);
+
+	return true;
 }
 
 bool SCDrawContext::drawRect(

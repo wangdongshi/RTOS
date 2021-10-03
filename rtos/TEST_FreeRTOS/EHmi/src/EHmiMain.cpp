@@ -11,6 +11,7 @@
 #include "EHmiMain.h"
 #include "SCDrawCommand.h"
 #include "PICTest1.h"
+#include "PICTest2.h"
 
 #define HMI_EVENT_PROCESS_INTERVAL	(100)	// 100ms
 #define HMI_EVENT_QUEUE_DEPTH		(10)
@@ -67,28 +68,30 @@ void EHmiMain::main(void)
 void EHmiMain::eventHandler(EHmiEvent& ev)
 {
 	EHmiEventType type = HMI_EV_NONE;
-	uint16_t x, y;
-
 	type = ev.GetEvent();
+
+	unsigned int ui1 = ev.GetUInt(0);
+	unsigned int ui2 = ev.GetUInt(1);
+	SCPoint point(ui1, ui2);
+
 	switch(type) {
 	case HMI_EV_NONE:
 	case HMI_EV_DATA_UPDATE:
+		break;
 	case HMI_EV_CYCLIC_REFRESH:
+		m_screen->Update();
 		break;
 	case HMI_EV_TOUCH_DOWN:
-		x = ev.GetUInt(0);
-		y = ev.GetUInt(1);
-		TRACE("Touch Down\t(x=%d, y=%d).\r\n", x, y);
+		TRACE("Touch Down\t(x=%d, y=%d).\r\n", point.x, point.y);
+		m_screen->TDown(point);
 		break;
 	case HMI_EV_TOUCH_UP:
-		x = ev.GetUInt(0);
-		y = ev.GetUInt(1);
-		TRACE("Touch Up\t(x=%d, y=%d).\r\n", x, y);
+		TRACE("Touch Up\t(x=%d, y=%d).\r\n", point.x, point.y);
+		m_screen->TUp(point);
 		break;
 	case HMI_EV_TOUCH_MOVE:
-		x = ev.GetUInt(0);
-		y = ev.GetUInt(1);
-		TRACE("Touch Move\t(x=%d, y=%d).\r\n", x, y);
+		TRACE("Touch Move\t(x=%d, y=%d).\r\n", point.x, point.y);
+		m_screen->TMove(point);
 		break;
 	case HMI_EV_SCREEN_CHG:
 		changeScreen(static_cast<short>(ev.GetULong()), ev);
@@ -107,11 +110,13 @@ void EHmiMain::startScreen(void)
 	xSemaphoreTake(this->Mutex(), 0);
 	this->SendQueue(ev);
 	xSemaphoreGive(this->Mutex());
+
+	SetReady(true);
 }
 
 void EHmiMain::changeScreen(const short id, const EHmiEvent& ev)
 {
-	// destory old screen
+	// destroy old screen
 	if(m_screen != NULL) {
 		delete m_screen;
 		m_screen = NULL;
@@ -120,10 +125,12 @@ void EHmiMain::changeScreen(const short id, const EHmiEvent& ev)
 	// create new screen
 	SCRect area(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 	switch(id) {
+		default:
 		case SCREEN_TEST1:
 			m_screen = new PICTest1(area, id);
 			break;
-		default:
+		case SCREEN_TEST2:
+			m_screen = new PICTest2(area, id);
 			break;
 	}
 }

@@ -12,10 +12,12 @@
 #define __SCL_DRAW_COMMAND_H__
 
 #include <string>
+#include <time.h>
 #include "font.h"
 #include "SCDrawContext.h"
 
 #define InitializeScreen	SCDrawCommand::Initialize
+#define GetTime				SCDrawCommand::GetSysTime
 #define GetStrWidth			SCDrawCommand::GetStringWidth
 #define MakePoint			SCDrawCommand::DrawPoint
 #define MakeLine			SCDrawCommand::DrawLine
@@ -31,6 +33,7 @@ public:
 	virtual ~SCDrawCommand();
 
 	static uint32_t	GetStringWidth(const uint16_t* str, const uint32_t font);
+	static time_t	GetSysTime(void);
 
 	static bool		DrawPoint(const uint32_t x,
 							const uint32_t y,

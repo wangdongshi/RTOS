@@ -48,7 +48,7 @@
 #define configMAX_PRIORITIES					( 5 )
 #define configMINIMAL_STACK_SIZE				( ( unsigned short ) 120 )
 #define configAPPLICATION_ALLOCATED_HEAP		1
-#define configTOTAL_HEAP_SIZE					( ( size_t ) ( 300 * 1024 ) ) // modify by Wang.Yu 2021/9/5
+#define configTOTAL_HEAP_SIZE					( ( size_t ) ( 2 * 1024 * 1024 ) ) // modify by Wang.Yu 2021/9/5
 #define configMAX_TASK_NAME_LEN					( 16 )
 #define configUSE_TRACE_FACILITY				1
 #define configUSE_16_BIT_TICKS					0

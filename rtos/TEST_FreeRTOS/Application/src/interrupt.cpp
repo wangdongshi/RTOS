@@ -37,18 +37,20 @@ void USART1_IRQHandler(void)
 void EXTI15_10_IRQHandler(void)
 {
 	if((EXTI->PR & EXTI_PR_PR13_Msk) != 0) { // from PI13(LCD_INT)
-		uint8_t gestureID = readFT5336GestureID();
-		uint8_t ptsNumber = readFT5336PointNum();
-		uint8_t eventFlag = readFT5336EventFlag();
-		if (gestureID == 0x00 && ptsNumber == 1 && eventFlag < 3) {
-			uint32_t x = (uint32_t)readFT5336PointX();
-			uint32_t y = (uint32_t)readFT5336PointY();
-			// eventFlag = 0:DOWN, 1:UP, 2:MOVE, 3:RESERVED
-			EHmiEventType type = static_cast<EHmiEventType>(HMI_EV_TOUCH_DOWN + eventFlag);
-			EHmiEvent ev(type, x, y);
-			xSemaphoreTake(pHmi->Mutex(), 0);
-			pHmi->SendQueueFromISR(ev);
-			xSemaphoreGive(pHmi->Mutex());
+		if (pHmi->IsReady()) {
+			uint8_t gestureID = readFT5336GestureID();
+			uint8_t ptsNumber = readFT5336PointNum();
+			uint8_t eventFlag = readFT5336EventFlag();
+			if (gestureID == 0x00 && ptsNumber == 1 && eventFlag < 3) {
+				uint32_t x = (uint32_t)readFT5336PointX();
+				uint32_t y = (uint32_t)readFT5336PointY();
+				// eventFlag = 0:DOWN, 1:UP, 2:MOVE, 3:RESERVED
+				EHmiEventType type = static_cast<EHmiEventType>(HMI_EV_TOUCH_DOWN + eventFlag);
+				EHmiEvent ev(type, x, y);
+				xSemaphoreTake(pHmi->Mutex(), 0);
+				pHmi->SendQueueFromISR(ev);
+				xSemaphoreGive(pHmi->Mutex());
+			}
 		}
 	}
 	EXTI->PR |= EXTI_PR_PR13;

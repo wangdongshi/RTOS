@@ -53,9 +53,20 @@ void startTask(void *pvParameters)
 
 void led1Task(void *pvParameters)
 {
+	uint32_t count1s = 0;
 	while(1) {
 		toggleLED1();
 		vTaskDelay(500);
+		// send EHMI 1s cyclic refresh event
+		count1s++;
+		count1s = count1s % 2;
+		if (count1s == 0) {
+			EHmiEventType type = HMI_EV_CYCLIC_REFRESH;
+			EHmiEvent ev(type);
+			xSemaphoreTake(pHmi->Mutex(), 0);
+			pHmi->SendQueue(ev);
+			xSemaphoreGive(pHmi->Mutex());
+		}
 	}
 }
 

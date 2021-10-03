@@ -26,12 +26,16 @@ public :
 	virtual ~SCLabel();
 
 	virtual bool	Draw(void);
-	void			setStr(const char* mes);
-	void			setStr(const unsigned short* mes);
+	virtual bool	Update(void){return true;}
+	void			SetStr(const char* mes);
+	void			SetStr(const unsigned short* mes);
 	void			Arrangement(int arr){this->m_arrangement = arr;}
+
+protected :
+	virtual bool	drawString(void);
 	
-private:
-	uint32_t		m_font;
+protected:
+	unsigned int	m_font;
 	unsigned short	m_label[SC_LABEL_STRING_MAX+1];
 	int				m_arrangement;
 };

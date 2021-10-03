@@ -34,6 +34,7 @@ public :
     QueueHandle_t Mutex(void) {return(mtx);}
     void SendQueue(EHmiEvent ev);
     void SendQueueFromISR(EHmiEvent ev);
+	SCBoard* GetBoard(){return(m_screen);}
 	
 private :
     void run(void);

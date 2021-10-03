@@ -85,7 +85,7 @@ void SCBoard::DestroyAllParts(void)
 	}
 
 	m_child = NULL;
-	//m_captured = NULL;
+	m_captured = NULL;
 }
 
 void SCBoard::Initialize(void)
@@ -105,7 +105,7 @@ bool SCBoard::Draw(void)
 	if(m_child) {
 		SCParts* child = m_child;
 		do {
-			res &= child->Draw();
+			res &= child->ReDraw();
 			child = child->Next();
 		} while(child);
 	}
@@ -115,7 +115,51 @@ bool SCBoard::Draw(void)
 
 bool SCBoard::DrawBackground(void)
 {
-	return PaintRect(m_area, SC_COLOR_LIGHT_GRAY);
+	bool res = true;
+
+	res &= InitializeScreen();
+	res &= PaintRect(m_area, SC_COLOR_LIGHT_GRAY);
+
+	return res;
+}
+
+bool SCBoard::Update(void)
+{
+	bool res = true;
+	
+	SCParts* child = m_child;
+	while(child) {
+		res &= child->Update();
+		child = child->Next();
+	}
+	
+	return res;
+}
+
+void SCBoard::TDown(const SCPoint& point)
+{
+	SCParts* target = GetOperableChild(point);
+
+	if(target) {
+		m_captured = target;
+		m_captured->TDown(point);
+	}
+}
+
+void SCBoard::TUp(const SCPoint& point)
+{
+	if(m_captured) {
+		m_touch_point = point;
+		m_captured->TUp(point);
+		m_captured = 0;
+	}
+}
+
+void SCBoard::TMove(const SCPoint& point)
+{
+	if(m_captured) {
+		m_captured->TMove(point);
+	}
 }
 
 SCParts* SCBoard::GetChild(const unsigned short x, const unsigned short y) const
@@ -171,3 +215,22 @@ SCParts* SCBoard::GetLastChild(void) const
 	return(target);
 }
 
+SCParts* SCBoard::GetOperableChild(const SCPoint& point) const
+{
+	SCParts* target = GetLastChild();
+
+	while(target) {
+		if(target->GetVisible()) {
+			SCRect area = target->GetArea();
+			if(area.Contains(point)) {
+				//if(target->GetEnable() == false) {
+				//	target = 0;
+				//}
+				break;
+			}
+		}
+		target = target->Prev();
+	}
+
+	return(target);
+}

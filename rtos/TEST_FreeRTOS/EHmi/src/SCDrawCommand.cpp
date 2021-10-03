@@ -22,7 +22,7 @@ SCDrawCommand::~SCDrawCommand()
 
 uint32_t SCDrawCommand::GetStringWidth(const uint16_t* str, const uint32_t font)
 {
-	uint32_t	width = 0;
+	uint32_t width = 0;
 
 	do {
 		uint32_t i = static_cast<uint32_t>(*str);
@@ -30,6 +30,17 @@ uint32_t SCDrawCommand::GetStringWidth(const uint16_t* str, const uint32_t font)
 	} while (*str++);
 
 	return width;
+}
+
+time_t SCDrawCommand::GetSysTime()
+{
+	static uint32_t add = 0;
+	time_t sys_time;
+
+    time(&sys_time);
+    sys_time += 8*3600 + add++;  // transform the time zone
+
+    return sys_time;
 }
 
 bool SCDrawCommand::DrawPoint(
@@ -54,8 +65,8 @@ bool SCDrawCommand::DrawLine(
 	} else {
 		uint32_t x = std::min(x1, x2);
 		uint32_t y = std::min(y1, y2);
-		uint32_t width  = std::fabs(x1 - x2);
-		uint32_t height = std::fabs(y1 - y2);
+		uint32_t width  = (uint32_t)(std::fabs((int32_t)x1 - (int32_t)x2));
+		uint32_t height = (uint32_t)(std::fabs((int32_t)y1 - (int32_t)y2));
 		if (width  == 0) ++width;
 		if (height == 0) ++height;
 		res = drawRect(x, y, width, height, color);
