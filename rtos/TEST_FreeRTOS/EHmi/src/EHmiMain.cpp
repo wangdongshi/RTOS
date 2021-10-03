@@ -16,7 +16,9 @@
 #define HMI_EVENT_QUEUE_DEPTH		(10)
 
 EHmiMain::EHmiMain() :
-is_ready(false)
+is_ready(false),
+m_screen_id(SCREEN_NONE),
+m_screen(NULL)
 {
 	mtx = xSemaphoreCreateMutex();
 	deq = xQueueCreate(HMI_EVENT_QUEUE_DEPTH, sizeof(EHmiEvent));

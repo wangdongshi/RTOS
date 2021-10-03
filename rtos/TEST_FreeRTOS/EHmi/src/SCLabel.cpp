@@ -31,7 +31,7 @@ bool SCLabel::Draw(void)
 {
 	bool res = true;
 
-	unsigned int x;
+	unsigned int x = 0;
 	unsigned int y = m_area.y + m_area.height / 2 - 7;
 
 	res &= DrawBackground();

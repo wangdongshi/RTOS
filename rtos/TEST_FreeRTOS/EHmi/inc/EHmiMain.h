@@ -43,9 +43,9 @@ private :
 	void changeScreen(const short id, const EHmiEvent& ev);
 
 private :
-    bool			is_ready;
 	QueueHandle_t	mtx;
 	QueueHandle_t	deq;
+    bool			is_ready;
 	short           m_screen_id;
 	SCBoard*        m_screen;
 };
