@@ -32,61 +32,61 @@ public:
 	SCDrawCommand();
 	virtual ~SCDrawCommand();
 
-	static uint32_t	GetStringWidth(const uint16_t* str, const uint32_t font);
+	static unsigned int	GetStringWidth(const unsigned short* str, const unsigned int font);
 	static time_t	GetSysTime(void);
 
-	static bool		DrawPoint(const uint32_t x,
-							const uint32_t y,
-							const uint32_t color = SC_COLOR_BLACK);
-	static bool		DrawLine(const uint32_t x1,
-							const uint32_t y1,
-							const uint32_t x2,
-							const uint32_t y2,
-							const uint32_t color = SC_COLOR_BLACK);
-	static bool		FillRect(const uint32_t x,
-							const uint32_t y,
-							const uint32_t width,
-							const uint32_t height,
-							const uint32_t color);
-	static bool		DrawRect(const uint32_t x,
-							const uint32_t y,
-							const uint32_t width,
-							const uint32_t height,
-							const uint32_t foreColor = SC_COLOR_BLACK,
-							const uint32_t backColor = SC_COLOR_TRANS);
-	static bool		DrawString(const uint32_t x,
-							const uint32_t y,
-							const uint16_t* text,
-							const uint32_t foreColor = SC_COLOR_BLACK,
-							const uint32_t backColor = SC_COLOR_TRANS,
-							const uint32_t font = SC_FONT_MIDDLE);
-	static bool		DrawString(const uint32_t x,
-							const uint32_t y,
+	static bool		DrawPoint(const unsigned int x,
+							const unsigned int y,
+							const unsigned int color = SC_COLOR_BLACK);
+	static bool		DrawLine(const unsigned int x1,
+							const unsigned int y1,
+							const unsigned int x2,
+							const unsigned int y2,
+							const unsigned int color = SC_COLOR_BLACK);
+	static bool		FillRect(const unsigned int x,
+							const unsigned int y,
+							const unsigned int width,
+							const unsigned int height,
+							const unsigned int color);
+	static bool		DrawRect(const unsigned int x,
+							const unsigned int y,
+							const unsigned int width,
+							const unsigned int height,
+							const unsigned int fore_color = SC_COLOR_BLACK,
+							const unsigned int back_color = SC_COLOR_TRANS);
+	static bool		DrawString(const unsigned int x,
+							const unsigned int y,
+							const unsigned short* text,
+							const unsigned int fore_color = SC_COLOR_BLACK,
+							const unsigned int back_color = SC_COLOR_TRANS,
+							const unsigned int font = SC_FONT_MIDDLE);
+	static bool		DrawString(const unsigned int x,
+							const unsigned int y,
 							const std::string text,
-							const uint32_t foreColor = SC_COLOR_BLACK,
-							const uint32_t backColor = SC_COLOR_TRANS,
-							const uint32_t font = SC_FONT_MIDDLE);
+							const unsigned int fore_color = SC_COLOR_BLACK,
+							const unsigned int back_color = SC_COLOR_TRANS,
+							const unsigned int font = SC_FONT_MIDDLE);
 								
 	static bool		DrawPoint(const SCPoint& p,
-							const uint32_t color = SC_COLOR_BLACK);
+							const unsigned int color = SC_COLOR_BLACK);
 	static bool		DrawLine(const SCPoint& p1,
 							const SCPoint& p2,
-							const uint32_t color = SC_COLOR_BLACK);
+							const unsigned int color = SC_COLOR_BLACK);
 	static bool		FillRect(const SCRect& rect,
-							const uint32_t color);
+							const unsigned int color);
 	static bool		DrawRect(const SCRect& rect,
-							const uint32_t foreColor = SC_COLOR_BLACK,
-							const uint32_t backColor = SC_COLOR_TRANS);
+							const unsigned int fore_color = SC_COLOR_BLACK,
+							const unsigned int back_color = SC_COLOR_TRANS);
 	static bool		DrawString(const SCPoint& p,
-							const uint16_t* text,
-							const uint32_t foreColor = SC_COLOR_BLACK,
-							const uint32_t backColor = SC_COLOR_TRANS,
-							const uint32_t font = SC_FONT_MIDDLE);
+							const unsigned short* text,
+							const unsigned int fore_color = SC_COLOR_BLACK,
+							const unsigned int back_color = SC_COLOR_TRANS,
+							const unsigned int font = SC_FONT_MIDDLE);
 	static bool		DrawString(const SCPoint& p,
 							const std::string text,
-							const uint32_t foreColor = SC_COLOR_BLACK,
-							const uint32_t backColor = SC_COLOR_TRANS,
-							const uint32_t font = SC_FONT_MIDDLE);
+							const unsigned int fore_color = SC_COLOR_BLACK,
+							const unsigned int back_color = SC_COLOR_TRANS,
+							const unsigned int font = SC_FONT_MIDDLE);
 };
 
 #endif // __SCL_DRAW_COMMAND_H__

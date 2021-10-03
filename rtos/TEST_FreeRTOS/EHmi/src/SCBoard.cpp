@@ -15,7 +15,7 @@ SCBoard::SCBoard(const SCRect& area, const short id) :
 SCCore(area),
 m_screen_id(id),
 m_child(0),
-//m_captured(0),
+m_captured(0),
 //m_dialog(0),
 //m_parent(false),
 m_touch_point()

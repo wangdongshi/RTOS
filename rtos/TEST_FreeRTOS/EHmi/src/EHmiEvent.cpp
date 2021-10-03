@@ -22,7 +22,7 @@ EHmiEvent::EHmiEvent(
 
 EHmiEvent::EHmiEvent(
 	EHmiEventType ev,
-	uint64_t ul
+	unsigned long ul
 ) : type(ev)
 {
 	arg.lp = ul;
@@ -30,8 +30,8 @@ EHmiEvent::EHmiEvent(
 
 EHmiEvent::EHmiEvent(
 	EHmiEventType ev,
-	uint32_t i1,
-	uint32_t i2
+	unsigned int i1,
+	unsigned int i2
 ) : type(ev)
 {
 	arg.ip[0] = i1;
@@ -40,10 +40,10 @@ EHmiEvent::EHmiEvent(
 
 EHmiEvent::EHmiEvent(
 	EHmiEventType ev,
-	uint16_t s1,
-	uint16_t s2,
-	uint16_t s3,
-	uint16_t s4
+	unsigned short s1,
+	unsigned short s2,
+	unsigned short s3,
+	unsigned short s4
 ) : type(ev)
 {
 	arg.sp[0] = s1;

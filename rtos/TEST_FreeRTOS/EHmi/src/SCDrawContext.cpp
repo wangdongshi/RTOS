@@ -28,11 +28,11 @@ bool SCDrawContext::Initialize(void)
 }
 
 bool SCDrawContext::drawRect(
-		const uint32_t x,
-		const uint32_t y,
-		const uint32_t width,
-		const uint32_t height,
-		const uint32_t color)
+		const unsigned int x,
+		const unsigned int y,
+		const unsigned int width,
+		const unsigned int height,
+		const unsigned int color)
 {
 	assert_param(WINDOW_WIDTH  >= x + width);
 	assert_param(WINDOW_HEIGHT >= y + height);
@@ -45,36 +45,36 @@ bool SCDrawContext::drawRect(
 
 bool SCDrawContext::drawRect(
 		const SCPoint pos,
-		const uint32_t width,
-		const uint32_t height,
-		const uint32_t color)
+		const unsigned int width,
+		const unsigned int height,
+		const unsigned int color)
 {
 	return drawRect(pos.x, pos.y, width, height, color);
 }
 
 bool SCDrawContext::drawASCII(
-		const uint32_t x,
-		const uint32_t y,
+		const unsigned int x,
+		const unsigned int y,
 		const char ascii,
-		const uint32_t foreColor,
-		const uint32_t backColor,
-		const uint32_t font)
+		const unsigned int fore_color,
+		const unsigned int back_color,
+		const unsigned int font)
 {
 	assert_param(WINDOW_WIDTH  > x);
 	assert_param(WINDOW_HEIGHT > y);
 	assert_param(ascii < 128);
 	assert_param(font < 2);
-	drawChar(x, y, foreColor, backColor, ascii, font, LAYER_FG);
+	drawChar(x, y, fore_color, back_color, ascii, font, LAYER_FG);
 	return true;
 }
 
 bool SCDrawContext::drawASCII(
 		const SCPoint pos,
 		const char ascii,
-		const uint32_t foreColor,
-		const uint32_t backColor,
-		const uint32_t font)
+		const unsigned int fore_color,
+		const unsigned int back_color,
+		const unsigned int font)
 {
-	return drawASCII(pos.x, pos.y, ascii, foreColor, backColor, font);
+	return drawASCII(pos.x, pos.y, ascii, fore_color, back_color, font);
 }
 

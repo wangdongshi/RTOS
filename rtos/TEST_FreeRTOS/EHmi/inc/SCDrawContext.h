@@ -22,29 +22,29 @@ public :
 	virtual ~SCDrawContext();
 
 	static bool 	Initialize(void);
-	static bool 	IsTransparent(uint32_t color){return color == SC_COLOR_TRANS;}
+	static bool 	IsTransparent(unsigned int color){return color == SC_COLOR_TRANS;}
 
 protected :
-	static bool		drawRect(const uint32_t x,
-							const uint32_t y,
-							const uint32_t width,
-							const uint32_t height,
-							const uint32_t color);
+	static bool		drawRect(const unsigned int x,
+							const unsigned int y,
+							const unsigned int width,
+							const unsigned int height,
+							const unsigned int color);
 	static bool		drawRect(const SCPoint pos,
-							const uint32_t width,
-							const uint32_t height,
-							const uint32_t color);
-	static bool		drawASCII(const uint32_t x,
-							const uint32_t y,
+							const unsigned int width,
+							const unsigned int height,
+							const unsigned int color);
+	static bool		drawASCII(const unsigned int x,
+							const unsigned int y,
 							const char ascii,
-							const uint32_t foreColor,
-							const uint32_t back_color,
-							const uint32_t font);
+							const unsigned int fore_color,
+							const unsigned int back_color,
+							const unsigned int font);
 	static bool		drawASCII(const SCPoint pos,
 							const char ascii,
-							const uint32_t foreColor,
-							const uint32_t back_color,
-							const uint32_t font);
+							const unsigned int fore_color,
+							const unsigned int back_color,
+							const unsigned int font);
 };
 
 #endif // __SCL_DRAW_CONTEXT_H__

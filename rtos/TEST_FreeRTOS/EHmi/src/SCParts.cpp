@@ -11,8 +11,11 @@
 #include "SCParts.h"
 #include "SCDrawCommand.h"
 
-SCParts::SCParts(const short id, const SCRect& area,
-		const uint32_t foreColor, const uint32_t backColor) :
+SCParts::SCParts(
+		const short id,
+		const SCRect& area,
+		const unsigned int fore_color,
+		const unsigned int back_color) :
 SCCore(area),
 m_id(id),
 m_parent(0),
@@ -21,8 +24,8 @@ m_prev(0),
 m_callback(0),
 m_visible(true),
 m_pushed(false),
-m_fore_color(foreColor),
-m_back_color(backColor)
+m_fore_color(fore_color),
+m_back_color(back_color)
 {
 }
 

@@ -14,14 +14,14 @@
 #include "platform.h"
 
 typedef union _EHmiEventParam{
-	uint64_t	lp;
-	uint32_t	ip[2];
-	uint16_t	sp[4];
+	unsigned long	lp;
+	unsigned int	ip[2];
+	unsigned short	sp[4];
 	
 	_EHmiEventParam() {}
-	_EHmiEventParam(uint64_t ul) {lp = ul;}
-	_EHmiEventParam(uint32_t i1, uint32_t i2) {ip[0] = i1; ip[1] = i2;}
-	_EHmiEventParam(uint16_t s1, uint16_t s2, uint16_t s3, uint16_t s4) {sp[0] = s1; sp[1] = s2; sp[2] = s3; sp[3] = s4;}
+	_EHmiEventParam(unsigned long ul) {lp = ul;}
+	_EHmiEventParam(unsigned int i1, unsigned int i2) {ip[0] = i1; ip[1] = i2;}
+	_EHmiEventParam(unsigned short s1, unsigned short s2, unsigned short s3, unsigned short s4) {sp[0] = s1; sp[1] = s2; sp[2] = s3; sp[3] = s4;}
 } EHmiEventParam;
 
 typedef enum {
@@ -39,25 +39,25 @@ public :
     EHmiEvent();
     EHmiEvent(EHmiEventType ev);
     EHmiEvent(EHmiEventType ev,
-    		uint64_t ul);
+    		unsigned long ul);
     EHmiEvent(EHmiEventType ev,
-			uint32_t i1,
-			uint32_t i2
+			unsigned int i1,
+			unsigned int i2
 			);
     EHmiEvent(EHmiEventType ev,
-			uint16_t s1,
-			uint16_t s2,
-			uint16_t s3,
-			uint16_t s4
+			unsigned short s1,
+			unsigned short s2,
+			unsigned short s3,
+			unsigned short s4
 			);
     ~EHmiEvent();
     EHmiEventType GetEvent() {return(type);}
-    uint64_t GetULong() {return(arg.lp);}
-    uint32_t GetUInt(uint32_t arrayNo) {return(arg.ip[arrayNo]);}
-    uint16_t GetUShort(uint16_t arrayNo) {return(arg.sp[arrayNo]);}
-	void SetULong(uint64_t param) {arg.lp = param;}
-	void SetUInt(uint32_t arrayNo, uint32_t param) {arg.ip[arrayNo] = param;}
-	void SetUShort(uint32_t arrayNo, uint16_t param) {arg.sp[arrayNo] = param;}
+    unsigned long GetULong() {return(arg.lp);}
+    unsigned int GetUInt(unsigned int arrayNo) {return(arg.ip[arrayNo]);}
+    unsigned short GetUShort(unsigned short arrayNo) {return(arg.sp[arrayNo]);}
+	void SetULong(unsigned long param) {arg.lp = param;}
+	void SetUInt(unsigned int arrayNo, unsigned int param) {arg.ip[arrayNo] = param;}
+	void SetUShort(unsigned int arrayNo, unsigned short param) {arg.sp[arrayNo] = param;}
 	
 private :
     EHmiEventType	type;

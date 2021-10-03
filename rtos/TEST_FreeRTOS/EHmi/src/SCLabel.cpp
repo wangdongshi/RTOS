@@ -13,9 +13,9 @@
 
 SCLabel::SCLabel(const short id,
 		const SCRect& area,
-		const uint32_t fore_color,
-		const uint32_t back_color,
-		const uint32_t font) :
+		const unsigned int fore_color,
+		const unsigned int back_color,
+		const unsigned int font) :
 SCParts(id, area, fore_color, back_color),
 m_font(font),
 m_arrangement(ARRANGE_MIDDLE)

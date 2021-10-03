@@ -22,8 +22,8 @@ class SCCallback;
 class SCParts : public SCCore {
 public :
 	SCParts(const short id, const SCRect& area,
-			const uint32_t fore_color = SC_COLOR_BLACK,
-			const uint32_t back_color = SC_COLOR_TRANS);
+			const unsigned int fore_color = SC_COLOR_BLACK,
+			const unsigned int back_color = SC_COLOR_TRANS);
 	virtual ~SCParts();
 
 	virtual void	Initialize() {}
