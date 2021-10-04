@@ -28,6 +28,8 @@
 #ifndef FREERTOS_CONFIG_H
 #define FREERTOS_CONFIG_H
 
+#include "assert_param.h"
+
 /*-----------------------------------------------------------
  * Application specific definitions.
  *
@@ -78,6 +80,15 @@ to exclude the API function. */
 #define INCLUDE_vTaskSuspend					1
 #define INCLUDE_vTaskDelayUntil					1
 #define INCLUDE_vTaskDelay						1
+
+/* Assert definition add by Wang.Yu 2021/9/25 */
+#ifdef DEBUG
+    #define configASSERT_DEFINED    			1
+	#define configASSERT( x )					assert_param( x )
+#else
+    #define configASSERT_DEFINED    			0
+#endif
+
 
 /* This is the raw value as per the Cortex-M3 NVIC.  Values can be 255
 (lowest) to 0 (1?) (highest). */
