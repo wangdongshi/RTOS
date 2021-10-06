@@ -16,13 +16,25 @@
 #define HMI_EVENT_PROCESS_INTERVAL	(100)	// 100ms
 #define HMI_EVENT_QUEUE_DEPTH		(10)
 
+void updateHandler(TimerHandle_t xTimer)
+{
+	EHmiEventType type = HMI_EV_CYCLIC_REFRESH;
+	EHmiEvent ev(type);
+	xSemaphoreTake(pHmi->Mutex(), 0);
+	pHmi->SendQueue(ev); // send EHMI 1s cyclic refresh event
+	xSemaphoreGive(pHmi->Mutex());
+}
+
 EHmiMain::EHmiMain() :
 is_ready(false),
 m_screen_id(SCREEN_NONE),
 m_screen(NULL)
 {
-	mtx = xSemaphoreCreateMutex();
-	deq = xQueueCreate(HMI_EVENT_QUEUE_DEPTH, sizeof(EHmiEvent));
+	taskENTER_CRITICAL();
+	mtx		= xSemaphoreCreateMutex();
+	deq		= xQueueCreate(HMI_EVENT_QUEUE_DEPTH, sizeof(EHmiEvent));
+	timer	= xTimerCreate("HMI_CYCLIC", 1000, pdTRUE, 0, updateHandler);
+	taskEXIT_CRITICAL();
 }
 
 EHmiMain::~EHmiMain()
@@ -104,12 +116,14 @@ void EHmiMain::eventHandler(EHmiEvent& ev)
 
 void EHmiMain::startScreen(void)
 {
-	InitializeScreen();
+	InitializeLCD();
 
 	EHmiEvent ev(HMI_EV_SCREEN_CHG, SCREEN_TEST1);
 	xSemaphoreTake(this->Mutex(), 0);
 	this->SendQueue(ev);
 	xSemaphoreGive(this->Mutex());
+
+	xTimerStart(timer, 0);
 
 	SetReady(true);
 }

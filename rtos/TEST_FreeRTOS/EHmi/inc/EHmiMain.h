@@ -44,6 +44,7 @@ private :
 	void changeScreen(const short id, const EHmiEvent& ev);
 
 private :
+	TimerHandle_t	timer;
 	QueueHandle_t	mtx;
 	QueueHandle_t	deq;
     bool			is_ready;

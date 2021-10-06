@@ -117,7 +117,7 @@ bool SCBoard::DrawBackground(void)
 {
 	bool res = true;
 
-	res &= InitializeScreen();
+	res &= InitializeLCD();
 	res &= PaintRect(m_area, SC_COLOR_LIGHT_GRAY);
 
 	return res;

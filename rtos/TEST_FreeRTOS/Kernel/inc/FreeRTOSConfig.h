@@ -89,6 +89,11 @@ to exclude the API function. */
     #define configASSERT_DEFINED    			0
 #endif
 
+/* Software timer definition add by Wang.Yu 2021/9/25 */
+#define configUSE_TIMERS    					1
+#define configTIMER_TASK_PRIORITY				3
+#define configTIMER_QUEUE_LENGTH				5
+#define configTIMER_TASK_STACK_DEPTH			200
 
 /* This is the raw value as per the Cortex-M3 NVIC.  Values can be 255
 (lowest) to 0 (1?) (highest). */

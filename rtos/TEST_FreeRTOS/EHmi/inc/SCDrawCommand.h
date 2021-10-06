@@ -16,7 +16,7 @@
 #include "font.h"
 #include "SCDrawContext.h"
 
-#define InitializeScreen	SCDrawCommand::Initialize
+#define InitializeLCD		SCDrawCommand::Initialize
 #define GetTime				SCDrawCommand::GetSysTime
 #define GetStrWidth			SCDrawCommand::GetStringWidth
 #define MakePoint			SCDrawCommand::DrawPoint

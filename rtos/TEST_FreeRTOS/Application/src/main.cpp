@@ -41,7 +41,7 @@ int main(void)
 
 void startTask(void *pvParameters)
 {
-	// create task
+	// create system resource
 	taskENTER_CRITICAL();
 	xTaskCreate(led1Task,	"LED1_TASK",	400,	NULL,	2,	NULL); // for monitor board
 	xTaskCreate(hmiTask,	"HMI_TASK",		400,	NULL,	2,	NULL);
@@ -53,20 +53,9 @@ void startTask(void *pvParameters)
 
 void led1Task(void *pvParameters)
 {
-	uint32_t count1s = 0;
 	while(1) {
 		toggleLED1();
 		vTaskDelay(500);
-		// send EHMI 1s cyclic refresh event
-		count1s++;
-		count1s = count1s % 2;
-		if (count1s == 0) {
-			EHmiEventType type = HMI_EV_CYCLIC_REFRESH;
-			EHmiEvent ev(type);
-			xSemaphoreTake(pHmi->Mutex(), 0);
-			pHmi->SendQueue(ev);
-			xSemaphoreGive(pHmi->Mutex());
-		}
 	}
 }
 
