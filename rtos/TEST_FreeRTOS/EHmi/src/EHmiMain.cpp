@@ -31,9 +31,10 @@ m_screen_id(SCREEN_NONE),
 m_screen(NULL)
 {
 	taskENTER_CRITICAL();
+	ev_flag	= xEventGroupCreate();
+	timer	= xTimerCreate("HMI_CYCLIC", 1000, pdTRUE, 0, updateHandler);
 	mtx		= xSemaphoreCreateMutex();
 	deq		= xQueueCreate(HMI_EVENT_QUEUE_DEPTH, sizeof(EHmiEvent));
-	timer	= xTimerCreate("HMI_CYCLIC", 1000, pdTRUE, 0, updateHandler);
 	taskEXIT_CRITICAL();
 }
 
@@ -116,6 +117,8 @@ void EHmiMain::eventHandler(EHmiEvent& ev)
 
 void EHmiMain::startScreen(void)
 {
+	xEventGroupWaitBits(this->EventFlag(), TASK_ALL_READY_EVENT, pdTRUE, pdTRUE, portMAX_DELAY);
+
 	InitializeLCD();
 
 	EHmiEvent ev(HMI_EV_SCREEN_CHG, SCREEN_TEST1);

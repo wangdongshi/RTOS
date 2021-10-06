@@ -53,6 +53,8 @@ void startTask(void *pvParameters)
 
 void led1Task(void *pvParameters)
 {
+	xEventGroupSetBits(pHmi->EventFlag(), TASK_LED1_READY_EVENT);
+
 	while(1) {
 		toggleLED1();
 		vTaskDelay(500);
@@ -73,6 +75,7 @@ void mainTask(void *pvParameters)
 
 	// main loop
 	TaskHandle_t handler = xTaskGetHandle("MAIN_TASK");
+	xEventGroupSetBits(pHmi->EventFlag(), TASK_MAIN_READY_EVENT);
 	vTaskSuspend(handler);
 	/*
 	while(1) {

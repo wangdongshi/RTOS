@@ -15,6 +15,10 @@
 #include "EHmiEvent.h"
 #include "SCBoard.h"
 
+#define TASK_MAIN_READY_EVENT		(0x1 << 0)
+#define TASK_LED1_READY_EVENT		(0x1 << 1)
+#define TASK_ALL_READY_EVENT		(TASK_MAIN_READY_EVENT | TASK_LED1_READY_EVENT)
+
 enum _SCRENN_ID {
 	SCREEN_NONE		= -1,
 	SCREEN_TEST1,
@@ -32,6 +36,7 @@ public :
     bool IsReady(void) {return(is_ready);}
     void SetReady(bool ready) {is_ready = ready;}
     QueueHandle_t Mutex(void) {return(mtx);}
+    EventGroupHandle_t EventFlag(void) {return(ev_flag);}
     void SendQueue(EHmiEvent ev);
     void SendQueueFromISR(EHmiEvent ev);
 	SCBoard* GetBoard(){return(m_screen);}
@@ -44,12 +49,13 @@ private :
 	void changeScreen(const short id, const EHmiEvent& ev);
 
 private :
-	TimerHandle_t	timer;
-	QueueHandle_t	mtx;
-	QueueHandle_t	deq;
-    bool			is_ready;
-	short           m_screen_id;
-	SCBoard*        m_screen;
+	EventGroupHandle_t	ev_flag;
+	TimerHandle_t		timer;
+	QueueHandle_t		mtx;
+	QueueHandle_t		deq;
+    bool				is_ready;
+	short           	m_screen_id;
+	SCBoard*        	m_screen;
 };
 
 #endif // __EHMI_MAIN_H__
