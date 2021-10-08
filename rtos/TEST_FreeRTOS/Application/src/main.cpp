@@ -8,6 +8,11 @@
  * Author:    WangYu
  *
  **********************************************************************/
+extern"C"
+{
+#include "libdev.h"
+}
+
 #include "platform.h"
 #include "EHmiMain.h"
 
@@ -56,7 +61,8 @@ void led1Task(void *pvParameters)
 	xEventGroupSetBits(pHmi->EventFlag(), TASK_LED1_READY_EVENT);
 
 	while(1) {
-		toggleLED1();
+		//toggleLED1();
+		toggle_LED1_from_lib(); // for test static library
 		vTaskDelay(500);
 	}
 }
