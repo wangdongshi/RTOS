@@ -1255,6 +1255,42 @@ static void initTouchPanelGPIO(void)
 	GPIOI->PUPDR	|=	0b00	<< GPIO_PUPDR_PUPDR13_Pos;		// No Pull
 }
 
+// SDIO pin initialization
+static void initSDIOGPIO(void)
+{
+	// GPIOC RCC
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOCEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOCEN_Msk) == 0);
+	// PC8  --> SDMMC D0
+	// PC9  --> SDMMC D1
+	// PC10 --> SDMMC D2
+	// PC11 --> SDMMC D3
+	// PC12 --> SDMMC CK
+	// PC13 --> MicroSDcard detect
+	GPIOC->MODER	|=	0xA8AAAAAA;	// MODER = Multiple(0b10)
+	GPIOC->AFR[1]	|=	0xEEE0EEEE; // AF14
+
+	GPIOH->MODER	|=	0b10	<< GPIO_MODER_MODER7_Pos |		// MODER = Multiple(0b10)
+						0b10	<< GPIO_MODER_MODER8_Pos;
+	GPIOH->OTYPER	|=	0b1		<< GPIO_OTYPER_OT7_Pos |		// Open Drain
+						0b1		<< GPIO_OTYPER_OT8_Pos;
+	GPIOH->OSPEEDR	|=	0b11	<< GPIO_OSPEEDR_OSPEEDR7_Pos |	// Very high speed
+						0b11	<< GPIO_OSPEEDR_OSPEEDR8_Pos;
+	GPIOH->PUPDR	|=	0b01	<< GPIO_PUPDR_PUPDR7_Pos |		// Pull-up
+						0b01	<< GPIO_PUPDR_PUPDR8_Pos;
+	GPIOH->AFR[0]	|=	4		<< GPIO_AFRL_AFRL7_Pos;			// AF4
+	GPIOH->AFR[1]	|=	4		<< GPIO_AFRH_AFRH0_Pos;			// AF4
+
+	// GPIOD RCC
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIODEN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIODEN_Msk) == 0);
+	// PD2  --> SDMMC CMD
+	GPIOI->MODER	|=	0b00	<< GPIO_MODER_MODER13_Pos;		// MODER = Multiple(0b10)
+	GPIOI->OTYPER	|=	0b0		<< GPIO_OTYPER_OT13_Pos;		// Push and pull
+	GPIOI->OSPEEDR	|=	0b10	<< GPIO_OSPEEDR_OSPEEDR13_Pos;	// High speed
+	GPIOI->PUPDR	|=	0b00	<< GPIO_PUPDR_PUPDR13_Pos;		// No Pull
+}
+
 static void setCharBuf06x08(
 		const uint16_t symbol,
 		const uint32_t foreColor,
