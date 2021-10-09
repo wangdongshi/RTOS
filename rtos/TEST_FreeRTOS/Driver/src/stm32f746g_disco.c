@@ -18,27 +18,74 @@
 #include "ft5336.h"
 
 // Clock constant value definition
-#define PLLM					((uint32_t)( 25 <<  0))
-#define PLLN					((uint32_t)(432 <<  6))
-#define PLLP					((uint32_t)(  0 << 16)) // pay attention to this value!!
-#define PLLSRC					((uint32_t)(  1 << 22))
-#define PLLQ					((uint32_t)(  9 << 24))
+#define PLLM							((uint32_t)( 25 <<  0))
+#define PLLN							((uint32_t)(432 <<  6))
+#define PLLP							((uint32_t)(  0 << 16)) // pay attention to this value!!
+#define PLLSRC							((uint32_t)(  1 << 22))
+#define PLLQ							((uint32_t)(  9 << 24))
 
 // LCD constant value definition
-#define COLOR_BYTE_ARGB8888		(4)
-#define COLOR_BYTE_RGB888		(3)
-#define LCD_FRAME_BUF_BYTES		COLOR_BYTE_ARGB8888
-#define LCD_FRAME_BUF_SIZE		(LCD_FRAME_BUF_BYTES * LCD_ACTIVE_WIDTH * LCD_ACTIVE_HEIGHT)
-#define LCD_HSYNC				(41)
-#define LCD_VSYNC				(10)
-#define LCD_HBP					(13)
-#define LCD_HFP					(32)
-#define LCD_VBP					(2)
-#define LCD_VFP					(2)
+#define COLOR_BYTE_ARGB8888				(4)
+#define COLOR_BYTE_RGB888				(3)
+#define LCD_FRAME_BUF_BYTES				COLOR_BYTE_ARGB8888
+#define LCD_FRAME_BUF_SIZE				(LCD_FRAME_BUF_BYTES * LCD_ACTIVE_WIDTH * LCD_ACTIVE_HEIGHT)
+#define LCD_HSYNC						(41)
+#define LCD_VSYNC						(10)
+#define LCD_HBP							(13)
+#define LCD_HFP							(32)
+#define LCD_VBP							(2)
+#define LCD_VFP							(2)
+
+// SD Command definition
+#define SD_CMD_GO_IDLE_STATE        	(0)		// Resets the SD memory card.                                                               
+#define SD_CMD_SEND_OP_COND         	(1)		// Sends host capacity support information and activates the card's initialization process. 
+#define SD_CMD_ALL_SEND_CID         	(2)		// Asks any card connected to the host to send the CID numbers on the CMD line.             
+#define SD_CMD_SET_REL_ADDR         	(3)		// Asks the card to publish a new relative address (RCA).                                   
+#define SD_CMD_SET_DSR              	(4)		// Programs the DSR of all cards.                                                           
+#define SD_CMD_SDMMC_SEN_OP_COND    	(5)		// Sends host capacity support information (HCS) and asks the accessed card to send its operating condition register (OCR) content in the response on the CMD line.
+#define SD_CMD_HS_SWITCH            	(6)		// Checks switchable function (mode 0) and switch card function (mode 1).                   
+#define SD_CMD_SEL_DESEL_CARD       	(7)		// Selects the card by its own relative address and gets deselected by any other address    
+#define SD_CMD_HS_SEND_EXT_CSD      	(8)		// Sends SD Memory Card interface condition, which includes host supply voltage information and asks the card whether card supports voltage.
+#define SD_CMD_SEND_CSD             	(9)		// Addressed card sends its card specific data (CSD) on the CMD line.                       
+#define SD_CMD_SEND_CID             	(10)	// Addressed card sends its card identification (CID) on the CMD line.                      
+#define SD_CMD_READ_DAT_UNTIL_STOP  	(11)	// SD card doesn't support it.                                                              
+#define SD_CMD_STOP_TRANSMISSION    	(12)	// Forces the card to stop transmission.                                                    
+#define SD_CMD_SEND_STATUS          	(13)	// Addressed card sends its status register.                                                
+#define SD_CMD_HS_BUSTEST_READ      	(14)	// Reserved                                                                                 
+#define SD_CMD_GO_INACTIVE_STATE    	(15)	// Sends an addressed card into the inactive state.                                         
+#define SD_CMD_SET_BLOCKLEN         	(16)	// Sets the block length (in bytes for SDSC) for all following block commands (read, write, lock). Default block length is fixed to 512 Bytes. Not effective for SDHS and SDXC.                                                                       
+#define SD_CMD_READ_SINGLE_BLOCK    	(17)	// Reads single block of size selected by SET_BLOCKLEN in case of SDSC, and a block of fixed 512 bytes in case of SDHC and SDXC.                                                
+#define SD_CMD_READ_MULT_BLOCK      	(18)	// Continuously transfers data blocks from card to host until interrupted by STOP_TRANSMISSION command.                                                               
+#define SD_CMD_HS_BUSTEST_WRITE     	(19)	// 64 bytes tuning pattern is sent for SDR50 and SDR104.                                    
+#define SD_CMD_WRITE_DAT_UNTIL_STOP 	(20)	// Speed class control command.                                                             
+#define SD_CMD_SET_BLOCK_COUNT      	(23)	// Specify block count for CMD18 and CMD25.                                                 
+#define SD_CMD_WRITE_SINGLE_BLOCK   	(24)	// Writes single block of size selected by SET_BLOCKLEN in case of SDSC, and a block of fixed 512 bytes in case of SDHC and SDXC.                                                
+#define SD_CMD_WRITE_MULT_BLOCK     	(25)	// Continuously writes blocks of data until a STOP_TRANSMISSION follows.                    
+#define SD_CMD_PROG_CID             	(26)	// Reserved for manufacturers.                                                              
+#define SD_CMD_PROG_CSD             	(27)	// Programming of the programmable bits of the CSD.                                         
+#define SD_CMD_SET_WRITE_PROT       	(28)	// Sets the write protection bit of the addressed group.                                    
+#define SD_CMD_CLR_WRITE_PROT       	(29)	// Clears the write protection bit of the addressed group.                                  
+#define SD_CMD_SEND_WRITE_PROT      	(30)	// Asks the card to send the status of the write protection bits.                           
+#define SD_CMD_SD_ERASE_GRP_START   	(32)	// Sets the address of the first write block to be erased. (For SD card only).              
+#define SD_CMD_SD_ERASE_GRP_END     	(33)	// Sets the address of the last write block of the continuous range to be erased.           
+#define SD_CMD_ERASE_GRP_START      	(35)	// Sets the address of the first write block to be erased. Reserved for each command system set by switch function command (CMD6).                                            
+#define SD_CMD_ERASE_GRP_END        	(36)	// Sets the address of the last write block of the continuous range to be erased.           
+												// Reserved for each command system set by switch function command (CMD6).                  
+#define SD_CMD_ERASE                	(38)	// Reserved for SD security applications.                                                   
+#define SD_CMD_FAST_IO              	(39)	// SD card doesn't support it (Reserved).                                                   
+#define SD_CMD_GO_IRQ_STATE         	(40)	// SD card doesn't support it (Reserved).                                                   
+#define SD_CMD_LOCK_UNLOCK          	(42)	// Sets/resets the password or lock/unlock the card. The size of the data block is set by the SET_BLOCK_LEN command.                                                               
+#define SD_CMD_APP_CMD              	(55)	// Indicates to the card that the next command is an application specific command rather than a standard command.                                                                 
+#define SD_CMD_GEN_CMD              	(56)	// Used either to transfer a data block to the card or to get a data block from the card for general purpose/application specific commands.                                       
+#define SD_CMD_NO_CMD               	(64)	// No command
+
+#define SD_SEND_CMD_TIMEOUT_CNT			(5000 * (216000000 / 8 / 1000))
+#define SD_CARD_OCR_ERRORBITS			(0xFDFFE008)
 
 uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) )   charBuffer[12 * 16 * COLOR_BYTE_ARGB8888];
-uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) ) FrameBuffer1[LCD_FRAME_BUF_SIZE];
-uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) ) FrameBuffer2[LCD_FRAME_BUF_SIZE];
+uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) ) frameBuffer1[LCD_FRAME_BUF_SIZE];
+uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) ) frameBuffer2[LCD_FRAME_BUF_SIZE];
+SD_INFO __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) )       sdcard;
 
 static void initFPU(void);
 static void initSystemClock(void);
@@ -49,18 +96,12 @@ static void initTouchPanel(void);
 static void initLCD(void);
 static void initDMA2D(void);
 static void initLED1(void);
+static void initSDIO(void);
 #ifdef MODE_STAND_ALONE
 static void initTIM7(void);
 #endif
-static void initNVICPriorityGroup(void);
-static void initSVCallInt(void);
-static void initPendSVInt(void);
-static void initSystickInt(void);
-static void initUSART1Int(void);
-static void initEXTI15_10Int(void);
-#ifdef MODE_STAND_ALONE
-static void initTIM7Int(void);
-#endif
+static void initNVICPriority(void);
+
 static void initSDRAMGPIO(void);
 static void initUartGPIO(void);
 static void initLED1GPIO(void);
@@ -85,8 +126,6 @@ void SystemInit(void)
 	initSystemClock();
 	initSDRAM();
 	initNVICPriorityGroup();
-	initSVCallInt();
-	initPendSVInt();
 	initLED1();
 	initLCD();
 	initUSART1();
@@ -183,6 +222,12 @@ void toggleLED1(void)
 	GPIOI->ODR |= (~data) & GPIO_ODR_OD1_Msk;
 }
 
+uint16_t isSDCardInsert(void)
+{
+	uint16_t res = (uint16_t)((GPIOC->IDR & GPIO_IDR_ID13_Msk) >> GPIO_IDR_ID13_Pos);
+	return res;
+}
+
 void showLogo(void)
 {
 	drawImage(0, 0, 480, 272, (uint32_t)&logoImage, COLOR_RGB888, LAYER_FG);
@@ -238,7 +283,7 @@ void fillRect(
 		const uint32_t color,
 		const uint8_t  layer)
 {
-	uint8_t* pFB = (uint8_t*)((layer == LAYER_BG) ? &FrameBuffer1 : &FrameBuffer2);
+	uint8_t* pFB = (uint8_t*)((layer == LAYER_BG) ? &frameBuffer1 : &frameBuffer2);
 	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
 
 	DMA2D->CR 		&= ~DMA2D_CR_MODE_Msk;
@@ -261,7 +306,7 @@ void drawImage(
 		const uint8_t  format,
 		const uint8_t  layer)
 {
-	uint8_t* pFB = (uint8_t*)((layer == LAYER_BG) ? &FrameBuffer1 : &FrameBuffer2);
+	uint8_t* pFB = (uint8_t*)((layer == LAYER_BG) ? &frameBuffer1 : &frameBuffer2);
 	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
 
 	DMA2D->CR 		&= ~DMA2D_CR_MODE_Msk;
@@ -288,7 +333,7 @@ void drawChar(
 {
 	uint32_t height = (FONT_SMALL == fontType) ? sFont.st.head.fontHeight    : mFont.st.head.fontHeight;
 	uint32_t width  = (FONT_SMALL == fontType) ? sFont.st.cdef[symbol].width : mFont.st.cdef[symbol].width;
-	uint8_t* pFB = (uint8_t*)((layer == LAYER_BG) ? &FrameBuffer1 : &FrameBuffer2);
+	uint8_t* pFB = (uint8_t*)((layer == LAYER_BG) ? &frameBuffer1 : &frameBuffer2);
 
 	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
 
@@ -607,9 +652,6 @@ static void initSDRAM(void)
 // System tick initialization
 static void initSystick(void)
 {
-	// Enable Systick global interrupt
-	initSystickInt();
-
 	// Set RELOAD value (216000000 / 1000 = 216000)
 	SysTick->LOAD = 0x00034BC0 - 1;
 
@@ -638,9 +680,6 @@ static void initUSART1(void)
 	USART1->CR2 &= ~USART_CR2_STOP;	// stop bits = 1(STOP[1:0]=00)
 	USART1->CR1 &= ~USART_CR1_PCE;	// parity = off(parity = on, odd:0x00000600, even:0x00000400)
 	USART1->CR3 &= ~(USART_CR3_CTSE | USART_CR3_RTSE); // disable CTS and RTS
-
-	// Enable USART1 global interrupt
-	initUSART1Int();
 
 	// Disable RX interrupt in console log mode
 	//USART1->CR1 |&= USART_CR1_RXNEIE;
@@ -689,7 +728,6 @@ static void initTouchPanel(void)
 	// Initialize EXTI15_10 interrupt
 	EXTI->IMR		|=	EXTI_IMR_MR13;  // EXT INT 13
 	EXTI->RTSR		|=	EXTI_RTSR_TR13; // Rising edge trigger
-	initEXTI15_10Int();
 
 	// Enable FT5336 interrupt to host
 	enableFT5336Int();
@@ -814,7 +852,7 @@ static void initLCD(void)
 	LTDC_Layer1->PFCR	=	0b000; // ARGB8888
 
 	//    – programming the color frame buffer start address in the LTDC_LxCFBAR register
-	LTDC_Layer1->CFBAR	=	(uint32_t)&FrameBuffer1; // Frame Buffer
+	LTDC_Layer1->CFBAR	=	(uint32_t)&frameBuffer1; // Frame Buffer
 
 	//    – programming the line length and pitch of the color frame buffer in the
 	//      LTDC_LxCFBLR register
@@ -849,7 +887,7 @@ static void initLCD(void)
 	LTDC_Layer2->PFCR	=	0b000; // ARGB8888
 
 	//    – programming the color frame buffer start address in the LTDC_LxCFBAR register
-	LTDC_Layer2->CFBAR	=	(uint32_t)&FrameBuffer2; // Frame Buffer
+	LTDC_Layer2->CFBAR	=	(uint32_t)&frameBuffer2; // Frame Buffer
 
 	//    – programming the line length and pitch of the color frame buffer in the
 	//      LTDC_LxCFBLR register
@@ -894,34 +932,183 @@ static void initDMA2D(void)
 	while((RCC->AHB1ENR & RCC_AHB1ENR_DMA2DEN_Msk) == 0);
 }
 
-// LED1 initialization
 static void initLED1(void)
 {
 	initLED1GPIO();
+}
+
+static uint8_t initSDCard(void)
+{
+	uint32_t resp  = 0;
+	uint32_t volt  = 0;
+	uint32_t count = 0xFFFF;
+
+	if (!isSDCardInsert()) return 0;
+
+	// Initialize SDMMC interface to initialize mode (400KHz, 1bit)
+	SDMMC1->CLKCR	=	0x76 << SDMMC_CLKCR_CLKDIV_Pos |	// 0x76+2=120, 48MHz/120=400KHz
+						0b0 << SDMMC_CLKCR_HWFC_EN_Pos |	// disable hardware flow control
+						0b00 << SDMMC_CLKCR_WIDBUS_Pos |	// 1 bit mode SDMMC_D0
+						0b0 << SDMMC_CLKCR_PWRSAV_Pos |		// enable SDMMC_CK in SD bus inactive
+						0b0 << SDMMC_CLKCR_BYPASS_Pos |		// disable bypass CLKDIV
+						0b0 << SDMMC_CLKCR_NEGEDGE_Pos |	// rising edge R/W
+						0b0 << SDMMC_CLKCR_CLKEN_Pos;		// disable SDMMC clock
+
+	// Power on
+	SDMMC1->POWER	=	SDMMC_POWER_PWRCTRL;				// power on
+	for (volatile uint32_t i = 0; i < 1000000; i++);		// delay > 1ms
+	SDMMC1->CLKCR	|=	0b1 << SDMMC_CLKCR_CLKEN_Pos;		// enable SDMMC clock
+
+	// Send CMD0 to identify card operating voltage.
+	sdmmcSendCmd(SD_CMD_GO_IDLE_STATE, 0);
+	if (!sdmmcCheckCmdError()) return 0;
+
+	// Send CMD8 to verify SD card version.
+	// [11:8]: Supply Voltage (VHS) 0x1 (Range: 2.7-3.6 V)
+	// [7:0]:  Check Pattern (recommended 0xAA) */
+	sdmmcSendCmd(SD_CMD_HS_SEND_EXT_CSD, 0x1AA);
+	if (sdmmcCheckCmdResp7()) {
+		sdcard.version = SD_VERSION_2X;
+	}
+	else {
+		sdcard.version = SD_VERSION_1X;
+	}
+
+	// Wait for SD card ready.
+	do {
+		// Send CMD55 to change command mode to application command.
+		sdmmcSendCmd(SD_CMD_APP_CMD, 0);
+		if (!sdmmcCheckCmdResp1(SD_CMD_APP_CMD)) return 0;
+
+		// Send CMD41 to judge if SD card is ready.
+		// SDMMC_VOLTAGE_WINDOW_SD	: 0x80100000
+		// SDMMC_HIGH_CAPACITY		: 0x40000000
+		// SD_SWITCH_1_8V_CAPACITY	: 0x01000000
+		sdmmcSendCmd(SD_CMD_SD_APP_OP_COND, 0xC1100000);
+		if (!sdmmcCheckCmdResp3()) return 0;
+
+		// Get operating voltage
+		resp = SDMMC1->RESP1;
+		volt = (((resp >> 31) == 1) ? 1 : 0);
+		count--;
+	}
+	while (volt == 0 && count != 0);
+	if (count == 0) return 0;
+	if (resp & 0x40000000) {
+		sdcard.type = SD_TYPE_SDHC_SDXC;
+	}
+	else {
+		sdcard.type = SD_TYPE_SDSC;
+	}
+
+	// Send CMD2 to get CID.
+	sdmmcSendCmd(SD_CMD_ALL_SEND_CID, 0);
+	if (!sdmmcCheckCmdResp2()) return 0;
+	sdcard.cid[0] = SDMMC1->RESP1;
+	sdcard.cid[1] = SDMMC1->RESP2;
+	sdcard.cid[2] = SDMMC1->RESP3;
+	sdcard.cid[3] = SDMMC1->RESP4;
+
+	// Send CMD3 to assign SD relative card address.
+	sdmmcSendCmd(SD_CMD_SET_REL_ADDR, 0);
+	if (!sdmmcCheckCmdResp6(SD_CMD_SET_REL_ADDR, &(sdcard.rca))) return 0;
+}
+
+static void initSDMMC(void)
+{
+	// Set GPIO
+	initSDMMCGPIO();
+
+	// Enable RRC
+	RCC->APB2ENR	|=	RCC_APB2ENR_SDMMC1EN;
+	while((RCC->APB2ENR & RCC_APB2ENR_SDMMC1EN_Msk) == 0);
+
+	RCC->AHB1ENR	|=	RCC_AHB1ENR_DMA2EN;
+	while((RCC->AHB1ENR & RCC_AHB1ENR_DMA2EN_Msk) == 0);
+
+	// Set SDMMC clock
+	RCC->DCKCFGR2	&=	~RCC_DCKCFGR2_CK48MSEL_Msk;
+	RCC->DCKCFGR2	|=	0b0 << RCC_DCKCFGR2_CK48MSEL_Pos;	// 48MHz from PLLQ
+	RCC->DCKCFGR2	&=	~RCC_DCKCFGR2_SDMMC1SEL_Msk;
+	RCC->DCKCFGR2	|=	0b0 << RCC_DCKCFGR2_SDMMC1SEL_Pos;	// select 48MHz for SDMMC
+
+	// Configure DMA RX
+	DMA2_Stream3->CR &= ~DMA_SxCR_EN;
+	DMA2_Stream3->CR = 	0b100	<< DMA_SxCR_CHSEL_Pos |		// stream3, channel4
+						0b00	<< DMA_SxCR_DIR_Pos |		// peripheral to memory
+						0b0		<< DMA_SxCR_PINC_Pos |		// peripheral increment disable
+						0b1		<< DMA_SxCR_MINC_Pos |		// memory increment enable
+						0b10	<< DMA_SxCR_PSIZE_Pos |		// peripheral data size = word
+						0b10	<< DMA_SxCR_MSIZE_Pos |		// memory data size = word
+						0b1		<< DMA_SxCR_PFCTRL_Pos |	// PFC (peripheral is flow controller)
+						0b11	<< DMA_SxCR_PL_Pos |		// highest DMA priority
+						0b01	<< DMA_SxCR_PBURST_Pos |	// peripheral burst = 4 bytes
+						0b01	<< DMA_SxCR_MBURST_Pos;		// peripheral burst = 4 bytes
+
+	DMA2_Stream3->FCR = 0b1		<< DMA_SxFCR_DMDIS_Pos |	// disable direct mode
+						0b11	<< DMA_SxFCR_FTH_Pos;		// FIFO full
+
+	DMA2->LIFCR		|= 	DMA_LIFCR_CTCIF3_Msk |
+						DMA_LIFCR_CHTIF3_Msk |
+						DMA_LIFCR_CTEIF3_Msk |
+						DMA_LIFCR_CDMEIF3_Msk |
+						DMA_LIFCR_CFEIF3_Msk;
+	/*
+	DMA2_Stream3->NDTR = size/sizeof(uint16_t);	 // 32768 / 2 = 16 K half word
+	DMA2_Stream3->PAR  = (uint32_t)(pSrc);
+	DMA2_Stream3->M0AR = (uint32_t)(pDes);
+	*/
+
+	// Configure DMA TX
+	DMA2_Stream6->CR &= ~DMA_SxCR_EN;
+	DMA2_Stream6->CR = 	0b100	<< DMA_SxCR_CHSEL_Pos |		// stream6, channel4
+						0b01	<< DMA_SxCR_DIR_Pos |		// memory to peripheral
+						0b0		<< DMA_SxCR_PINC_Pos |		// peripheral increment disable
+						0b1		<< DMA_SxCR_MINC_Pos |		// memory increment enable
+						0b10	<< DMA_SxCR_PSIZE_Pos |		// peripheral data size = word
+						0b10	<< DMA_SxCR_MSIZE_Pos |		// memory data size = word
+						0b1		<< DMA_SxCR_PFCTRL_Pos |	// PFC (peripheral is flow controller)
+						0b11	<< DMA_SxCR_PL_Pos |		// highest DMA priority
+						0b01	<< DMA_SxCR_PBURST_Pos |	// peripheral burst = 4 bytes
+						0b01	<< DMA_SxCR_MBURST_Pos;		// peripheral burst = 4 bytes
+
+	DMA2_Stream6->FCR = 0b1		<< DMA_SxFCR_DMDIS_Pos |	// disable direct mode
+						0b11	<< DMA_SxFCR_FTH_Pos;		// FIFO full
+
+	DMA2->HIFCR		|=	DMA_HIFCR_CTCIF6_Msk |
+						DMA_HIFCR_CHTIF6_Msk |
+						DMA_HIFCR_CTEIF6_Msk |
+						DMA_HIFCR_CDMEIF6_Msk |
+						DMA_HIFCR_CFEIF6_Msk;
+	/*
+	DMA2_Stream6->NDTR = size/sizeof(uint16_t);	 // 32768 / 2 = 16 K half word
+	DMA2_Stream6->PAR  = (uint32_t)(pSrc);
+	DMA2_Stream6->M0AR = (uint32_t)(pDes);
+	*/
 }
 
 #ifdef MODE_STAND_ALONE
 static void initTIM7(void) // TIM7 initialization for low speed timer(500ms)
 {
 	// Enable APB1 TIM7 RCC
-	RCC->APB1ENR |= RCC_APB1ENR_TIM7EN;
+	RCC->APB1ENR	|= RCC_APB1ENR_TIM7EN;
 	while((RCC->APB1ENR & RCC_APB1ENR_TIM7EN_Msk) == 0);
 
-	// Enable TIM7 interrupt
-	initTIM7Int();
+	// Enable TIM7 update interrupt
+	TIM7->DIER		|= TIM_DIER_UIE;
 
 	// Initialize TIM7
-	TIM7->CR1 |= TIM_CR1_ARPE;			// Enable pre-load ARPE
-	TIM7->PSC = 4000 - 1;				// timer frequency = 108MHz / 4000 = 27KHz (APB pre-sacle is not 1, so fCK_PSC = 54MHz * 2 = 108MHz)
-	TIM7->CNT &= TIM_CNT_UIFCPY_Msk;	// set bit[30:0] to 0
-	TIM7->SR  &= ~TIM_SR_UIF;			// Clear timer update interrupt flag
-	TIM7->ARR = 13500 - 1;				// Set 13500 to reload value
-	TIM7->CR1 |= TIM_CR1_CEN;			// Enable TIM7 CEN
+	TIM7->CR1		|= TIM_CR1_ARPE;		// Enable pre-load ARPE
+	TIM7->PSC		= 4000 - 1;				// timer frequency = 108MHz / 4000 = 27KHz (APB pre-sacle is not 1, so fCK_PSC = 54MHz * 2 = 108MHz)
+	TIM7->CNT		&= TIM_CNT_UIFCPY_Msk;	// set bit[30:0] to 0
+	TIM7->SR		&= ~TIM_SR_UIF;			// Clear timer update interrupt flag
+	TIM7->ARR		= 13500 - 1;			// Set 13500 to reload value
+	TIM7->CR1		|= TIM_CR1_CEN;			// Enable TIM7 CEN
 }
 #endif
 
-// Set global NVIC priority group
-static void initNVICPriorityGroup(void)
+// Set global NVIC priority
+static void initNVICPriority(void)
 {
 	// STM32F756XX-PM can not refer here, because ST has own design in interrupt priority.
 	// ST interrupt priority group setting can refer to the following.
@@ -939,6 +1126,7 @@ static void initNVICPriorityGroup(void)
 	//     0xb011 :      |  None , None          |    [7:4], 16 level
 	//   ----------------|------------------------------------------------
 
+	// Set global NVIC priority group
 	// "|=" can not be used here, because VECTKEY write key is "0x05FA" and "|=" will change it
 	SCB->AIRCR =	0x05FA << SCB_AIRCR_VECTKEY_Pos |
 					0b011  << SCB_AIRCR_PRIGROUP_Pos; // PRIGROUP = 0b011 (preemption:16, sub:0)
@@ -951,41 +1139,47 @@ static void initNVICPriorityGroup(void)
 	// USART1(Debug)		: preemption:14, IRQn:37
 	// TIMER7(LED1 flicker)	: preemption:14, IRQn:55
 	// EXIT13(TouchPanel)	: preemption:13, IRQn:40
-}
+	// SDIO(FatFs)			: preemption:13, IRQn:49
+	// SDDMARx(DMA2_Stream3): preemption:14, IRQn:59
+	// SDDMATx(DMA2_Stream6): preemption:14, IRQn:69
 
-// Initialize SVCall interrupt (IRQn:11)
-static void initSVCallInt(void)
-{
+	// Initialize SVCall interrupt (IRQn:11)
 	SCB->SHPR[2] |= 15 << (24 + 4);
 	// SVC need not open. Executing SVC instrument will trigger SVC interrupt.
-}
 
-// Initialize PendSV interrupt (IRQn:14)
-static void initPendSVInt(void)
-{
+	// Initialize PendSV interrupt (IRQn:14)
 	SCB->SHPR[3] |= 15 << (16 + 4);
 	// PendSV need not open. Setting ICSR the 28th bit will trigger pendSV interrupt.
-}
 
-// Initialize Systick interrupt (IRQn:15)
-static void initSystickInt(void)
-{
+	// Initialize Systick interrupt (IRQn:15)
 	SCB->SHPR[3]  |= 15 << (24 + 4);
 	SysTick->CTRL |= 0b1 << SysTick_CTRL_TICKINT_Pos;
-}
 
-// Initialize USART1 interrupt (IRQn:37)
-static void initUSART1Int(void)
-{
+	// Initialize USART1 interrupt (IRQn:37)
 	NVIC->IP[37]  |= 14 << 4;
 	NVIC->ISER[1] |= 0b1 << (37 - 32);
-}
 
-// Initialize EXTI15_10 interrupt (IRQn:40)
-static void initEXTI15_10Int(void)
-{
+#ifdef MODE_STAND_ALONE
+	// Initialize TIM7 interrupt (IRQn:55)
+	NVIC->IP[13]  |= 14 << (24 + 4);
+	NVIC->ISER[1] |= 0b1 << (55 - 32);
+#endif
+
+	// Initialize EXTI15_10 interrupt (IRQn:40)
 	NVIC->IP[40]  |= 13 << 4;
 	NVIC->ISER[1] |= 0b1 << (40 - 32);
+
+	// Initialize SDIO interrupt (IRQn:49)
+	NVIC->IP[49]  |= 13 << 4;
+	NVIC->ISER[1] |= 0b1 << (49 - 32);
+
+	// Initialize SDIO DMARx (DMA2_Stream3) interrupt (IRQn:59)
+	NVIC->IP[59]  |= 14 << 4;
+	NVIC->ISER[1] |= 0b1 << (59 - 32);
+
+	// Initialize SDIO DMATx (DMA2_Stream6) interrupt (IRQn:69)
+	NVIC->IP[69]  |= 14 << 4;
+	NVIC->ISER[2] |= 0b1 << (69 - 64);
 }
 
 #ifdef MODE_STAND_ALONE
@@ -1255,8 +1449,8 @@ static void initTouchPanelGPIO(void)
 	GPIOI->PUPDR	|=	0b00	<< GPIO_PUPDR_PUPDR13_Pos;		// No Pull
 }
 
-// SDIO pin initialization
-static void initSDIOGPIO(void)
+// SDMMC pin initialization
+static void initSDMMCGPIO(void)
 {
 	// GPIOC RCC
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOCEN;
@@ -1266,29 +1460,26 @@ static void initSDIOGPIO(void)
 	// PC10 --> SDMMC D2
 	// PC11 --> SDMMC D3
 	// PC12 --> SDMMC CK
-	// PC13 --> MicroSDcard detect
-	GPIOC->MODER	|=	0xA8AAAAAA;	// MODER = Multiple(0b10)
-	GPIOC->AFR[1]	|=	0xEEE0EEEE; // AF14
+	GPIOC->MODER	|=	0x02AA0000;	// MODER = Multiple(0b10)
+	GPIOC->OTYPER	|=	0x00000000;	// Push and pull
+	GPIOC->OSPEEDR	|=	0x02AA0000;	// High speed
+	GPIOC->PUPDR	|=	0x01550000;	// Pull-up
+	GPIOC->AFR[1]	|=	0x000CCCCC; // AF12
 
-	GPIOH->MODER	|=	0b10	<< GPIO_MODER_MODER7_Pos |		// MODER = Multiple(0b10)
-						0b10	<< GPIO_MODER_MODER8_Pos;
-	GPIOH->OTYPER	|=	0b1		<< GPIO_OTYPER_OT7_Pos |		// Open Drain
-						0b1		<< GPIO_OTYPER_OT8_Pos;
-	GPIOH->OSPEEDR	|=	0b11	<< GPIO_OSPEEDR_OSPEEDR7_Pos |	// Very high speed
-						0b11	<< GPIO_OSPEEDR_OSPEEDR8_Pos;
-	GPIOH->PUPDR	|=	0b01	<< GPIO_PUPDR_PUPDR7_Pos |		// Pull-up
-						0b01	<< GPIO_PUPDR_PUPDR8_Pos;
-	GPIOH->AFR[0]	|=	4		<< GPIO_AFRL_AFRL7_Pos;			// AF4
-	GPIOH->AFR[1]	|=	4		<< GPIO_AFRH_AFRH0_Pos;			// AF4
+	// PC13 --> MicroSDcard detect
+	GPIOC->MODER	|=	0b00	<< GPIO_MODER_MODER13_Pos;		// MODER = Input(0b00)
+	GPIOC->OSPEEDR	|=	0b10	<< GPIO_OSPEEDR_OSPEEDR13_Pos;	// High speed
+	GPIOC->PUPDR	|=	0b01	<< GPIO_PUPDR_PUPDR13_Pos;		// Pull-up
 
 	// GPIOD RCC
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIODEN;
 	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIODEN_Msk) == 0);
 	// PD2  --> SDMMC CMD
-	GPIOI->MODER	|=	0b00	<< GPIO_MODER_MODER13_Pos;		// MODER = Multiple(0b10)
-	GPIOI->OTYPER	|=	0b0		<< GPIO_OTYPER_OT13_Pos;		// Push and pull
-	GPIOI->OSPEEDR	|=	0b10	<< GPIO_OSPEEDR_OSPEEDR13_Pos;	// High speed
-	GPIOI->PUPDR	|=	0b00	<< GPIO_PUPDR_PUPDR13_Pos;		// No Pull
+	GPIOD->MODER	|=	0b10	<< GPIO_MODER_MODER2_Pos;		// MODER = Multiple(0b10)
+	GPIOD->OTYPER	|=	0b0		<< GPIO_OTYPER_OT2_Pos;			// Push and pull
+	GPIOD->OSPEEDR	|=	0b10	<< GPIO_OSPEEDR_OSPEEDR2_Pos;	// High speed
+	GPIOD->PUPDR	|=	0b01	<< GPIO_PUPDR_PUPDR2_Pos;		// Pull-up
+	GPIOD->AFR[0]	|=	12		<< GPIO_AFRL_AFRL2_Pos;			// AF12
 }
 
 static void setCharBuf06x08(
@@ -1349,4 +1540,107 @@ static void setCharBuf12x16(
 			}
 		}
 	}
+}
+
+static void sdmmcSendCmd(uint8_t cmd, uint32_t arg)
+{
+	uint32_t count = 5000 * (216000000 / 8 / 1000);
+	uint8_t  resp  = 0b01;
+
+	// set WAITRESP area
+	switch (cmd) {
+	case SD_CMD_GO_IDLE_STATE:
+		resp = 0b00;
+		break;
+	case SD_CMD_ALL_SEND_CID:
+	case SD_CMD_SEND_CSD:
+		resp = 0b11;
+		break;
+	default:
+		resp = 0b01;
+		break;
+	}
+
+	// send command
+	SDMMC1->ARG	=	arg;
+	SDMMC1->CMD	|=	cmd << SDMMC_CMD_CMDINDEX_Pos |
+					resp << SDMMC_CMD_WAITRESP_Pos |
+					0b0 << SDMMC_CMD_WAITINT_Pos | // no interrupt
+					0b1 << SDMMC_CMD_CPSMEN_Pos;   // enable CPSM
+}
+
+static uint8_t sdmmcCheckCmdError(void)
+{
+	uint32_t count = SD_SEND_CMD_TIMEOUT_CNT;
+	while((SDMMC1->STA & SDMMC_STA_CMDSENT_Msk) == 0 && count-- != 0);
+	return count != 0; // count == 0 : timeout
+}
+
+static uint8_t sdmmcCheckCmdResp1(uint8_t cmd)
+{
+	uint32_t count = SD_SEND_CMD_TIMEOUT_CNT;
+
+	// Did not consider CCRCFAIL, CMDREND and CTIMEOUT error flags, because they will cause timeout.
+	while ((SDMMC1->STA & SDMMC_STA_CMDACT_Msk) && count-- != 0);
+	SDMMC1->ICR |= 	SDMMC_ICR_CTIMEOUTC_Msk | SDMMC_ICR_CCRCFAILC_Msk;
+	if (count == 0) return 0;
+
+	if ((uint8_t)(SDMMC1->RESPCMD) != cmd) return 0;
+	if (SDMMC1->RESP1 & SD_CARD_OCR_ERRORBITS) return 0; // response have been received
+
+	return 1;
+}
+
+static uint8_t sdmmcCheckCmdResp2(void)
+{
+	uint32_t count = SD_SEND_CMD_TIMEOUT_CNT;
+
+	// Did not consider CCRCFAIL, CMDREND and CTIMEOUT error flags, because they will cause timeout.
+	while ((SDMMC1->STA & SDMMC_STA_CMDACT_Msk) && count-- != 0);
+	SDMMC1->ICR |= 	SDMMC_ICR_CTIMEOUTC_Msk | SDMMC_ICR_CCRCFAILC_Msk;
+	if (count == 0) return 0;
+
+	return 1;
+}
+
+static uint8_t sdmmcCheckCmdResp3(void)
+{
+	uint32_t count = SD_SEND_CMD_TIMEOUT_CNT;
+
+	// Did not consider CCRCFAIL, CMDREND and CTIMEOUT error flags, because they will cause timeout.
+	while ((SDMMC1->STA & SDMMC_STA_CMDACT_Msk) && count-- != 0);
+	SDMMC1->ICR |= 	SDMMC_ICR_CTIMEOUTC_Msk | SDMMC_ICR_CCRCFAILC_Msk | SDMMC_ICR_CMDRENDC_Msk;
+	if (count == 0) return 0;
+
+	return 1;
+}
+
+static uint8_t sdmmcCheckCmdResp6(uint8_t cmd, uint16_t* pRca)
+{
+	uint32_t count = SD_SEND_CMD_TIMEOUT_CNT;
+
+	// Did not consider CCRCFAIL, CMDREND and CTIMEOUT error flags, because they will cause timeout.
+	while ((SDMMC1->STA & SDMMC_STA_CMDACT_Msk) && count-- != 0);
+	SDMMC1->ICR |= 	SDMMC_ICR_CTIMEOUTC_Msk | SDMMC_ICR_CCRCFAILC_Msk;
+	if (count == 0) return 0;
+
+	if ((uint8_t)(SDMMC1->RESPCMD) != cmd) return 0;
+
+	uint32_t r1 = SDMMC1->RESP1;
+	if (r1 & SD_CARD_OCR_ERRORBITS) return 0; // response have been received
+
+	*pRca = (uint16_t)(r1 >> 16);
+	return 1;
+}
+
+static uint8_t sdmmcCheckCmdResp7(void)
+{
+	uint32_t count = SD_SEND_CMD_TIMEOUT_CNT;
+
+	// Did not consider CCRCFAIL, CMDREND and CTIMEOUT error flags, because they will cause timeout.
+	while ((SDMMC1->STA & SDMMC_STA_CMDACT_Msk) && count-- != 0);
+	SDMMC1->ICR |= 	SDMMC_ICR_CTIMEOUTC_Msk | SDMMC_ICR_CCRCFAILC_Msk | SDMMC_ICR_CMDRENDC_Msk;
+	if (count == 0) return 0;
+
+	return 1;
 }

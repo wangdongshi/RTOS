@@ -17,6 +17,23 @@ extern "C" {
 
 #include <stdint.h>
 
+typedef enum {
+    SD_VERSION_1X,
+    SD_VERSION_2X
+} SD_VERSION;
+
+typedef enum {
+    SD_TYPE_SDSC,
+    SD_TYPE_SDHC_SDXC
+} SD_TYPE;
+
+typedef struct {
+	SD_VERSION	version;
+	SD_TYPE		type;
+    uint32_t	cid[4];
+    uint16_t	rca;
+} SD_INFO;
+
 // Font type definition
 #define LAYER_BG				(0) // background layer
 #define LAYER_FG				(1) // foreground layer
