@@ -37,61 +37,67 @@
 #define LCD_VBP							(2)
 #define LCD_VFP							(2)
 
-// SD Command definition
-#define SD_CMD_GO_IDLE_STATE        	(0)		// Resets the SD memory card.                                                               
-#define SD_CMD_SEND_OP_COND         	(1)		// Sends host capacity support information and activates the card's initialization process. 
-#define SD_CMD_ALL_SEND_CID         	(2)		// Asks any card connected to the host to send the CID numbers on the CMD line.             
-#define SD_CMD_SET_REL_ADDR         	(3)		// Asks the card to publish a new relative address (RCA).                                   
-#define SD_CMD_SET_DSR              	(4)		// Programs the DSR of all cards.                                                           
-#define SD_CMD_SDMMC_SEN_OP_COND    	(5)		// Sends host capacity support information (HCS) and asks the accessed card to send its operating condition register (OCR) content in the response on the CMD line.
-#define SD_CMD_HS_SWITCH            	(6)		// Checks switchable function (mode 0) and switch card function (mode 1).                   
-#define SD_CMD_SEL_DESEL_CARD       	(7)		// Selects the card by its own relative address and gets deselected by any other address    
-#define SD_CMD_HS_SEND_EXT_CSD      	(8)		// Sends SD Memory Card interface condition, which includes host supply voltage information and asks the card whether card supports voltage.
-#define SD_CMD_SEND_CSD             	(9)		// Addressed card sends its card specific data (CSD) on the CMD line.                       
-#define SD_CMD_SEND_CID             	(10)	// Addressed card sends its card identification (CID) on the CMD line.                      
-#define SD_CMD_READ_DAT_UNTIL_STOP  	(11)	// SD card doesn't support it.                                                              
-#define SD_CMD_STOP_TRANSMISSION    	(12)	// Forces the card to stop transmission.                                                    
-#define SD_CMD_SEND_STATUS          	(13)	// Addressed card sends its status register.                                                
-#define SD_CMD_HS_BUSTEST_READ      	(14)	// Reserved                                                                                 
-#define SD_CMD_GO_INACTIVE_STATE    	(15)	// Sends an addressed card into the inactive state.                                         
-#define SD_CMD_SET_BLOCKLEN         	(16)	// Sets the block length (in bytes for SDSC) for all following block commands (read, write, lock). Default block length is fixed to 512 Bytes. Not effective for SDHS and SDXC.                                                                       
-#define SD_CMD_READ_SINGLE_BLOCK    	(17)	// Reads single block of size selected by SET_BLOCKLEN in case of SDSC, and a block of fixed 512 bytes in case of SDHC and SDXC.                                                
-#define SD_CMD_READ_MULT_BLOCK      	(18)	// Continuously transfers data blocks from card to host until interrupted by STOP_TRANSMISSION command.                                                               
-#define SD_CMD_HS_BUSTEST_WRITE     	(19)	// 64 bytes tuning pattern is sent for SDR50 and SDR104.                                    
-#define SD_CMD_WRITE_DAT_UNTIL_STOP 	(20)	// Speed class control command.                                                             
-#define SD_CMD_SET_BLOCK_COUNT      	(23)	// Specify block count for CMD18 and CMD25.                                                 
-#define SD_CMD_WRITE_SINGLE_BLOCK   	(24)	// Writes single block of size selected by SET_BLOCKLEN in case of SDSC, and a block of fixed 512 bytes in case of SDHC and SDXC.                                                
-#define SD_CMD_WRITE_MULT_BLOCK     	(25)	// Continuously writes blocks of data until a STOP_TRANSMISSION follows.                    
-#define SD_CMD_PROG_CID             	(26)	// Reserved for manufacturers.                                                              
-#define SD_CMD_PROG_CSD             	(27)	// Programming of the programmable bits of the CSD.                                         
-#define SD_CMD_SET_WRITE_PROT       	(28)	// Sets the write protection bit of the addressed group.                                    
-#define SD_CMD_CLR_WRITE_PROT       	(29)	// Clears the write protection bit of the addressed group.                                  
-#define SD_CMD_SEND_WRITE_PROT      	(30)	// Asks the card to send the status of the write protection bits.                           
-#define SD_CMD_SD_ERASE_GRP_START   	(32)	// Sets the address of the first write block to be erased. (For SD card only).              
-#define SD_CMD_SD_ERASE_GRP_END     	(33)	// Sets the address of the last write block of the continuous range to be erased.           
-#define SD_CMD_ERASE_GRP_START      	(35)	// Sets the address of the first write block to be erased. Reserved for each command system set by switch function command (CMD6).                                            
-#define SD_CMD_ERASE_GRP_END        	(36)	// Sets the address of the last write block of the continuous range to be erased.           
-												// Reserved for each command system set by switch function command (CMD6).                  
-#define SD_CMD_ERASE                	(38)	// Reserved for SD security applications.                                                   
-#define SD_CMD_FAST_IO              	(39)	// SD card doesn't support it (Reserved).                                                   
-#define SD_CMD_GO_IRQ_STATE         	(40)	// SD card doesn't support it (Reserved).                                                   
-#define SD_CMD_LOCK_UNLOCK          	(42)	// Sets/resets the password or lock/unlock the card. The size of the data block is set by the SET_BLOCK_LEN command.                                                               
-#define SD_CMD_APP_CMD              	(55)	// Indicates to the card that the next command is an application specific command rather than a standard command.                                                                 
-#define SD_CMD_GEN_CMD              	(56)	// Used either to transfer a data block to the card or to get a data block from the card for general purpose/application specific commands.                                       
-#define SD_CMD_NO_CMD               	(64)	// No command
-
-#define SD_CMD_APP_SD_SET_BUSWIDTH      (6)		// (ACMD6) Defines the data bus width to be used for data transfer. The allowed data bus widths are given in SCR register.
-#define SD_CMD_SD_APP_STATUS            (13)	// (ACMD13) Sends the SD status.
-#define SD_CMD_SD_APP_SEND_NUM_WRITE_BLOCKS (22) // (ACMD22) Sends the number of the written (without errors) write blocks. Responds with 32bit+CRC data block.
-#define SD_CMD_SD_APP_OP_COND			(41)   	// (ACMD41) Sends host capacity support information (HCS) and asks the accessed card to send its operating condition register (OCR) content in the response on the CMD line.
-#define SD_CMD_SD_APP_SET_CLR_CARD_DETECT	(42) //(ACMD42) Connect/Disconnect the 50 KOhm pull-up resistor on CD/DAT3 (pin 1) of the card
-#define SD_CMD_SD_APP_SEND_SCR			(51)	// Reads the SD Configuration Register (SCR).
-#define SD_CMD_SDMMC_RW_DIRECT			(52)	// For SD I/O card only, reserved for security specification.
-#define SD_CMD_SDMMC_RW_EXTENDED		(53)	// For SD I/O card only, reserved for security specification.
+// SD Card normal commands
+#define SD_CMD_GO_IDLE_STATE			(0)
+#define SD_CMD_SEND_OP_COND				(1)
+#define SD_CMD_ALL_SEND_CID				(2)
+#define SD_CMD_SET_REL_ADDR				(3)
+#define SD_CMD_SET_DSR					(4)
+#define SD_CMD_SDMMC_SEN_OP_COND		(5)
+#define SD_CMD_HS_SWITCH				(6)
+#define SD_CMD_SEL_DESEL_CARD			(7)
+#define SD_CMD_HS_SEND_EXT_CSD			(8)
+#define SD_CMD_SEND_CSD					(9)
+#define SD_CMD_SEND_CID					(10)
+#define SD_CMD_READ_DAT_UNTIL_STOP		(11)
+#define SD_CMD_STOP_TRANSMISSION		(12)
+#define SD_CMD_SEND_STATUS				(13)
+#define SD_CMD_HS_BUSTEST_READ			(14)
+#define SD_CMD_GO_INACTIVE_STATE		(15)
+#define SD_CMD_SET_BLOCKLEN				(16)
+#define SD_CMD_READ_SINGLE_BLOCK		(17)
+#define SD_CMD_READ_MULT_BLOCK			(18)
+#define SD_CMD_HS_BUSTEST_WRITE			(19)
+#define SD_CMD_WRITE_DAT_UNTIL_STOP		(20)
+#define SD_CMD_SET_BLOCK_COUNT			(23)
+#define SD_CMD_WRITE_SINGLE_BLOCK		(24)
+#define SD_CMD_WRITE_MULT_BLOCK			(25)
+#define SD_CMD_PROG_CID					(26)
+#define SD_CMD_PROG_CSD					(27)
+#define SD_CMD_SET_WRITE_PROT			(28)
+#define SD_CMD_CLR_WRITE_PROT			(29)
+#define SD_CMD_SEND_WRITE_PROT			(30)
+#define SD_CMD_SD_ERASE_GRP_START		(32)
+#define SD_CMD_SD_ERASE_GRP_END			(33)
+#define SD_CMD_ERASE_GRP_START			(35)
+#define SD_CMD_ERASE_GRP_END			(36)
+#define SD_CMD_ERASE					(38)
+#define SD_CMD_FAST_IO					(39)
+#define SD_CMD_GO_IRQ_STATE				(40)
+#define SD_CMD_LOCK_UNLOCK				(42)
+#define SD_CMD_APP_CMD					(55)
+#define SD_CMD_GEN_CMD					(56)
+#define SD_CMD_NO_CMD					(64)
+// SD Card specific commands
+#define SD_CMD_APP_SD_SET_BUSWIDTH		(6)
+#define SD_CMD_APP_STATUS				(13)
+#define SD_CMD_APP_SEND_NUM_WRITE_BLOCK (22)
+#define SD_CMD_APP_OP_COND				(41)
+#define SD_CMD_APP_SET_CLR_CARD_DETECT	(42)
+#define SD_CMD_APP_SEND_SCR				(51)
+#define SD_CMD_SDMMC_RW_DIRECT			(52)
+#define SD_CMD_SDMMC_RW_EXTENDED		(53)
 
 #define SD_SEND_CMD_TIMEOUT_CNT			(5000 * (216000000 / 8 / 1000))
 #define SD_CMD_RESP_R1_ERRORBITS		(0xFDFFE008)
 #define SD_CMD_RESP_R6_ERRORBITS		(0x0000E000)
+
+#define SD_RESPONSE_R0					(0)
+#define SD_RESPONSE_R1					(1)
+#define SD_RESPONSE_R2					(2)
+#define SD_RESPONSE_R3					(3)
+#define SD_RESPONSE_R6					(6)
+#define SD_RESPONSE_R7					(7)
 
 uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) )   charBuffer[12 * 16 * COLOR_BYTE_ARGB8888];
 uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) ) frameBuffer1[LCD_FRAME_BUF_SIZE];
@@ -108,7 +114,7 @@ static void initLCD(void);
 static void initDMA2D(void);
 static void initLED1(void);
 static void initSDMMC(void);
-static uint8_t initSDCard(void);
+static bool_t initSDCard(void);
 #ifdef MODE_STAND_ALONE
 static void initTIM7(void);
 #endif
@@ -130,13 +136,13 @@ static void setCharBuf12x16(
 		const uint32_t foreColor,
 		const uint32_t backColor);
 
-static void sdmmcSendCmd(uint8_t cmd, uint32_t arg);
-static uint8_t sdmmcCheckCmdError(void);
-static uint8_t sdmmcCheckCmdResp1(uint8_t cmd);
-static uint8_t sdmmcCheckCmdResp2(void);
-static uint8_t sdmmcCheckCmdResp3(void);
-static uint8_t sdmmcCheckCmdResp6(uint8_t cmd, uint16_t* pRca);
-static uint8_t sdmmcCheckCmdResp7(void);
+static bool_t sdmmcSendCmd(uint8_t cmd, uint8_t resp, uint32_t arg);
+static bool_t sdmmcCheckCmdResp0(void);
+static bool_t sdmmcCheckCmdResp1(uint8_t cmd);
+static bool_t sdmmcCheckCmdResp2(uint8_t cmd);
+static bool_t sdmmcCheckCmdResp3(void);
+static bool_t sdmmcCheckCmdResp6(uint8_t cmd);
+static bool_t sdmmcCheckCmdResp7(void);
 
 // External API function group
 void SystemInit(void)
@@ -968,13 +974,13 @@ static void initLED1(void)
 	initLED1GPIO();
 }
 
-static uint8_t initSDCard(void)
+static bool_t initSDCard(void)
 {
 	uint32_t resp  = 0;
 	uint32_t volt  = 0;
 	uint32_t count = 0xFFFF;
 
-	if (!isSDCardInsert()) return 0;
+	if (!isSDCardInsert()) return False;
 
 	// Initialize SDMMC interface to initialize mode (400KHz, 1bit)
 	SDMMC1->CLKCR	=	0x76 << SDMMC_CLKCR_CLKDIV_Pos |	// 0x76+2=120, 48MHz/120=400KHz
@@ -991,32 +997,36 @@ static uint8_t initSDCard(void)
 	SDMMC1->CLKCR	|=	0b1 << SDMMC_CLKCR_CLKEN_Pos;		// enable SDMMC clock
 
 	// Send CMD0 to identify card operating voltage.
-	sdmmcSendCmd(SD_CMD_GO_IDLE_STATE, 0);
-	if (!sdmmcCheckCmdError()) return 0;
+	if (!sdmmcSendCmd(SD_CMD_GO_IDLE_STATE, SD_RESPONSE_R0, 0)) return False;
+	//sdmmcSendCmd(SD_CMD_GO_IDLE_STATE, 0);
+	//if (!sdmmcCheckCmdResp0()) return False;
 
 	// Send CMD8 to verify SD card version.
 	// [11:8]: Supply Voltage (VHS) 0x1 (Range: 2.7-3.6 V)
 	// [7:0]:  Check Pattern (recommended 0xAA) */
-	sdmmcSendCmd(SD_CMD_HS_SEND_EXT_CSD, 0x1AA);
-	if (sdmmcCheckCmdResp7()) {
+	if (sdmmcSendCmd(SD_CMD_HS_SEND_EXT_CSD, SD_RESPONSE_R7, 0x1AA)) {
+	//sdmmcSendCmd(SD_CMD_HS_SEND_EXT_CSD, 0x1AA);
+	//if (sdmmcCheckCmdResp7()) {
 		sdcard.version = SD_VERSION_2X;
 	}
 	else {
 		sdcard.version = SD_VERSION_1X;
 	}
 
-	// Wait for SD card ready.
+	// Send CMD41 to wait for SD card ready.
 	do {
 		// Send CMD55 to change command mode to application command.
-		sdmmcSendCmd(SD_CMD_APP_CMD, 0);
-		if (!sdmmcCheckCmdResp1(SD_CMD_APP_CMD)) return 0;
+		if (!sdmmcSendCmd(SD_CMD_APP_CMD, SD_RESPONSE_R1, 0)) return False;
+		//sdmmcSendCmd(SD_CMD_APP_CMD, 0);
+		//if (!sdmmcCheckCmdResp1(SD_CMD_APP_CMD)) return False;
 
 		// Send CMD41 to judge if SD card is ready.
 		// SDMMC_VOLTAGE_WINDOW_SD	: 0x80100000
 		// SDMMC_HIGH_CAPACITY		: 0x40000000
 		// SD_SWITCH_1_8V_CAPACITY	: 0x01000000
-		sdmmcSendCmd(SD_CMD_SD_APP_OP_COND, 0xC1100000);
-		if (!sdmmcCheckCmdResp3()) return 0;
+		if (!sdmmcSendCmd(SD_CMD_APP_OP_COND, SD_RESPONSE_R3, 0xC1100000)) return False;
+		//sdmmcSendCmd(SD_CMD_APP_OP_COND, 0xC1100000);
+		//if (!sdmmcCheckCmdResp3()) return False;
 
 		// Get operating voltage
 		resp = SDMMC1->RESP1;
@@ -1024,7 +1034,7 @@ static uint8_t initSDCard(void)
 		count--;
 	}
 	while (volt == 0 && count != 0);
-	if (count == 0) return 0;
+	if (count == 0) return False;
 	if (resp & 0x40000000) {
 		sdcard.type = SD_TYPE_SDHC_SDXC;
 	}
@@ -1033,18 +1043,16 @@ static uint8_t initSDCard(void)
 	}
 
 	// Send CMD2 to get CID.
-	sdmmcSendCmd(SD_CMD_ALL_SEND_CID, 0);
-	if (!sdmmcCheckCmdResp2()) return 0;
-	sdcard.cid[0] = SDMMC1->RESP1;
-	sdcard.cid[1] = SDMMC1->RESP2;
-	sdcard.cid[2] = SDMMC1->RESP3;
-	sdcard.cid[3] = SDMMC1->RESP4;
+	if (!sdmmcSendCmd(SD_CMD_ALL_SEND_CID, SD_RESPONSE_R2, 0)) return False;
+	//sdmmcSendCmd(SD_CMD_ALL_SEND_CID, 0);
+	//if (!sdmmcCheckCmdResp2()) return False;
 
 	// Send CMD3 to assign SD relative card address.
-	sdmmcSendCmd(SD_CMD_SET_REL_ADDR, 0);
-	if (!sdmmcCheckCmdResp6(SD_CMD_SET_REL_ADDR, &(sdcard.rca))) return 0;
+	if (!sdmmcSendCmd(SD_CMD_SET_REL_ADDR, SD_RESPONSE_R6, 0)) return False;
+	//sdmmcSendCmd(SD_CMD_SET_REL_ADDR, 0);
+	//if (!sdmmcCheckCmdResp6(SD_CMD_SET_REL_ADDR)) return False;
 
-	return 1;
+	return True;
 }
 
 static void initSDMMC(void)
@@ -1565,33 +1573,59 @@ static void setCharBuf12x16(
 	}
 }
 
-static void sdmmcSendCmd(uint8_t cmd, uint32_t arg)
+static bool_t sdmmcSendCmd(uint8_t cmd, uint8_t resp, uint32_t arg)
 {
-	uint8_t resp = 0b01;
+	uint8_t respLength = 0b01;
 
 	// set WAITRESP area
 	switch (cmd) {
 	case SD_CMD_GO_IDLE_STATE:
-		resp = 0b00; // no response
+		respLength = 0b00; // no response
 		break;
 	case SD_CMD_ALL_SEND_CID:
 	case SD_CMD_SEND_CSD:
-		resp = 0b11; // long response
+		respLength = 0b11; // long response
 		break;
 	default:
-		resp = 0b01; // short response
+		respLength = 0b01; // short response
 		break;
 	}
 
 	// send command
 	SDMMC1->ARG	=	arg;
 	SDMMC1->CMD	=	cmd << SDMMC_CMD_CMDINDEX_Pos |
-					resp << SDMMC_CMD_WAITRESP_Pos |
+					respLength << SDMMC_CMD_WAITRESP_Pos |
 					0b0 << SDMMC_CMD_WAITINT_Pos | // no interrupt
 					0b1 << SDMMC_CMD_CPSMEN_Pos;   // enable CPSM
+
+	// check response
+	bool_t res = False;
+	switch (resp) {
+	case SD_RESPONSE_R0:
+		res = sdmmcCheckCmdResp0();
+		break;
+	default:
+	case SD_RESPONSE_R1:
+		res = sdmmcCheckCmdResp1(cmd);
+		break;
+	case SD_RESPONSE_R2:
+		res = sdmmcCheckCmdResp2(cmd);
+		break;
+	case SD_RESPONSE_R3:
+		res = sdmmcCheckCmdResp3();
+		break;
+	case SD_RESPONSE_R6:
+		res = sdmmcCheckCmdResp6(cmd);
+		break;
+	case SD_RESPONSE_R7:
+		res = sdmmcCheckCmdResp7();
+		break;
+	}
+
+	return res;
 }
 
-static uint8_t sdmmcCheckCmdError(void)
+static bool_t sdmmcCheckCmdResp0(void)
 {
 	uint32_t count = SD_SEND_CMD_TIMEOUT_CNT;
 	while((SDMMC1->STA & SDMMC_STA_CMDSENT_Msk) == 0 && count-- != 0);
@@ -1600,71 +1634,77 @@ static uint8_t sdmmcCheckCmdError(void)
 	return count != 0; // count == 0 : timeout
 }
 
-static uint8_t sdmmcCheckCmdResp1(uint8_t cmd)
+static bool_t sdmmcCheckCmdResp1(uint8_t cmd)
 {
 	uint32_t count = SD_SEND_CMD_TIMEOUT_CNT;
 
 	// Did not consider CCRCFAIL, CMDREND and CTIMEOUT error flags, because they will cause timeout.
 	while ((SDMMC1->STA & SDMMC_STA_CMDACT_Msk) && count-- != 0);
 	SDMMC1->ICR |= 	SDMMC1->STA;
-	if (count == 0) return 0;
+	if (count == 0) return False;
+	if ((uint8_t)(SDMMC1->RESPCMD) != cmd) return False;
+	// Response have been received
+	if (SDMMC1->RESP1 & SD_CMD_RESP_R1_ERRORBITS) return False; // response have been received
 
-	if ((uint8_t)(SDMMC1->RESPCMD) != cmd) return 0;
-	if (SDMMC1->RESP1 & SD_CMD_RESP_R1_ERRORBITS) return 0; // response have been received
-
-	return 1;
+	return True;
 }
 
-static uint8_t sdmmcCheckCmdResp2(void)
+static bool_t sdmmcCheckCmdResp2(uint8_t cmd)
 {
 	uint32_t count = SD_SEND_CMD_TIMEOUT_CNT;
 
 	// Did not consider CCRCFAIL, CMDREND and CTIMEOUT error flags, because they will cause timeout.
 	while ((SDMMC1->STA & SDMMC_STA_CMDACT_Msk) && count-- != 0);
 	SDMMC1->ICR |= 	SDMMC1->STA;
-	if (count == 0) return 0;
+	if (count == 0) return False;
+	// Response have been received
+	if (cmd == SD_CMD_ALL_SEND_CID) {
+		sdcard.cid[0] = SDMMC1->RESP1;
+		sdcard.cid[1] = SDMMC1->RESP2;
+		sdcard.cid[2] = SDMMC1->RESP3;
+		sdcard.cid[3] = SDMMC1->RESP4;
+	}
 
-	return 1;
+	return True;
 }
 
-static uint8_t sdmmcCheckCmdResp3(void)
+static bool_t sdmmcCheckCmdResp3(void)
 {
 	uint32_t count = SD_SEND_CMD_TIMEOUT_CNT;
 
 	// Did not consider CCRCFAIL, CMDREND and CTIMEOUT error flags, because they will cause timeout.
 	while ((SDMMC1->STA & SDMMC_STA_CMDACT_Msk) && count-- != 0);
 	SDMMC1->ICR |= 	SDMMC1->STA;
-	if (count == 0) return 0;
+	if (count == 0) return False;
 
-	return 1;
+	return True;
 }
 
-static uint8_t sdmmcCheckCmdResp6(uint8_t cmd, uint16_t* pRca)
+static bool_t sdmmcCheckCmdResp6(uint8_t cmd)
 {
 	uint32_t count = SD_SEND_CMD_TIMEOUT_CNT;
 
 	// Did not consider CCRCFAIL, CMDREND and CTIMEOUT error flags, because they will cause timeout.
 	while ((SDMMC1->STA & SDMMC_STA_CMDACT_Msk) && count-- != 0);
-	SDMMC1->ICR |= 	SDMMC_ICR_CTIMEOUTC_Msk | SDMMC_ICR_CCRCFAILC_Msk | SDMMC_ICR_CMDRENDC_Msk | SDMMC_ICR_CMDSENTC_Msk;
-	if (count == 0) return 0;
-
-	if ((uint8_t)(SDMMC1->RESPCMD) != cmd) return 0;
-
+	SDMMC1->ICR |= 	SDMMC1->STA;
+	if (count == 0) return False;
+	if ((uint8_t)(SDMMC1->RESPCMD) != cmd) return False;
+	// Response have been received
 	uint32_t r1 = SDMMC1->RESP1;
-	if (r1 & SD_CMD_RESP_R6_ERRORBITS) return 0; // response have been received
+	if (r1 & SD_CMD_RESP_R6_ERRORBITS) return False;
+	if (cmd == SD_CMD_SET_REL_ADDR) sdcard.rca = (uint16_t)(r1 >> 16); // CMD3
 
-	*pRca = (uint16_t)(r1 >> 16);
-	return 1;
+	return True;
 }
 
-static uint8_t sdmmcCheckCmdResp7(void)
+static bool_t sdmmcCheckCmdResp7(void)
 {
 	uint32_t count = SD_SEND_CMD_TIMEOUT_CNT;
 
 	// Did not consider CCRCFAIL, CMDREND and CTIMEOUT error flags, because they will cause timeout.
 	while ((SDMMC1->STA & SDMMC_STA_CMDACT_Msk) && count-- != 0);
 	SDMMC1->ICR |= 	SDMMC1->STA;
-	if (count == 0) return 0;
+	if (count == 0) return False;
 
-	return 1;
+	return True;
 }
