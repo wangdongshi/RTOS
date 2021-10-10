@@ -37,6 +37,17 @@
 #define LCD_VBP							(2)
 #define LCD_VFP							(2)
 
+// SD constant value definition
+#define SD_BLOCKSIZE					(512)
+#define SD_SEND_CMD_TIMEOUT_CNT			(5000 * (216000000 / 8 / 1000))
+#define SD_CMD_RESP_R1_ERRORBITS		(0xFDFFE008)
+#define SD_CMD_RESP_R6_ERRORBITS		(0x0000E000)
+#define SD_RESPONSE_R0					(0)
+#define SD_RESPONSE_R1					(1)
+#define SD_RESPONSE_R2					(2)
+#define SD_RESPONSE_R3					(3)
+#define SD_RESPONSE_R6					(6)
+#define SD_RESPONSE_R7					(7)
 // SD Card normal commands
 #define SD_CMD_GO_IDLE_STATE			(0)
 #define SD_CMD_SEND_OP_COND				(1)
@@ -79,7 +90,7 @@
 #define SD_CMD_GEN_CMD					(56)
 #define SD_CMD_NO_CMD					(64)
 // SD Card specific commands
-#define SD_CMD_APP_SD_SET_BUSWIDTH		(6)
+#define SD_CMD_APP_SET_BUSWIDTH			(6)
 #define SD_CMD_APP_STATUS				(13)
 #define SD_CMD_APP_SEND_NUM_WRITE_BLOCK (22)
 #define SD_CMD_APP_OP_COND				(41)
@@ -88,21 +99,47 @@
 #define SD_CMD_SDMMC_RW_DIRECT			(52)
 #define SD_CMD_SDMMC_RW_EXTENDED		(53)
 
-#define SD_SEND_CMD_TIMEOUT_CNT			(5000 * (216000000 / 8 / 1000))
-#define SD_CMD_RESP_R1_ERRORBITS		(0xFDFFE008)
-#define SD_CMD_RESP_R6_ERRORBITS		(0x0000E000)
+typedef enum {
+	SD_VERSION_1X,
+	SD_VERSION_2X
+} SD_VERSION;
 
-#define SD_RESPONSE_R0					(0)
-#define SD_RESPONSE_R1					(1)
-#define SD_RESPONSE_R2					(2)
-#define SD_RESPONSE_R3					(3)
-#define SD_RESPONSE_R6					(6)
-#define SD_RESPONSE_R7					(7)
+typedef enum {
+	SD_TYPE_SDSC,
+	SD_TYPE_SDHC_SDXC
+} SD_TYPE;
+
+typedef struct {
+	uint32_t	raw[4];
+	uint32_t	others[0];
+} SD_CID;
+
+typedef struct {
+	uint32_t	raw[4];
+	uint32_t	others[0];
+} SD_CSD;
+
+typedef struct {
+	uint32_t	raw[2];
+	uint8_t		wideBus;
+	uint32_t	others[0];
+} SD_SCR;
+
+typedef struct {
+	SD_VERSION	version;
+	SD_TYPE		type;
+	uint32_t	category;
+	uint16_t	rca;
+	SD_CID		cid;
+	SD_CSD		csd;
+	SD_SCR		scr;
+} SD_INFO;
+
+SD_INFO __attribute__( ( aligned(4) ) ) sdcard;
 
 uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) )   charBuffer[12 * 16 * COLOR_BYTE_ARGB8888];
 uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) ) frameBuffer1[LCD_FRAME_BUF_SIZE];
 uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) ) frameBuffer2[LCD_FRAME_BUF_SIZE];
-SD_INFO __attribute__( ( aligned(4) ) ) sdcard;
 
 static void initFPU(void);
 static void initSystemClock(void);
@@ -978,6 +1015,7 @@ static bool_t initSDCard(void)
 {
 	uint32_t resp  = 0;
 	uint32_t volt  = 0;
+	uint32_t addr  = 0;
 	uint32_t count = 0xFFFF;
 
 	if (!isSDCardInsert()) return False;
@@ -1013,14 +1051,14 @@ static bool_t initSDCard(void)
 		sdcard.version = SD_VERSION_1X;
 	}
 
-	// Send CMD41 to wait for SD card ready.
+	// Repeat sending CMD41 until SD card is ready.
 	do {
 		// Send CMD55 to change command mode to application command.
 		if (!sdmmcSendCmd(SD_CMD_APP_CMD, SD_RESPONSE_R1, 0)) return False;
 		//sdmmcSendCmd(SD_CMD_APP_CMD, 0);
 		//if (!sdmmcCheckCmdResp1(SD_CMD_APP_CMD)) return False;
 
-		// Send CMD41 to judge if SD card is ready.
+		// Send ACMD41 to judge if SD card is ready.
 		// SDMMC_VOLTAGE_WINDOW_SD	: 0x80100000
 		// SDMMC_HIGH_CAPACITY		: 0x40000000
 		// SD_SWITCH_1_8V_CAPACITY	: 0x01000000
@@ -1051,6 +1089,76 @@ static bool_t initSDCard(void)
 	if (!sdmmcSendCmd(SD_CMD_SET_REL_ADDR, SD_RESPONSE_R6, 0)) return False;
 	//sdmmcSendCmd(SD_CMD_SET_REL_ADDR, 0);
 	//if (!sdmmcCheckCmdResp6(SD_CMD_SET_REL_ADDR)) return False;
+	addr = sdcard.rca << 16;
+
+	// Send CMD9 to receive CSD information.
+	if (!sdmmcSendCmd(SD_CMD_SEND_CSD, SD_RESPONSE_R2, 0)) return False;
+
+	// Send CMD7 to select the current card.
+	if (!sdmmcSendCmd(SD_CMD_SEL_DESEL_CARD, SD_RESPONSE_R1, addr)) return False;
+
+	// --- SD card enumeration process is completed ! ---
+
+	// Send CMD16 to set card block size to 8 bits.
+	if (!sdmmcSendCmd(SD_CMD_SET_BLOCKLEN, SD_RESPONSE_R1, 8)) return False;
+
+	// Set SDMMC interface register to configure data length to 8 bits
+	SDMMC1->DTIMER	=	0xFFFFFFFF;
+	SDMMC1->DLEN	=	8;
+	SDMMC1->DCTRL	|=	0b11 << SDMMC_DCTRL_DBLOCKSIZE_Pos |	// 8 bits
+						0b1 << SDMMC_DCTRL_DTDIR_Pos |			// card --> SDMMC
+						0b0 << SDMMC_DCTRL_DTMODE_Pos |			// block mode
+						0b1 << SDMMC_DCTRL_DTEN_Pos;			// enable data transfer
+
+	// Send CMD55 to change command mode to application command.
+	if (!sdmmcSendCmd(SD_CMD_APP_CMD, SD_RESPONSE_R1, addr)) return False;
+
+	// Send ACMD51 to get bus wide information from SD card SCR register.
+	if (!sdmmcSendCmd(SD_CMD_APP_SEND_SCR, SD_RESPONSE_R1, 0)) return False;
+	// Read all SCR register from data FIFO
+	uint32_t scr[2] = {0, 0};
+	uint8_t* pSCR = (uint8_t*)&scr[0];
+	while(SDMMC1->STA & SDMMC_STA_RXACT_Msk) {
+		uint32_t errMask = SDMMC_STA_RXOVERR | SDMMC_STA_DCRCFAIL | SDMMC_STA_DTIMEOUT;
+		if (SDMMC1->STA & errMask) return False;
+		while((SDMMC1->STA & SDMMC_STA_RXDAVL_Msk) == 0);
+		*pSCR++ = SDMMC1->FIFO;
+	}
+	SDMMC1->ICR |= 	SDMMC1->STA;
+	// Change SCR data from big endian to little endian.
+	sdcard.scr.raw[0] =	(scr[1] & 0x000000FF) << 24 |
+					(scr[1] & 0x0000FF00) << 8  |
+					(scr[1] & 0x00FF0000) >> 8  |
+					(scr[1] & 0xFF000000) >> 24;
+	sdcard.scr.raw[1] =	(scr[0] & 0x000000FF) << 24 |
+					(scr[0] & 0x0000FF00) << 8  |
+					(scr[0] & 0x00FF0000) >> 8  |
+					(scr[0] & 0xFF000000) >> 24;
+	sdcard.scr.wideBus = (sdcard.scr.raw[1] & 0x00040000) != 0;
+
+	if (sdcard.scr.wideBus) {
+		// Send CMD55 to change command mode to application command.
+		if (!sdmmcSendCmd(SD_CMD_APP_CMD, SD_RESPONSE_R1, addr)) return False;
+
+		// Send ACMD6 to set wide bus mode.
+		if (!sdmmcSendCmd(SD_CMD_APP_SET_BUSWIDTH, SD_RESPONSE_R1, 2)) return False;
+	}
+
+	// Initialize SDMMC interface to initialize mode (400KHz, 1bit)
+	SDMMC1->CLKCR	=	0x76 << SDMMC_CLKCR_CLKDIV_Pos |	// TODO : 0x76+2=120, 48MHz/120=400KHz
+						0b0 << SDMMC_CLKCR_HWFC_EN_Pos |	// disable hardware flow control
+						0b01 << SDMMC_CLKCR_WIDBUS_Pos |	// 4 bit mode SDMMC_D0
+						0b0  << SDMMC_CLKCR_PWRSAV_Pos |	// enable SDMMC_CK in SD bus inactive
+						0b0  << SDMMC_CLKCR_BYPASS_Pos |	// disable bypass CLKDIV
+						0b0 << SDMMC_CLKCR_NEGEDGE_Pos |	// rising edge R/W
+						0b0 << SDMMC_CLKCR_CLKEN_Pos;		// disable SDMMC clock
+
+	// Send CMD16 to set card block size.
+	if (!sdmmcSendCmd(SD_CMD_SET_BLOCKLEN, SD_RESPONSE_R1, SD_BLOCKSIZE)) return False;
+
+	// Send CMD16 to set card block size.
+	resp = SDMMC1->RESP1;
+	if (resp & 0x02000000) return False;
 
 	return True;
 }
@@ -1659,10 +1767,17 @@ static bool_t sdmmcCheckCmdResp2(uint8_t cmd)
 	if (count == 0) return False;
 	// Response have been received
 	if (cmd == SD_CMD_ALL_SEND_CID) {
-		sdcard.cid[0] = SDMMC1->RESP1;
-		sdcard.cid[1] = SDMMC1->RESP2;
-		sdcard.cid[2] = SDMMC1->RESP3;
-		sdcard.cid[3] = SDMMC1->RESP4;
+		sdcard.cid.raw[0] = SDMMC1->RESP1;
+		sdcard.cid.raw[1] = SDMMC1->RESP2;
+		sdcard.cid.raw[2] = SDMMC1->RESP3;
+		sdcard.cid.raw[3] = SDMMC1->RESP4;
+	}
+	else if (cmd == SD_CMD_SEND_CSD) {
+		sdcard.csd.raw[0] = SDMMC1->RESP1;
+		sdcard.csd.raw[1] = SDMMC1->RESP2;
+		sdcard.csd.raw[2] = SDMMC1->RESP3;
+		sdcard.csd.raw[3] = SDMMC1->RESP4;
+		sdcard.category = sdcard.csd.raw[2] >> 20;
 	}
 
 	return True;

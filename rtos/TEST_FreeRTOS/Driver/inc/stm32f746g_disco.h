@@ -47,23 +47,6 @@ typedef enum {
 	COLOR_A4		= 0b1010
 } RGB_TYPE;
 
-typedef enum {
-	SD_VERSION_1X,
-	SD_VERSION_2X
-} SD_VERSION;
-
-typedef enum {
-	SD_TYPE_SDSC,
-	SD_TYPE_SDHC_SDXC
-} SD_TYPE;
-
-typedef struct {
-	SD_VERSION	version;
-	SD_TYPE		type;
-	uint32_t	cid[4];
-	uint16_t	rca;
-} SD_INFO;
-
 // Defined in link script
 extern uint32_t _ssdram; // SDRAM start address
 extern uint32_t _sdram_size;
