@@ -72,6 +72,8 @@ void usart1Send(const uint8_t* message);
 void i2c3Write1Byte(uint8_t slaveAddr, uint8_t devAddr, uint8_t data);
 uint8_t i2c3Read1Byte(uint8_t slaveAddr, uint8_t devAddr);
 
+uint8_t isSDCardInsert(void);
+
 void toggleLED1(void);
 void showLogo(void);
 void checkDMA2D(void);

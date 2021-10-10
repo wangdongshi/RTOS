@@ -10,6 +10,7 @@
  **********************************************************************/
 #include <stdint.h>
 #include <string.h>
+#include "debug.h"
 #include "assert_param.h"
 #include "font.h"
 #include "image.h"
@@ -79,13 +80,23 @@
 #define SD_CMD_GEN_CMD              	(56)	// Used either to transfer a data block to the card or to get a data block from the card for general purpose/application specific commands.                                       
 #define SD_CMD_NO_CMD               	(64)	// No command
 
+#define SD_CMD_APP_SD_SET_BUSWIDTH      (6)		// (ACMD6) Defines the data bus width to be used for data transfer. The allowed data bus widths are given in SCR register.
+#define SD_CMD_SD_APP_STATUS            (13)	// (ACMD13) Sends the SD status.
+#define SD_CMD_SD_APP_SEND_NUM_WRITE_BLOCKS (22) // (ACMD22) Sends the number of the written (without errors) write blocks. Responds with 32bit+CRC data block.
+#define SD_CMD_SD_APP_OP_COND			(41)   	// (ACMD41) Sends host capacity support information (HCS) and asks the accessed card to send its operating condition register (OCR) content in the response on the CMD line.
+#define SD_CMD_SD_APP_SET_CLR_CARD_DETECT	(42) //(ACMD42) Connect/Disconnect the 50 KOhm pull-up resistor on CD/DAT3 (pin 1) of the card
+#define SD_CMD_SD_APP_SEND_SCR			(51)	// Reads the SD Configuration Register (SCR).
+#define SD_CMD_SDMMC_RW_DIRECT			(52)	// For SD I/O card only, reserved for security specification.
+#define SD_CMD_SDMMC_RW_EXTENDED		(53)	// For SD I/O card only, reserved for security specification.
+
 #define SD_SEND_CMD_TIMEOUT_CNT			(5000 * (216000000 / 8 / 1000))
-#define SD_CARD_OCR_ERRORBITS			(0xFDFFE008)
+#define SD_CMD_RESP_R1_ERRORBITS		(0xFDFFE008)
+#define SD_CMD_RESP_R6_ERRORBITS		(0x0000E000)
 
 uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) )   charBuffer[12 * 16 * COLOR_BYTE_ARGB8888];
 uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) ) frameBuffer1[LCD_FRAME_BUF_SIZE];
 uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) ) frameBuffer2[LCD_FRAME_BUF_SIZE];
-SD_INFO __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) )       sdcard;
+SD_INFO __attribute__( ( aligned(4) ) ) sdcard;
 
 static void initFPU(void);
 static void initSystemClock(void);
@@ -96,7 +107,8 @@ static void initTouchPanel(void);
 static void initLCD(void);
 static void initDMA2D(void);
 static void initLED1(void);
-static void initSDIO(void);
+static void initSDMMC(void);
+static uint8_t initSDCard(void);
 #ifdef MODE_STAND_ALONE
 static void initTIM7(void);
 #endif
@@ -107,6 +119,7 @@ static void initUartGPIO(void);
 static void initLED1GPIO(void);
 static void initLCDGPIO(void);
 static void initTouchPanelGPIO(void);
+static void initSDMMCGPIO(void);
 
 static void setCharBuf06x08(
 		const uint16_t  symbol,
@@ -117,6 +130,14 @@ static void setCharBuf12x16(
 		const uint32_t foreColor,
 		const uint32_t backColor);
 
+static void sdmmcSendCmd(uint8_t cmd, uint32_t arg);
+static uint8_t sdmmcCheckCmdError(void);
+static uint8_t sdmmcCheckCmdResp1(uint8_t cmd);
+static uint8_t sdmmcCheckCmdResp2(void);
+static uint8_t sdmmcCheckCmdResp3(void);
+static uint8_t sdmmcCheckCmdResp6(uint8_t cmd, uint16_t* pRca);
+static uint8_t sdmmcCheckCmdResp7(void);
+
 // External API function group
 void SystemInit(void)
 {
@@ -125,15 +146,25 @@ void SystemInit(void)
 	initFPU();
 	initSystemClock();
 	initSDRAM();
-	initNVICPriorityGroup();
+	initNVICPriority();
+	initUSART1();
+	TRACE("STM32F746G-DISCO starts to power up...\r\n");
 	initLED1();
 	initLCD();
-	initUSART1();
+	TRACE("1. LCD initialization is success.\r\n");
 	initTouchPanel();
+	TRACE("2. Touch panel initialization is success.\r\n");
+	initSDMMC();
+	char* msg[2] = {
+		"3. SD card is not inserted.\r\n",
+		"3. SD card identification is success.\r\n"
+	};
+	TRACE(msg[initSDCard()]);
 	initSystick();
 #ifdef MODE_STAND_ALONE
 	initTIM7();
 #endif
+	TRACE("\r\n");
 }
 
 void usart1SendChar(const uint8_t character)
@@ -222,9 +253,9 @@ void toggleLED1(void)
 	GPIOI->ODR |= (~data) & GPIO_ODR_OD1_Msk;
 }
 
-uint16_t isSDCardInsert(void)
+uint8_t isSDCardInsert(void)
 {
-	uint16_t res = (uint16_t)((GPIOC->IDR & GPIO_IDR_ID13_Msk) >> GPIO_IDR_ID13_Pos);
+	uint8_t res = !(uint8_t)((GPIOC->IDR & GPIO_IDR_ID13_Msk) >> GPIO_IDR_ID13_Pos);
 	return res;
 }
 
@@ -949,8 +980,8 @@ static uint8_t initSDCard(void)
 	SDMMC1->CLKCR	=	0x76 << SDMMC_CLKCR_CLKDIV_Pos |	// 0x76+2=120, 48MHz/120=400KHz
 						0b0 << SDMMC_CLKCR_HWFC_EN_Pos |	// disable hardware flow control
 						0b00 << SDMMC_CLKCR_WIDBUS_Pos |	// 1 bit mode SDMMC_D0
-						0b0 << SDMMC_CLKCR_PWRSAV_Pos |		// enable SDMMC_CK in SD bus inactive
-						0b0 << SDMMC_CLKCR_BYPASS_Pos |		// disable bypass CLKDIV
+						0b0  << SDMMC_CLKCR_PWRSAV_Pos |	// enable SDMMC_CK in SD bus inactive
+						0b0  << SDMMC_CLKCR_BYPASS_Pos |	// disable bypass CLKDIV
 						0b0 << SDMMC_CLKCR_NEGEDGE_Pos |	// rising edge R/W
 						0b0 << SDMMC_CLKCR_CLKEN_Pos;		// disable SDMMC clock
 
@@ -1012,6 +1043,8 @@ static uint8_t initSDCard(void)
 	// Send CMD3 to assign SD relative card address.
 	sdmmcSendCmd(SD_CMD_SET_REL_ADDR, 0);
 	if (!sdmmcCheckCmdResp6(SD_CMD_SET_REL_ADDR, &(sdcard.rca))) return 0;
+
+	return 1;
 }
 
 static void initSDMMC(void)
@@ -1170,16 +1203,16 @@ static void initNVICPriority(void)
 	NVIC->ISER[1] |= 0b1 << (40 - 32);
 
 	// Initialize SDIO interrupt (IRQn:49)
-	NVIC->IP[49]  |= 13 << 4;
-	NVIC->ISER[1] |= 0b1 << (49 - 32);
+	//NVIC->IP[49]  |= 13 << 4;
+	//NVIC->ISER[1] |= 0b1 << (49 - 32);
 
 	// Initialize SDIO DMARx (DMA2_Stream3) interrupt (IRQn:59)
-	NVIC->IP[59]  |= 14 << 4;
-	NVIC->ISER[1] |= 0b1 << (59 - 32);
+	//NVIC->IP[59]  |= 14 << 4;
+	//NVIC->ISER[1] |= 0b1 << (59 - 32);
 
 	// Initialize SDIO DMATx (DMA2_Stream6) interrupt (IRQn:69)
-	NVIC->IP[69]  |= 14 << 4;
-	NVIC->ISER[2] |= 0b1 << (69 - 64);
+	//NVIC->IP[69]  |= 14 << 4;
+	//NVIC->ISER[2] |= 0b1 << (69 - 64);
 }
 
 #ifdef MODE_STAND_ALONE
@@ -1544,26 +1577,25 @@ static void setCharBuf12x16(
 
 static void sdmmcSendCmd(uint8_t cmd, uint32_t arg)
 {
-	uint32_t count = 5000 * (216000000 / 8 / 1000);
-	uint8_t  resp  = 0b01;
+	uint8_t resp = 0b01;
 
 	// set WAITRESP area
 	switch (cmd) {
 	case SD_CMD_GO_IDLE_STATE:
-		resp = 0b00;
+		resp = 0b00; // no response
 		break;
 	case SD_CMD_ALL_SEND_CID:
 	case SD_CMD_SEND_CSD:
-		resp = 0b11;
+		resp = 0b11; // long response
 		break;
 	default:
-		resp = 0b01;
+		resp = 0b01; // short response
 		break;
 	}
 
 	// send command
 	SDMMC1->ARG	=	arg;
-	SDMMC1->CMD	|=	cmd << SDMMC_CMD_CMDINDEX_Pos |
+	SDMMC1->CMD	=	cmd << SDMMC_CMD_CMDINDEX_Pos |
 					resp << SDMMC_CMD_WAITRESP_Pos |
 					0b0 << SDMMC_CMD_WAITINT_Pos | // no interrupt
 					0b1 << SDMMC_CMD_CPSMEN_Pos;   // enable CPSM
@@ -1573,6 +1605,8 @@ static uint8_t sdmmcCheckCmdError(void)
 {
 	uint32_t count = SD_SEND_CMD_TIMEOUT_CNT;
 	while((SDMMC1->STA & SDMMC_STA_CMDSENT_Msk) == 0 && count-- != 0);
+	SDMMC1->ICR |= 	SDMMC1->STA;
+
 	return count != 0; // count == 0 : timeout
 }
 
@@ -1582,11 +1616,11 @@ static uint8_t sdmmcCheckCmdResp1(uint8_t cmd)
 
 	// Did not consider CCRCFAIL, CMDREND and CTIMEOUT error flags, because they will cause timeout.
 	while ((SDMMC1->STA & SDMMC_STA_CMDACT_Msk) && count-- != 0);
-	SDMMC1->ICR |= 	SDMMC_ICR_CTIMEOUTC_Msk | SDMMC_ICR_CCRCFAILC_Msk;
+	SDMMC1->ICR |= 	SDMMC1->STA;
 	if (count == 0) return 0;
 
 	if ((uint8_t)(SDMMC1->RESPCMD) != cmd) return 0;
-	if (SDMMC1->RESP1 & SD_CARD_OCR_ERRORBITS) return 0; // response have been received
+	if (SDMMC1->RESP1 & SD_CMD_RESP_R1_ERRORBITS) return 0; // response have been received
 
 	return 1;
 }
@@ -1597,7 +1631,7 @@ static uint8_t sdmmcCheckCmdResp2(void)
 
 	// Did not consider CCRCFAIL, CMDREND and CTIMEOUT error flags, because they will cause timeout.
 	while ((SDMMC1->STA & SDMMC_STA_CMDACT_Msk) && count-- != 0);
-	SDMMC1->ICR |= 	SDMMC_ICR_CTIMEOUTC_Msk | SDMMC_ICR_CCRCFAILC_Msk;
+	SDMMC1->ICR |= 	SDMMC1->STA;
 	if (count == 0) return 0;
 
 	return 1;
@@ -1609,7 +1643,7 @@ static uint8_t sdmmcCheckCmdResp3(void)
 
 	// Did not consider CCRCFAIL, CMDREND and CTIMEOUT error flags, because they will cause timeout.
 	while ((SDMMC1->STA & SDMMC_STA_CMDACT_Msk) && count-- != 0);
-	SDMMC1->ICR |= 	SDMMC_ICR_CTIMEOUTC_Msk | SDMMC_ICR_CCRCFAILC_Msk | SDMMC_ICR_CMDRENDC_Msk;
+	SDMMC1->ICR |= 	SDMMC1->STA;
 	if (count == 0) return 0;
 
 	return 1;
@@ -1621,13 +1655,13 @@ static uint8_t sdmmcCheckCmdResp6(uint8_t cmd, uint16_t* pRca)
 
 	// Did not consider CCRCFAIL, CMDREND and CTIMEOUT error flags, because they will cause timeout.
 	while ((SDMMC1->STA & SDMMC_STA_CMDACT_Msk) && count-- != 0);
-	SDMMC1->ICR |= 	SDMMC_ICR_CTIMEOUTC_Msk | SDMMC_ICR_CCRCFAILC_Msk;
+	SDMMC1->ICR |= 	SDMMC_ICR_CTIMEOUTC_Msk | SDMMC_ICR_CCRCFAILC_Msk | SDMMC_ICR_CMDRENDC_Msk | SDMMC_ICR_CMDSENTC_Msk;
 	if (count == 0) return 0;
 
 	if ((uint8_t)(SDMMC1->RESPCMD) != cmd) return 0;
 
 	uint32_t r1 = SDMMC1->RESP1;
-	if (r1 & SD_CARD_OCR_ERRORBITS) return 0; // response have been received
+	if (r1 & SD_CMD_RESP_R6_ERRORBITS) return 0; // response have been received
 
 	*pRca = (uint16_t)(r1 >> 16);
 	return 1;
@@ -1639,7 +1673,7 @@ static uint8_t sdmmcCheckCmdResp7(void)
 
 	// Did not consider CCRCFAIL, CMDREND and CTIMEOUT error flags, because they will cause timeout.
 	while ((SDMMC1->STA & SDMMC_STA_CMDACT_Msk) && count-- != 0);
-	SDMMC1->ICR |= 	SDMMC_ICR_CTIMEOUTC_Msk | SDMMC_ICR_CCRCFAILC_Msk | SDMMC_ICR_CMDRENDC_Msk;
+	SDMMC1->ICR |= 	SDMMC1->STA;
 	if (count == 0) return 0;
 
 	return 1;

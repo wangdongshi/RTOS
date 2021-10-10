@@ -19,7 +19,7 @@ extern"C"
 int main(void);
 void startTask(void *pvParameters);
 void mainTask(void *pvParameters);
-void hmiTask(void *pvParameters);
+void ehmiTask(void *pvParameters);
 void led1Task(void *pvParameters);
 #ifdef MODE_STAND_ALONE
 void executeCmd(const char* cmd);
@@ -49,7 +49,7 @@ void startTask(void *pvParameters)
 	// create system resource
 	taskENTER_CRITICAL();
 	xTaskCreate(led1Task,	"LED1_TASK",	400,	NULL,	2,	NULL); // for monitor board
-	xTaskCreate(hmiTask,	"HMI_TASK",		400,	NULL,	2,	NULL);
+	xTaskCreate(ehmiTask,	"HMI_TASK",		400,	NULL,	2,	NULL);
 	xTaskCreate(mainTask,	"MAIN_TASK",	400,	NULL,	5,	NULL);
 	TaskHandle_t handler = xTaskGetHandle("START_TASK");
 	vTaskDelete(handler);
@@ -67,7 +67,7 @@ void led1Task(void *pvParameters)
 	}
 }
 
-void hmiTask(void * pvParameters)
+void ehmiTask(void * pvParameters)
 {
 	(static_cast<EHmiMain*>(pHmi))->Start();
 }
