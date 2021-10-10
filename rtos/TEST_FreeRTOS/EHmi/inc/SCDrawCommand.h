@@ -2,10 +2,10 @@
  * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
- * Filename:  SCDrawCommand.h
- * Project:   Minimum RTOS platform
- * Date:      2018/11/26
- * Author:    WangYu
+ * Filename : SCDrawCommand.h
+ * Project  : Minimum RTOS platform
+ * Date     : 2018/11/26
+ * Author   : WangYu
  *
  **********************************************************************/
 #ifndef __SCL_DRAW_COMMAND_H__

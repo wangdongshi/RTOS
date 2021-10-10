@@ -2,10 +2,10 @@
  * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
- * Filename:  redirection.c
- * Project:   Minimum RTOS platform
- * Date:      2021/9/6
- * Author:    WangYu
+ * Filename : redirection.c
+ * Project  : Minimum RTOS platform
+ * Date     : 2021/9/6
+ * Author   : WangYu
  *
  **********************************************************************/
 #include <stdio.h>
@@ -16,10 +16,10 @@
 // I/O redirect
 int _write(int file, char *ptr, int len)
 {
-    for (int i = 0; i < len; i++) {
-    	usart1SendChar((const uint8_t)(*ptr++ & 0xFF));
-    }
-    return len;
+	for (int i = 0; i < len; i++) {
+		usart1SendChar((const uint8_t)(*ptr++ & 0xFF));
+	}
+	return len;
 }
 
 /*

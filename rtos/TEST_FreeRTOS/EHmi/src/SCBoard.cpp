@@ -2,10 +2,10 @@
  * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
- * Filename:  SCBoard.cpp
- * Project:   Minimum RTOS platform
- * Date:      2018/12/20
- * Author:    WangYu
+ * Filename : SCBoard.cpp
+ * Project  : Minimum RTOS platform
+ * Date     : 2018/12/20
+ * Author   : WangYu
  *
  **********************************************************************/
 #include "SCParts.h"
@@ -66,10 +66,10 @@ void SCBoard::UnregistParts(SCParts* target)
 
 void SCBoard::DestroyParts(SCParts*	target)
 {
-    if(target) {
-        UnregistParts(target);
-        delete target;
-    }
+	if(target) {
+		UnregistParts(target);
+		delete target;
+	}
 }
 
 void SCBoard::DestroyAllParts(void)

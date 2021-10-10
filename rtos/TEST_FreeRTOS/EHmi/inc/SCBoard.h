@@ -2,10 +2,10 @@
  * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
- * Filename:  SCBoard.h
- * Project:   Minimum RTOS platform
- * Date:      2018/12/20
- * Author:    WangYu
+ * Filename : SCBoard.h
+ * Project  : Minimum RTOS platform
+ * Date     : 2018/12/20
+ * Author   : WangYu
  *
  **********************************************************************/
 #ifndef __SCL_BOARD_H__

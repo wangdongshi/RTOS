@@ -2,10 +2,10 @@
  * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
- * Filename:  SCCallback.h
- * Project:   Minimum RTOS platform
- * Date:	  2018/11/26
- * Author:	  WangYu
+ * Filename : SCCallback.h
+ * Project  : Minimum RTOS platform
+ * Date     : 2018/11/26
+ * Author   : WangYu
  *
  **********************************************************************/
 #ifndef __SCL_CALLBACK_H__

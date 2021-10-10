@@ -2,15 +2,15 @@
  * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
- * Filename:  ft5336.c
- * Project:   Minimum RTOS platform
- * Date:      2021/9/20
- * Author:    WangYu
+ * Filename : ft5336.c
+ * Project  : Minimum RTOS platform
+ * Date     : 2021/9/20
+ * Author   : WangYu
  *
  **********************************************************************/
-#include <stdint.h>
 #include <string.h>
 #include <stdio.h>
+#include "types.h"
 #include "ft5336.h"
 #include "stm32f746g_disco.h"
 

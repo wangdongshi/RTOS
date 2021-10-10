@@ -2,14 +2,14 @@
  * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
- * Filename:  stm32f746g_disco.c
- * Project:   Minimum RTOS platform
- * Date:      2021/9/5
- * Author:    WangYu
+ * Filename : stm32f746g_disco.c
+ * Project  : Minimum RTOS platform
+ * Date     : 2021/9/5
+ * Author   : WangYu
  *
  **********************************************************************/
-#include <stdint.h>
 #include <string.h>
+#include "types.h"
 #include "debug.h"
 #include "assert_param.h"
 #include "font.h"
@@ -253,9 +253,9 @@ void toggleLED1(void)
 	GPIOI->ODR |= (~data) & GPIO_ODR_OD1_Msk;
 }
 
-uint8_t isSDCardInsert(void)
+bool_t isSDCardInsert(void)
 {
-	uint8_t res = !(uint8_t)((GPIOC->IDR & GPIO_IDR_ID13_Msk) >> GPIO_IDR_ID13_Pos);
+	bool_t res = !(bool_t)((GPIOC->IDR & GPIO_IDR_ID13_Msk) >> GPIO_IDR_ID13_Pos);
 	return res;
 }
 
@@ -276,7 +276,7 @@ void checkDMA2D(void)
 	//drawString(70,  100, 0xFFA9A9A9, 0x008B0000, "abcdefghijklmnopqrstuvwxyz", FONT_MIDDLE, LAYER_FG);
 }
 
-uint16_t checkSDRAM(void)
+bool_t checkSDRAM(void)
 {
 	uint8_t* p;
 	uint8_t* startAddr	= (uint8_t*)&_ssdram;
@@ -285,22 +285,22 @@ uint16_t checkSDRAM(void)
 	// check after write
 	for (p = startAddr; p <= endAddr; p += 0x100000) {
 		*p = 0xA5;
-		if ((*p) != 0xA5) return 0;
+		if ((*p) != 0xA5) return False;
 	}
 	*endAddr = 0x5A;
-	if ((*endAddr) != 0x5A) return 0;
+	if ((*endAddr) != 0x5A) return False;
 
 	// check delay
 	for (volatile uint32_t i = 0; i < 1000000; i++);
 	for (p = startAddr; p <= endAddr; p += 0x100000) {
-		if ((*p) != 0xA5) return 0;
+		if ((*p) != 0xA5) return False;
 	}
-	if ((*endAddr) != 0x5A) return 0;
+	if ((*endAddr) != 0x5A) return False;
 
-	return 1;
+	return True;
 }
 
-uint16_t checkTouchPanel(void)
+bool_t checkTouchPanel(void)
 {
 	uint8_t chipID = readFT5336ChipID();
 	return (chipID == 0x51);
@@ -312,7 +312,7 @@ void fillRect(
 		const uint16_t w,
 		const uint16_t h,
 		const uint32_t color,
-		const uint8_t  layer)
+		const LAYER_TYPE layer)
 {
 	uint8_t* pFB = (uint8_t*)((layer == LAYER_BG) ? &frameBuffer1 : &frameBuffer2);
 	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
@@ -334,8 +334,8 @@ void drawImage(
 		const uint16_t w,
 		const uint16_t h,
 		const uint32_t addr,
-		const uint8_t  format,
-		const uint8_t  layer)
+		const RGB_TYPE pfc,
+		const LAYER_TYPE layer)
 {
 	uint8_t* pFB = (uint8_t*)((layer == LAYER_BG) ? &frameBuffer1 : &frameBuffer2);
 	while (DMA2D->CR & DMA2D_CR_START); // wait previous transfer complete
@@ -346,8 +346,8 @@ void drawImage(
 	DMA2D->OMAR		= (uint32_t)(&(pFB[(y * LCD_ACTIVE_WIDTH + x) * LCD_FRAME_BUF_BYTES]));
 	DMA2D->FGOR		= 0;
 	DMA2D->OOR		= LCD_ACTIVE_WIDTH - w;
-	DMA2D->FGPFCCR	= format; // fore-ground color type
-	DMA2D->OPFCCR	= 0b000;  // ARGB8888
+	DMA2D->FGPFCCR	= pfc;   // fore-ground RGB format
+	DMA2D->OPFCCR	= 0b000; // ARGB8888
 	DMA2D->NLR		= w << DMA2D_NLR_PL_Pos | h << DMA2D_NLR_NL_Pos;
 
 	DMA2D->CR   	|= DMA2D_CR_START;
@@ -359,8 +359,8 @@ void drawChar(
 		const uint32_t foreColor,
 		const uint32_t backColor,
 		const uint16_t symbol,
-		const uint8_t  fontType,
-		const uint8_t  layer)
+		const FONT_TYPE fontType,
+		const LAYER_TYPE layer)
 {
 	uint32_t height = (FONT_SMALL == fontType) ? sFont.st.head.fontHeight    : mFont.st.head.fontHeight;
 	uint32_t width  = (FONT_SMALL == fontType) ? sFont.st.cdef[symbol].width : mFont.st.cdef[symbol].width;
@@ -394,8 +394,8 @@ void drawString( // It only can support 1 line string
 		const uint32_t foreColor,
 		const uint32_t backColor,
 		const char* const string,
-		const uint8_t  fontType,
-		const uint8_t  layer)
+		const FONT_TYPE fontType,
+		const LAYER_TYPE layer)
 {
 	uint16_t currentX = x;
 	char* pString = (char*)string;
@@ -420,7 +420,7 @@ uint32_t getRandomData(void)
 	return random;
 }
 
-uint32_t checkDMA(uint16_t data)
+bool_t checkDMA(uint16_t data)
 {
 	uint32_t  size = 0x8000;
 	uint16_t* pSrc = &data;
@@ -1086,11 +1086,6 @@ static void initSDMMC(void)
 						DMA_LIFCR_CTEIF3_Msk |
 						DMA_LIFCR_CDMEIF3_Msk |
 						DMA_LIFCR_CFEIF3_Msk;
-	/*
-	DMA2_Stream3->NDTR = size/sizeof(uint16_t);	 // 32768 / 2 = 16 K half word
-	DMA2_Stream3->PAR  = (uint32_t)(pSrc);
-	DMA2_Stream3->M0AR = (uint32_t)(pDes);
-	*/
 
 	// Configure DMA TX
 	DMA2_Stream6->CR &= ~DMA_SxCR_EN;
@@ -1113,11 +1108,6 @@ static void initSDMMC(void)
 						DMA_HIFCR_CTEIF6_Msk |
 						DMA_HIFCR_CDMEIF6_Msk |
 						DMA_HIFCR_CFEIF6_Msk;
-	/*
-	DMA2_Stream6->NDTR = size/sizeof(uint16_t);	 // 32768 / 2 = 16 K half word
-	DMA2_Stream6->PAR  = (uint32_t)(pSrc);
-	DMA2_Stream6->M0AR = (uint32_t)(pDes);
-	*/
 }
 
 #ifdef MODE_STAND_ALONE

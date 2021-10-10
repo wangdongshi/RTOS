@@ -2,10 +2,10 @@
  * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
- * Filename:  SCLabel.cpp
- * Project:   Minimum RTOS platform
- * Date:      2018/12/20
- * Author:    WangYu
+ * Filename : SCLabel.cpp
+ * Project  : Minimum RTOS platform
+ * Date     : 2018/12/20
+ * Author   : WangYu
  *
  **********************************************************************/
 #include <string.h>

@@ -2,10 +2,10 @@
  * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
- * Filename:  platform.h
- * Project:   Minimum RTOS platform
- * Date:      2021/9/5
- * Author:    WangYu
+ * Filename : platform.h
+ * Project  : Minimum RTOS platform
+ * Date     : 2021/9/5
+ * Author   : WangYu
  *
  **********************************************************************/
 #ifndef __PLATFORM_H__
@@ -13,7 +13,7 @@
 
 // This file include platform API definition of data type, utility, driver and OS resource.
 
-#include <stdint.h>
+#include "types.h"
 #include "assert_param.h"
 #include "debug.h"
 #include "stm32f746g_disco.h"

@@ -2,10 +2,10 @@
  * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
- * Filename:  image.h
- * Project:   Minimum RTOS platform
- * Date:      2021/9/16
- * Author:    WangYu
+ * Filename : image.h
+ * Project  : Minimum RTOS platform
+ * Date     : 2021/9/16
+ * Author   : WangYu
  *
  **********************************************************************/
 #ifndef __IMAGE_H__
@@ -15,7 +15,7 @@
 extern "C" {
 #endif
 
-#include <stdint.h>
+#include "types.h"
 
 extern const uint8_t logoImage[391680];
 

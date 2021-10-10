@@ -2,10 +2,10 @@
  * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
- * Filename:  ft5336.h
- * Project:   Minimum RTOS platform
- * Date:      2021/9/20
- * Author:    WangYu
+ * Filename : ft5336.h
+ * Project  : Minimum RTOS platform
+ * Date     : 2021/9/20
+ * Author   : WangYu
  *
  **********************************************************************/
 #ifndef __FT5336_H__
@@ -15,7 +15,7 @@
 extern "C" {
 #endif
 
-#include <stdint.h>
+#include "types.h"
 
 void writeFT5336DeviceMode(uint8_t data);
 void enableFT5336Int(void);

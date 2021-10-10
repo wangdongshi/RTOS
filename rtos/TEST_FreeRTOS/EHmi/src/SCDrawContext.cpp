@@ -2,10 +2,10 @@
  * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
- * Filename:  SCDrawContext.cpp
- * Project:   Minimum RTOS platform
- * Date:      2018/11/26
- * Author:    WangYu
+ * Filename : SCDrawContext.cpp
+ * Project  : Minimum RTOS platform
+ * Date     : 2018/11/26
+ * Author   : WangYu
  *
  **********************************************************************/
 #include "assert_param.h"
@@ -64,7 +64,7 @@ bool SCDrawContext::drawASCII(
 	assert_param(WINDOW_HEIGHT > y);
 	assert_param(ascii < 128);
 	assert_param(font < 2);
-	drawChar(x, y, fore_color, back_color, ascii, font, LAYER_FG);
+	drawChar(x, y, fore_color, back_color, ascii, static_cast<FONT_TYPE>(font), LAYER_FG);
 	return true;
 }
 
@@ -75,6 +75,6 @@ bool SCDrawContext::drawASCII(
 		const unsigned int back_color,
 		const unsigned int font)
 {
-	return drawASCII(pos.x, pos.y, ascii, fore_color, back_color, font);
+	return drawASCII(pos.x, pos.y, ascii, fore_color, back_color, static_cast<FONT_TYPE>(font));
 }
 

@@ -2,10 +2,10 @@
  * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
- * Filename:  EHmiEvent.h
- * Project:   Minimum RTOS platform
- * Date:      2018/11/26
- * Author:    WangYu
+ * Filename : EHmiEvent.h
+ * Project  : Minimum RTOS platform
+ * Date     : 2018/11/26
+ * Author   : WangYu
  *
  **********************************************************************/
 #ifndef __EHMI_EVENT_H__
@@ -25,43 +25,43 @@ typedef union _EHmiEventParam{
 } EHmiEventParam;
 
 typedef enum {
-    HMI_EV_NONE,
-    HMI_EV_DATA_UPDATE,
-    HMI_EV_CYCLIC_REFRESH, // 1s
-    HMI_EV_TOUCH_DOWN,
-    HMI_EV_TOUCH_UP,
-    HMI_EV_TOUCH_MOVE,
-    HMI_EV_SCREEN_CHG,
+	HMI_EV_NONE,
+	HMI_EV_DATA_UPDATE,
+	HMI_EV_CYCLIC_REFRESH, // 1s
+	HMI_EV_TOUCH_DOWN,
+	HMI_EV_TOUCH_UP,
+	HMI_EV_TOUCH_MOVE,
+	HMI_EV_SCREEN_CHG,
 } EHmiEventType;
 
 class EHmiEvent {
 public :
-    EHmiEvent();
-    EHmiEvent(EHmiEventType ev);
-    EHmiEvent(EHmiEventType ev,
-    		unsigned long ul);
-    EHmiEvent(EHmiEventType ev,
+	EHmiEvent();
+	EHmiEvent(EHmiEventType ev);
+	EHmiEvent(EHmiEventType ev,
+			unsigned long ul);
+	EHmiEvent(EHmiEventType ev,
 			unsigned int i1,
 			unsigned int i2
 			);
-    EHmiEvent(EHmiEventType ev,
+	EHmiEvent(EHmiEventType ev,
 			unsigned short s1,
 			unsigned short s2,
 			unsigned short s3,
 			unsigned short s4
 			);
-    ~EHmiEvent();
-    EHmiEventType GetEvent() {return(type);}
-    unsigned long GetULong() {return(arg.lp);}
-    unsigned int GetUInt(unsigned int arrayNo) {return(arg.ip[arrayNo]);}
-    unsigned short GetUShort(unsigned short arrayNo) {return(arg.sp[arrayNo]);}
+	~EHmiEvent();
+	EHmiEventType GetEvent() {return(type);}
+	unsigned long GetULong() {return(arg.lp);}
+	unsigned int GetUInt(unsigned int arrayNo) {return(arg.ip[arrayNo]);}
+	unsigned short GetUShort(unsigned short arrayNo) {return(arg.sp[arrayNo]);}
 	void SetULong(unsigned long param) {arg.lp = param;}
 	void SetUInt(unsigned int arrayNo, unsigned int param) {arg.ip[arrayNo] = param;}
 	void SetUShort(unsigned int arrayNo, unsigned short param) {arg.sp[arrayNo] = param;}
 	
 private :
-    EHmiEventType	type;
-    EHmiEventParam	arg;
+	EHmiEventType	type;
+	EHmiEventParam	arg;
 };
 
 #endif // __EHMI_EVENT_H__

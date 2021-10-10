@@ -2,10 +2,10 @@
  * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
- * Filename:  EHmiMain.h
- * Project:   Minimum RTOS platform
- * Date:      2018/11/26
- * Author:    WangYu
+ * Filename : EHmiMain.h
+ * Project  : Minimum RTOS platform
+ * Date     : 2018/11/26
+ * Author   : WangYu
  *
  **********************************************************************/
 #ifndef __EHMI_MAIN_H__
@@ -28,21 +28,21 @@ enum _SCRENN_ID {
 
 class EHmiMain {
 public :
-    EHmiMain();
-    virtual ~EHmiMain();
+	EHmiMain();
+	virtual ~EHmiMain();
 	
 public :
 	void Start(void) {run();}
-    bool IsReady(void) {return(is_ready);}
-    void SetReady(bool ready) {is_ready = ready;}
-    QueueHandle_t Mutex(void) {return(mtx);}
-    EventGroupHandle_t EventFlag(void) {return(ev_flag);}
-    void SendQueue(EHmiEvent ev);
-    void SendQueueFromISR(EHmiEvent ev);
+	bool IsReady(void) {return(is_ready);}
+	void SetReady(bool ready) {is_ready = ready;}
+	QueueHandle_t Mutex(void) {return(mtx);}
+	EventGroupHandle_t EventFlag(void) {return(ev_flag);}
+	void SendQueue(EHmiEvent ev);
+	void SendQueueFromISR(EHmiEvent ev);
 	SCBoard* GetBoard(){return(m_screen);}
 	
 private :
-    void run(void);
+	void run(void);
 	void main(void);
 	void eventHandler(EHmiEvent& ev);
 	void startScreen(void);
@@ -53,9 +53,9 @@ private :
 	TimerHandle_t		timer;
 	QueueHandle_t		mtx;
 	QueueHandle_t		deq;
-    bool				is_ready;
-	short           	m_screen_id;
-	SCBoard*        	m_screen;
+	bool				is_ready;
+	short		   	m_screen_id;
+	SCBoard*			m_screen;
 };
 
 #endif // __EHMI_MAIN_H__

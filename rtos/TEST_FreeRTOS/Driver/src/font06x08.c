@@ -2,10 +2,10 @@
  * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
- * Filename:  font06x08.c
- * Project:   Minimum RTOS platform
- * Date:      2021/9/25
- * Author:    WangYu
+ * Filename : font06x08.c
+ * Project  : Minimum RTOS platform
+ * Date     : 2021/9/25
+ * Author   : WangYu
  *
  **********************************************************************/
 #include "font06x08.h"

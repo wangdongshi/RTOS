@@ -2,18 +2,17 @@
  * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
- * Filename : assert_param.c
+ * Filename : types.h
  * Project  : Minimum RTOS platform
- * Date     : 2021/9/10
+ * Date     : 2021/9/5
  * Author   : WangYu
  *
  **********************************************************************/
-#include <stdio.h>
+#ifndef __TYPES_H__
+#define __TYPES_H__
 
-#ifdef DEBUG
-void assert_failed(unsigned char* file, int line)
-{
-	printf("Wrong parameters value: file %s on line %d.\r\n", file, (int)line);
-	while(1);
-}
-#endif /* DEBUG */
+#include <stdint.h>
+
+typedef enum { False, True } bool_t;
+
+#endif // __TYPES_H__

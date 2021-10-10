@@ -2,10 +2,10 @@
  * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
- * Filename:  image.c
- * Project:   Minimum RTOS platform
- * Date:      2021/9/16
- * Author:    WangYu
+ * Filename : image.c
+ * Project  : Minimum RTOS platform
+ * Date     : 2021/9/16
+ * Author   : WangYu
  *
  **********************************************************************/
 

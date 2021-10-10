@@ -2,16 +2,16 @@
  * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
- * Filename:  font06x08.h
- * Project:   Minimum RTOS platform
- * Date:      2021/9/25
- * Author:    WangYu
+ * Filename : font06x08.h
+ * Project  : Minimum RTOS platform
+ * Date     : 2021/9/25
+ * Author   : WangYu
  *
  **********************************************************************/
 #ifndef	__FONT06X08_H__
 #define	__FONT06X08_H__
 
-#include <stdint.h>
+#include "types.h"
 
 typedef struct {
     uint8_t		fontWidth;

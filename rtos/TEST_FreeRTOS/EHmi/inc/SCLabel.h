@@ -2,10 +2,10 @@
  * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
- * Filename:  SCLabel.h
- * Project:   Minimum RTOS platform
- * Date:      2018/12/20
- * Author:    WangYu
+ * Filename : SCLabel.h
+ * Project  : Minimum RTOS platform
+ * Date     : 2018/12/20
+ * Author   : WangYu
  *
  **********************************************************************/
 #ifndef __SCL_LABEL_H__
@@ -14,11 +14,11 @@
 #include "SCParts.h"
 #include "SCDrawCommand.h"
 
-#define SC_LABEL_STRING_MAX     (60)
+#define SC_LABEL_STRING_MAX	 (60)
 
 class SCLabel : public SCParts {
 public :
-    SCLabel(const short id,
+	SCLabel(const short id,
 			const SCRect& area,
 			const unsigned int fore_color = SC_COLOR_BLACK,
 			const unsigned int back_color = SC_COLOR_TRANS,

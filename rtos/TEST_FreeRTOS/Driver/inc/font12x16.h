@@ -2,25 +2,25 @@
  * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
- * Filename:  font12X16.h
- * Project:   Minimum RTOS platform
- * Date:      2021/9/25
- * Author:    WangYu
+ * Filename : font12X16.h
+ * Project  : Minimum RTOS platform
+ * Date     : 2021/9/25
+ * Author   : WangYu
  *
  **********************************************************************/
 #ifndef	__FONT12X16_H__
 #define	__FONT12X16_H__
 
-#include <stdint.h>
+#include "types.h"
 
 typedef struct {
-    uint8_t		fontWidth;
-    uint8_t		fontHeight;
+	uint8_t		fontWidth;
+	uint8_t		fontHeight;
 } FONT_12X16_HEADER;
 
 typedef struct {
 	uint8_t		width;
-    uint8_t		data[12][2];
+	uint8_t		data[12][2];
 } FONT_12X16_CONTENT;
 
 typedef struct {

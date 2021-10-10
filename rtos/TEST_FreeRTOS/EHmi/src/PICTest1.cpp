@@ -2,10 +2,10 @@
  * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
- * Filename:  PICTest.cpp
- * Project:   Minimum RTOS platform
- * Date:      2018/12/20
- * Author:    WangYu
+ * Filename : PICTest.cpp
+ * Project  : Minimum RTOS platform
+ * Date     : 2018/12/20
+ * Author   : WangYu
  *
  **********************************************************************/
 #include "SCLabel.h"
@@ -21,8 +21,8 @@ const SCRect PICTest1::area_button(150, 200, 180, 50);
 
 static void cbButtonPushed(const int id)
 {
-    SCBoard* screen = static_cast<SCBoard*>(pHmi->GetBoard());
-    static_cast<PICTest1*>(screen)->ButtonPushed(id);
+	SCBoard* screen = static_cast<SCBoard*>(pHmi->GetBoard());
+	static_cast<PICTest1*>(screen)->ButtonPushed(id);
 }
 
 PICTest1::PICTest1(const SCRect& area, const short id) :

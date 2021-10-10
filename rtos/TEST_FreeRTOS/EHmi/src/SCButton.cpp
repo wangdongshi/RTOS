@@ -2,10 +2,10 @@
  * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
- * Filename:  SCButton.cpp
- * Project:   Minimum RTOS platform
- * Date:	  2018/11/26
- * Author:	  WangYu
+ * Filename : SCButton.cpp
+ * Project  : Minimum RTOS platform
+ * Date     : 2018/11/26
+ * Author   : WangYu
  *
  **********************************************************************/
 #include <string.h>
@@ -29,50 +29,50 @@ bool SCButton::Draw(void)
 {
 	bool res = true;
 	
-    if(GetVisible())
-    {
+	if(GetVisible())
+	{
 		res &= drawUnderLine();
 		res &= drawRightLine();
 		res &= drawString();
-    }
+	}
 	
-    return res;
+	return res;
 }
 
 bool SCButton::DrawBackground(void)
 {
-    return MakeRect(m_area, SC_COLOR_BLACK, getButtonColor());
+	return MakeRect(m_area, SC_COLOR_BLACK, getButtonColor());
 }
 
 void SCButton::TDown(const SCPoint& point)
 {
-    SetPushed(true);
+	SetPushed(true);
 	ReDraw();
 }
 
 void SCButton::TUp(const SCPoint& point)
 {
-    if(GetPushed())
-    {
-        SetPushed(false);
-        ReDraw();
-        DoCallback(SCCallbackTypeTAP);
-    }
+	if(GetPushed())
+	{
+		SetPushed(false);
+		ReDraw();
+		DoCallback(SCCallbackTypeTAP);
+	}
 }
 
 void SCButton::TMove(const SCPoint& point)
 {
-    bool next = m_area.Contains(point);
-    if(GetPushed() != next)
-    {
-        SetPushed(next);
+	bool next = m_area.Contains(point);
+	if(GetPushed() != next)
+	{
+		SetPushed(next);
 		ReDraw();
-    }
+	}
 }
 
 unsigned int SCButton::getButtonColor(void)
 {
-    return (GetPushed()) ? SC_COLOR_DARK_GRAY : m_back_color;
+	return (GetPushed()) ? SC_COLOR_DARK_GRAY : m_back_color;
 }
 
 bool SCButton::drawUnderLine(void)

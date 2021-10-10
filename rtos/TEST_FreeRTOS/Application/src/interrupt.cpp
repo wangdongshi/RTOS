@@ -2,10 +2,10 @@
  * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
- * Filename:  interrupt.c
- * Project:   Minimum RTOS platform
- * Date:      2021/9/5
- * Author:    WangYu
+ * Filename : interrupt.cpp
+ * Project  : Minimum RTOS platform
+ * Date     : 2021/9/5
+ * Author   : WangYu
  *
  **********************************************************************/
 #include "stm32f746xx.h"

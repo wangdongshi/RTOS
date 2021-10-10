@@ -2,10 +2,10 @@
  * Copyright (c) 2018 - 2021 by WangYu
  * All rights reserved
  *
- * Filename:  SCDrawCommand.cpp
- * Project:   Minimum RTOS platform
- * Date:      2018/11/26
- * Author:    WangYu
+ * Filename : SCDrawCommand.cpp
+ * Project  : Minimum RTOS platform
+ * Date     : 2018/11/26
+ * Author   : WangYu
  *
  **********************************************************************/
 #include <math.h>
@@ -37,10 +37,10 @@ time_t SCDrawCommand::GetSysTime()
 	static unsigned int add = 0;
 	time_t sys_time;
 
-    time(&sys_time);
-    sys_time += 8*3600 + add++;  // transform the time zone
+	time(&sys_time);
+	sys_time += 8*3600 + add++;  // transform the time zone
 
-    return sys_time;
+	return sys_time;
 }
 
 bool SCDrawCommand::DrawPoint(
