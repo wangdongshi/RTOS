@@ -104,7 +104,7 @@ void drawString(
 
 uint32_t getRandomData(void);
 bool_t checkDMA(uint16_t data);
-bool_t checkSDMMC(const uint8_t data);
+bool_t checkSDMMC(const uint16_t data);
 
 #ifdef __cplusplus
 }

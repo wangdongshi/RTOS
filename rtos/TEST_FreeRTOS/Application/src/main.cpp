@@ -126,7 +126,7 @@ static bool_t checkDevices(void)
 	}
 
 #ifdef MODE_TEST_DRIVER
-	uint8_t random = (uint8_t)(0x000000FF & getRandomData());
+	uint16_t random = (uint16_t)(0x000000FF & getRandomData());
 	if (!checkDMA(random)) {
 		TRACE("Failed to initialize DMA(M2M) !\r\n");
 		return False;
@@ -139,7 +139,7 @@ static bool_t checkDevices(void)
 
 #ifdef MODE_TEST_DRIVER
 	// Pay attention to this test. It will break the file system !!!
-	if (!checkSDMMC(random)) {
+	if (isSDCardInsert() && !checkSDMMC(random)) {
 		TRACE("Failed to initialize SD Card !\r\n");
 		return False;
 	}

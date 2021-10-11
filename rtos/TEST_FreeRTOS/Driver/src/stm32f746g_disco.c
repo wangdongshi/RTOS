@@ -9,7 +9,6 @@
  *
  **********************************************************************/
 #include <string.h>
-//#include "platform.h" // TODO
 #include "types.h"
 #include "debug.h"
 #include "assert_param.h"
@@ -305,6 +304,14 @@ bool_t isSDCardInsert(void)
 
 bool_t sdRead1Block(const uint32_t blockAddr, uint8_t* buf)
 {
+	// According to the notes of 35.8.9 chapter of STM32F746XX RM,
+	// the DCTRL register setting must follow this conditions:
+	// >>>> After a data write, data cannot be written to this register for
+	// >>>> three SDMMCCLK (48 MHz)	clock periods plus two PCLK2 clock periods.
+	// Note: PCLK2 is 108MHz in this system.
+	// According test result, here must insert the delay as below !!!
+	for (volatile uint32_t i = 0; i < 500000; i++);
+
 	// Configure SDMMC to receive mode.
 	SDMMC1->DTIMER	=	0xFFFFFFFF;
 	SDMMC1->DLEN	=	SD_BLOCKSIZE;	// 512 Bytes
@@ -318,29 +325,34 @@ bool_t sdRead1Block(const uint32_t blockAddr, uint8_t* buf)
 	if (!sdmmcSendCmd(SD_CMD_READ_SINGLE_BLOCK, SD_RESPONSE_R1, addr)) return False;
 
 	// Poll reading data from SDMMC RX FIFO.
-	bool_t startFlg = False;
-	uint32_t remain = SD_BLOCKSIZE;
-	uint32_t errMask = /*SDMMC_STA_RXOVERR_Msk |*/ SDMMC_STA_DCRCFAIL_Msk | SDMMC_STA_DTIMEOUT_Msk;
+	uint32_t errMask = SDMMC_STA_RXOVERR_Msk | SDMMC_STA_DCRCFAIL_Msk | SDMMC_STA_DTIMEOUT_Msk;
+	uint32_t remain  = SD_BLOCKSIZE;
 	while (remain > 0) {
-		if (SDMMC1->STA & SDMMC_STA_RXFIFOHF_Msk) startFlg = True;
 		if (SDMMC1->STA & errMask) return False;
-		if (startFlg && (SDMMC1->STA & SDMMC_STA_RXDAVL_Msk)) {
-			for (uint8_t count = 0; count < 8; count++) {
-				uint32_t data = SDMMC1->FIFO;
-				*buf++ = (uint8_t)((data >> 0 ) & 0xFF);
-				*buf++ = (uint8_t)((data >> 8 ) & 0xFF);
-				*buf++ = (uint8_t)((data >> 16) & 0xFF);
-				*buf++ = (uint8_t)((data >> 24) & 0xFF);
-				remain -= 4;
-			}
+		if (SDMMC1->STA & SDMMC_STA_RXDAVL_Msk) {
+			uint32_t data = SDMMC1->FIFO;
+			*buf++ = (uint8_t)((data >> 0 ) & 0xFF);
+			*buf++ = (uint8_t)((data >> 8 ) & 0xFF);
+			*buf++ = (uint8_t)((data >> 16) & 0xFF);
+			*buf++ = (uint8_t)((data >> 24) & 0xFF);
+			remain -= 4;
 		}
 	}
+	SDMMC1->ICR = SDMMC1->STA;
 
 	return True;
 }
 
 bool_t sdWrite1Block(const uint32_t blockAddr, uint8_t* buf)
 {
+	// According to the notes of 35.8.9 chapter of STM32F746XX RM,
+	// the DCTRL register setting must follow this conditions:
+	// >>>> After a data write, data cannot be written to this register for
+	// >>>> three SDMMCCLK (48 MHz)	clock periods plus two PCLK2 clock periods.
+	// Note: PCLK2 is 108MHz in this system.
+	// According test result, here must insert the delay as below !!!
+	for (volatile uint32_t i = 0; i < 500000; i++);
+
 	// Configure SDMMC to receive mode
 	SDMMC1->DTIMER	=	0xFFFFFFFF;
 	SDMMC1->DLEN	=	SD_BLOCKSIZE;	// 512 Bytes
@@ -370,6 +382,7 @@ bool_t sdWrite1Block(const uint32_t blockAddr, uint8_t* buf)
 			}
 		}
 	}
+	SDMMC1->ICR = SDMMC1->STA;
 
 	return True;
 }
@@ -566,16 +579,18 @@ bool_t checkDMA(uint16_t data)
 	return (*pDes == data && *(pDes + 0x3FF8) == data);
 }
 
-bool_t checkSDMMC(const uint8_t data)
+bool_t checkSDMMC(const uint16_t data)
 {
-	uint32_t randomAddr = data * 512;
-	uint8_t srcData[512];
-	uint8_t desData[512];
+	uint32_t randomAddr = data * SD_BLOCKSIZE;
+	uint8_t srcData[SD_BLOCKSIZE];
+	uint8_t desData[SD_BLOCKSIZE];
 
-	memset(srcData, data, 512);
+	for (uint16_t i = 0; i < SD_BLOCKSIZE; i++) {
+		srcData[i] = i & 0xFF;
+	}
 	if (!sdWrite1Block(randomAddr, &srcData[0])) return False;
 	if (!sdRead1Block(randomAddr, &desData[0])) return False;
-	for (uint16_t i = 0; i < 512; i++) {
+	for (uint16_t i = 0; i < SD_BLOCKSIZE; i++) {
 		if (srcData[i] != desData[i]) return False;
 	}
 	return True;
@@ -1225,7 +1240,7 @@ static bool_t initSDCard(void)
 
 	// Initialize SDMMC interface to transfer mode (24MHz, 4bits)
 	SDMMC1->CLKCR	|=	0x00 << SDMMC_CLKCR_CLKDIV_Pos |	// 0+2=2, 48MHz/2=24MHz
-						0b0 << SDMMC_CLKCR_HWFC_EN_Pos |	// disable hardware flow control
+						0b1 << SDMMC_CLKCR_HWFC_EN_Pos |	// disable hardware flow control
 						0b01 << SDMMC_CLKCR_WIDBUS_Pos |	// 4 bits mode SDMMC_D[0:3]
 						0b0  << SDMMC_CLKCR_PWRSAV_Pos |	// enable SDMMC_CK in SD bus inactive (disable power save mode)
 						0b0  << SDMMC_CLKCR_BYPASS_Pos |	// disable bypass CLKDIV
