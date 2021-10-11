@@ -25,7 +25,7 @@ void led1Task(void *pvParameters);
 void executeCmd(const char* cmd);
 #endif
 
-static uint32_t checkDevices(void);
+static bool_t checkDevices(void);
 static void printBanner(void);
 
 EHmiMain* pHmi = new EHmiMain();
@@ -110,26 +110,26 @@ void operator delete[](void * ptr)
 	vPortFree (ptr);
 }
 
-static uint32_t checkDevices(void)
+static bool_t checkDevices(void)
 {
 	//TRACE("Check FPU print with float value 99.99 (Display as %.2f).\r\n", 99.99f);
 
 	//assert_param(checkSDRAM());
 	if (!checkSDRAM()) {
-		TRACE("SDRAM initialization failure!\r\n");
-		return 0;
+		TRACE("Failed to initialize SDRAM !\r\n");
+		return False;
 	}
 
 	if (!checkTouchPanel()) {
-		TRACE("Touch panel initialization failure!\r\n");
-		return 0;
+		TRACE("Failed to initialize Touch panel!\r\n");
+		return False;
 	}
 
 #ifdef MODE_TEST_DRIVER
-	uint32_t random = 0x0000FFFF & getRandomData();
+	uint8_t random = (uint8_t)(0x000000FF & getRandomData());
 	if (!checkDMA(random)) {
-		TRACE("DMA(M2M) transfer failure!\r\n");
-		return 0;
+		TRACE("Failed to initialize DMA(M2M) !\r\n");
+		return False;
 	}
 #endif
 
@@ -137,7 +137,15 @@ static uint32_t checkDevices(void)
 	checkDMA2D();
 #endif
 
-	return 1;
+#ifdef MODE_TEST_DRIVER
+	// Pay attention to this test. It will break the file system !!!
+	if (!checkSDMMC(random)) {
+		TRACE("Failed to initialize SD Card !\r\n");
+		return False;
+	}
+#endif
+
+	return True;
 }
 
 static void printBanner(void)

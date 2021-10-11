@@ -57,10 +57,12 @@ uint8_t usart1ReceiveChar(void);
 void usart1SendChar(const uint8_t character);
 void usart1Send(const uint8_t* message);
 
-void i2c3Write1Byte(uint8_t slaveAddr, uint8_t devAddr, uint8_t data);
-uint8_t i2c3Read1Byte(uint8_t slaveAddr, uint8_t devAddr);
+void i2c3Write1Byte(const uint8_t slaveAddr, const uint8_t devAddr, const uint8_t data);
+uint8_t i2c3Read1Byte(const uint8_t slaveAddr, const uint8_t devAddr);
 
 bool_t isSDCardInsert(void);
+bool_t sdRead1Block(const uint32_t sdAddr, uint8_t* buf);
+bool_t sdWrite1Block(const uint32_t sdAddr, uint8_t* buf);
 
 void toggleLED1(void);
 void showLogo(void);
@@ -102,6 +104,7 @@ void drawString(
 
 uint32_t getRandomData(void);
 bool_t checkDMA(uint16_t data);
+bool_t checkSDMMC(const uint8_t data);
 
 #ifdef __cplusplus
 }

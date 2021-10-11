@@ -9,6 +9,7 @@
  *
  **********************************************************************/
 #include <string.h>
+//#include "platform.h" // TODO
 #include "types.h"
 #include "debug.h"
 #include "assert_param.h"
@@ -212,13 +213,13 @@ void SystemInit(void)
 
 void usart1SendChar(const uint8_t character)
 {
-	while((USART1->ISR & USART_ISR_TC_Msk) == 0);
+	while ((USART1->ISR & USART_ISR_TC_Msk) == 0);
 	USART1->TDR = (uint32_t)character;
 }
 
 uint8_t usart1ReceiveChar(void)
 {
-	while((USART1->ISR & USART_ISR_RXNE_Msk) == 0);
+	while ((USART1->ISR & USART_ISR_RXNE_Msk) == 0);
 	return (uint8_t)(USART1->RDR & 0xFF);
 }
 
@@ -227,15 +228,15 @@ void usart1Send(const uint8_t* message)
 	USART1->CR1	|= USART_CR1_TE;
 	for(uint32_t i = 0; i < strlen((const char*)message); i++) {
 		USART1->TDR = message[i];
-		while((USART1->ISR & USART_ISR_TXE_Msk) == 0);
+		while ((USART1->ISR & USART_ISR_TXE_Msk) == 0);
 	}
-	while((USART1->ISR & USART_ISR_TC_Msk) == 0);
+	while ((USART1->ISR & USART_ISR_TC_Msk) == 0);
 	USART1->CR1	&= ~USART_CR1_TE;
 }
 
 
 // for 7bits slave address and 8bits memory address
-void i2c3Write1Byte(uint8_t slaveAddr, uint8_t devAddr, uint8_t data)
+void i2c3Write1Byte(const uint8_t slaveAddr, const uint8_t devAddr, const uint8_t data)
 {
 	// Wait previous I2C operation complete
 	while (I2C3->ISR & I2C_ISR_BUSY);
@@ -259,7 +260,7 @@ void i2c3Write1Byte(uint8_t slaveAddr, uint8_t devAddr, uint8_t data)
 }
 
 // for 7bits slave address and 8bits memory address
-uint8_t i2c3Read1Byte(uint8_t slaveAddr, uint8_t devAddr)
+uint8_t i2c3Read1Byte(const uint8_t slaveAddr, const uint8_t devAddr)
 {
 	uint8_t data;
 
@@ -302,6 +303,77 @@ bool_t isSDCardInsert(void)
 	return res;
 }
 
+bool_t sdRead1Block(const uint32_t blockAddr, uint8_t* buf)
+{
+	// Configure SDMMC to receive mode.
+	SDMMC1->DTIMER	=	0xFFFFFFFF;
+	SDMMC1->DLEN	=	SD_BLOCKSIZE;	// 512 Bytes
+	SDMMC1->DCTRL	=	0b1001 << SDMMC_DCTRL_DBLOCKSIZE_Pos |	// 512 Bytes
+						0b1 << SDMMC_DCTRL_DTDIR_Pos |			// card --> SDMMC
+						0b0 << SDMMC_DCTRL_DTMODE_Pos |			// block mode
+						0b1 << SDMMC_DCTRL_DTEN_Pos;			// enable data transfer
+
+	// Send CMD17 to read one block from SD card.
+	uint32_t addr = blockAddr * SD_BLOCKSIZE;
+	if (!sdmmcSendCmd(SD_CMD_READ_SINGLE_BLOCK, SD_RESPONSE_R1, addr)) return False;
+
+	// Poll reading data from SDMMC RX FIFO.
+	bool_t startFlg = False;
+	uint32_t remain = SD_BLOCKSIZE;
+	uint32_t errMask = /*SDMMC_STA_RXOVERR_Msk |*/ SDMMC_STA_DCRCFAIL_Msk | SDMMC_STA_DTIMEOUT_Msk;
+	while (remain > 0) {
+		if (SDMMC1->STA & SDMMC_STA_RXFIFOHF_Msk) startFlg = True;
+		if (SDMMC1->STA & errMask) return False;
+		if (startFlg && (SDMMC1->STA & SDMMC_STA_RXDAVL_Msk)) {
+			for (uint8_t count = 0; count < 8; count++) {
+				uint32_t data = SDMMC1->FIFO;
+				*buf++ = (uint8_t)((data >> 0 ) & 0xFF);
+				*buf++ = (uint8_t)((data >> 8 ) & 0xFF);
+				*buf++ = (uint8_t)((data >> 16) & 0xFF);
+				*buf++ = (uint8_t)((data >> 24) & 0xFF);
+				remain -= 4;
+			}
+		}
+	}
+
+	return True;
+}
+
+bool_t sdWrite1Block(const uint32_t blockAddr, uint8_t* buf)
+{
+	// Configure SDMMC to receive mode
+	SDMMC1->DTIMER	=	0xFFFFFFFF;
+	SDMMC1->DLEN	=	SD_BLOCKSIZE;	// 512 Bytes
+	SDMMC1->DCTRL	=	0b1001 << SDMMC_DCTRL_DBLOCKSIZE_Pos |	// 512 Bytes
+						0b0 << SDMMC_DCTRL_DTDIR_Pos |			// SDMMC --> card
+						0b0 << SDMMC_DCTRL_DTMODE_Pos |			// block mode
+						0b1 << SDMMC_DCTRL_DTEN_Pos;			// enable data transfer
+
+	// Send CMD24 to write one block to SD card.
+	uint32_t addr = blockAddr * SD_BLOCKSIZE;
+	if (!sdmmcSendCmd(SD_CMD_WRITE_SINGLE_BLOCK, SD_RESPONSE_R1, addr)) return False;
+
+	// Poll writing data to SDMMC TX FIFO
+	uint32_t remain = SD_BLOCKSIZE;
+	uint32_t errMask = SDMMC_STA_TXUNDERR_Msk | SDMMC_STA_DCRCFAIL_Msk | SDMMC_STA_DTIMEOUT_Msk;
+	while (remain > 0) {
+		if (SDMMC1->STA & errMask) return False;
+		if (SDMMC1->STA & SDMMC_STA_TXFIFOHE_Msk) {
+			for (uint8_t count = 0; count < 8; count++) {
+				uint32_t data = 0;
+				data |= (uint32_t)(*buf++) << 0;
+				data |= (uint32_t)(*buf++) << 8;
+				data |= (uint32_t)(*buf++) << 16;
+				data |= (uint32_t)(*buf++) << 24;
+				remain -= 4;
+				SDMMC1->FIFO = data;
+			}
+		}
+	}
+
+	return True;
+}
+
 void showLogo(void)
 {
 	drawImage(0, 0, 480, 272, (uint32_t)&logoImage, COLOR_RGB888, LAYER_FG);
@@ -315,8 +387,10 @@ void checkDMA2D(void)
 	drawString(70,  60,  0xFFA9A9A9, 0x008B0000, "Welcome to STM32F746G-DISCO!", FONT_MIDDLE, LAYER_FG);
 	drawString(280, 120, 0xFFA9A9A9, 0x008B0000, "Author : Wang.Yu", FONT_SMALL, LAYER_FG);
 	drawString(280, 150, 0xFFA9A9A9, 0x008B0000, "  Date : 2021/9/1", FONT_SMALL, LAYER_FG);
-	//drawString(70,  80,  0xFFA9A9A9, 0x008B0000, "abcdefghijklmnopqrstuvwxyz", FONT_SMALL, LAYER_FG);
-	//drawString(70,  100, 0xFFA9A9A9, 0x008B0000, "abcdefghijklmnopqrstuvwxyz", FONT_MIDDLE, LAYER_FG);
+#if 0
+	drawString(70,  80,  0xFFA9A9A9, 0x008B0000, "abcdefghijklmnopqrstuvwxyz", FONT_SMALL, LAYER_FG);
+	drawString(70,  100, 0xFFA9A9A9, 0x008B0000, "abcdefghijklmnopqrstuvwxyz", FONT_MIDDLE, LAYER_FG);
+#endif
 }
 
 bool_t checkSDRAM(void)
@@ -452,10 +526,10 @@ void drawString( // It only can support 1 line string
 uint32_t getRandomData(void)
 {
 	RCC->AHB2ENR |= RCC_AHB2ENR_RNGEN;
-	while((RCC->AHB2ENR & RCC_AHB2ENR_RNGEN_Msk) == 0);
+	while ((RCC->AHB2ENR & RCC_AHB2ENR_RNGEN_Msk) == 0);
 
 	RNG->CR = RNG_CR_RNGEN;
-	while((RNG->SR & RNG_SR_DRDY_Msk) == 0);
+	while ((RNG->SR & RNG_SR_DRDY_Msk) == 0);
 
 	uint32_t random = RNG->DR;
 
@@ -470,7 +544,7 @@ bool_t checkDMA(uint16_t data)
 	uint16_t* pDes = (uint16_t*)((uint32_t)&_ssdram + (uint32_t)(0x500000/sizeof(uint16_t)));
 
 	RCC->AHB1ENR |= RCC_AHB1ENR_DMA2EN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_DMA2EN_Msk) == 0);
+	while ((RCC->AHB1ENR & RCC_AHB1ENR_DMA2EN_Msk) == 0);
 
 	DMA2_Stream0->CR = 	DMA_SxCR_CHSEL_0 |	// Stream0, channel1
 						DMA_SxCR_PSIZE_0 |	// src data 16bits
@@ -484,12 +558,27 @@ bool_t checkDMA(uint16_t data)
 
 	DMA2_Stream0->CR |= DMA_SxCR_EN; // start DMA transfer
 
-	while((DMA2->LISR & DMA_LISR_TCIF0_Msk) == 0); // wait transfer complete
+	while ((DMA2->LISR & DMA_LISR_TCIF0_Msk) == 0); // wait transfer complete
 	DMA2->LIFCR |= DMA_LIFCR_CTCIF0; // must clear TC interrupt flag for next DMA
 
 	//RCC->AHB1RSTR |= RCC_AHB1RSTR_DMA2RST;
 
 	return (*pDes == data && *(pDes + 0x3FF8) == data);
+}
+
+bool_t checkSDMMC(const uint8_t data)
+{
+	uint32_t randomAddr = data * 512;
+	uint8_t srcData[512];
+	uint8_t desData[512];
+
+	memset(srcData, data, 512);
+	if (!sdWrite1Block(randomAddr, &srcData[0])) return False;
+	if (!sdRead1Block(randomAddr, &desData[0])) return False;
+	for (uint16_t i = 0; i < 512; i++) {
+		if (srcData[i] != desData[i]) return False;
+	}
+	return True;
 }
 
 // Internal API function group
@@ -500,7 +589,7 @@ static void initFPU(void)
 {
 	SCB->CPACR |= 	0b11 << 20 | // CP10
 					0b11 << 22;  // CP11
-	while((SCB->CPACR & (0b1111 << 20)) != (0b1111 << 20));
+	while ((SCB->CPACR & (0b1111 << 20)) != (0b1111 << 20));
 }
 
 // System clock initialization
@@ -508,41 +597,41 @@ static void initSystemClock(void)
 {
 	// 1. Set HSE and reset RCC_CIR
 	RCC->CR |= RCC_CR_HSEBYP | RCC_CR_HSEON;
-	while((RCC->CR & RCC_CR_HSERDY_Msk) == 0);
+	while ((RCC->CR & RCC_CR_HSERDY_Msk) == 0);
 	RCC->CIR = 0x00000000; // disable all RCC interrupts
 
 	// 2. Set FLASH latency
 	FLASH->ACR |= FLASH_ACR_LATENCY_7WS; // need be set in 216MHz
-	while((FLASH->ACR & FLASH_ACR_LATENCY_Msk) != FLASH_ACR_LATENCY_7WS);
+	while ((FLASH->ACR & FLASH_ACR_LATENCY_Msk) != FLASH_ACR_LATENCY_7WS);
 	//FLASH->ACR |= FLASH_ACR_ARTEN | FLASH_ACR_PRFTEN;
 	//PWR->CR1 |= 0b11 << PWR_CR1_VOS_Pos; // default value has set to 0b11 in reset
 
 	// 3. Enable PWR clock
 	RCC->APB1ENR |= RCC_APB1ENR_PWREN;
-	while((RCC->APB1ENR & RCC_APB1ENR_PWREN_Msk) == 0);
+	while ((RCC->APB1ENR & RCC_APB1ENR_PWREN_Msk) == 0);
 
 	// 4. Activation OverDrive Mode
 	PWR->CR1 |= PWR_CR1_ODEN;
-	while((PWR->CSR1 & PWR_CSR1_ODRDY_Msk) == 0);
+	while ((PWR->CSR1 & PWR_CSR1_ODRDY_Msk) == 0);
 
 	// 5. Activation OverDrive Switching
 	PWR->CR1 |= PWR_CR1_ODSWEN;
-	while((PWR->CSR1 & PWR_CSR1_ODSWRDY_Msk) == 0);
+	while ((PWR->CSR1 & PWR_CSR1_ODSWRDY_Msk) == 0);
 
 	// 6. Main PLL configuration and activation
 	RCC->PLLCFGR = PLLM | PLLN | PLLP | PLLSRC | PLLQ;
 	RCC->CR |= RCC_CR_PLLON;
-	while((RCC->CR & RCC_CR_PLLRDY_Msk) == 0);
+	while ((RCC->CR & RCC_CR_PLLRDY_Msk) == 0);
 
 	// 7. System clock activation on the main PLL
 	RCC->CFGR |=	RCC_CFGR_HPRE_DIV1 |	 // set HPRE  (AHB  pre-scaler) to 1 (216 MHz)
 					RCC_CFGR_PPRE1_DIV4 |	 // set PPRE1 (APB1 pre-scaler) to 4 (54  MHz)
 					RCC_CFGR_PPRE2_DIV2;	 // set PPRE2 (APB2 pre-scaler) to 2 (108 MHz)
 	// Attention : before switching System clock to PLL, it must wait all pre-scale value set to CFGR.
-	while((RCC->CFGR & (RCC_CFGR_HPRE_Msk | RCC_CFGR_PPRE1_Msk | RCC_CFGR_PPRE2_Msk)) !=
+	while ((RCC->CFGR & (RCC_CFGR_HPRE_Msk | RCC_CFGR_PPRE1_Msk | RCC_CFGR_PPRE2_Msk)) !=
 		(RCC_CFGR_HPRE_DIV1 | RCC_CFGR_PPRE1_DIV4 | RCC_CFGR_PPRE2_DIV2));
 	RCC->CFGR |=	RCC_CFGR_SW_PLL; // switch main clock to PLL
-	while((RCC->CFGR & RCC_CFGR_SWS_Msk) != RCC_CFGR_SWS_PLL);
+	while ((RCC->CFGR & RCC_CFGR_SWS_Msk) != RCC_CFGR_SWS_PLL);
 }
 
 // SDRAM initialization
@@ -555,7 +644,7 @@ static void initSDRAM(void)
 
 	// Enable FMC RCC
 	RCC->AHB3ENR	|=	RCC_AHB3ENR_FMCEN;
-	while((RCC->AHB3ENR & RCC_AHB3ENR_FMCEN_Msk) == 0);
+	while ((RCC->AHB3ENR & RCC_AHB3ENR_FMCEN_Msk) == 0);
 
 	// The following comment is copied from STM32F746G data-sheet FMC-SDRAM chapter.
 	// --- Set MCU-FMC register ---
@@ -582,7 +671,7 @@ static void initSDRAM(void)
 			0b00 << FMC_SDCR1_RPIPE_Pos;	// 0 latency after CAS
 	FMC_Bank5_6->SDCR[0] &= ~mask;
 	FMC_Bank5_6->SDCR[0] |= reg;
-	while((FMC_Bank5_6->SDCR[0] & mask) != reg);
+	while ((FMC_Bank5_6->SDCR[0] & mask) != reg);
 
 	// 2. Program the memory device timing into the FMC_SDTRx register.
 	//    The TRP and TRC timings must be programmed in the FMC_SDTR1 register.
@@ -602,7 +691,7 @@ static void initSDRAM(void)
 			3 << FMC_SDTR1_TRCD_Pos;	// 3 x 9.26 = 27.78ns < tRCD(20ns)
 	FMC_Bank5_6->SDTR[0] &= ~mask;
 	FMC_Bank5_6->SDTR[0] |= reg;
-	while((FMC_Bank5_6->SDTR[0] & mask) != reg);
+	while ((FMC_Bank5_6->SDTR[0] & mask) != reg);
 
 	// --- Set SDRAM-MODE register ---
 	// 3. Set MODE bits to ‘001’ and configure the Target Bank bits
@@ -745,7 +834,7 @@ static void initUSART1(void)
 
 	// Enable APB2 USART1 RCC
 	RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
-	while((RCC->APB2ENR & RCC_APB2ENR_USART1EN_Msk) == 0);
+	while ((RCC->APB2ENR & RCC_APB2ENR_USART1EN_Msk) == 0);
 
 	// Set USART1 parameter
 	//USART1->BRR = 0x2BF2;	// baud rate = 9600(fCK=108MHz, CR1/OVER8=0, 0x2BF2 = 108000000/9600)
@@ -774,7 +863,7 @@ static void initTouchPanel(void)
 
 	// Enable I2C3 RCC
 	RCC->APB1ENR	|=	RCC_APB1ENR_I2C3EN;
-	while((RCC->APB1ENR & RCC_APB1ENR_I2C3EN_Msk) == 0);
+	while ((RCC->APB1ENR & RCC_APB1ENR_I2C3EN_Msk) == 0);
 
 	// Set I2C3 clock
 	RCC->DCKCFGR2	&=	~RCC_DCKCFGR2_I2C3SEL_Msk;
@@ -789,13 +878,13 @@ static void initTouchPanel(void)
 	I2C3->OAR1		|=	0b1 << I2C_OAR1_OA1EN_Pos;
 
 	// Reset I2C3
-	while(I2C3->CR1 & I2C_CR1_PE_Msk);
+	while (I2C3->CR1 & I2C_CR1_PE_Msk);
 	I2C3->CR1		|=	I2C_CR1_PE;
 
 	// ---- Initialize EXTI13 ----
 	// Mapping PI13 in SYSCFG register
 	RCC->APB2ENR	|=	RCC_APB2ENR_SYSCFGEN;
-	while((RCC->APB2ENR & RCC_APB2ENR_SYSCFGEN) == 0);
+	while ((RCC->APB2ENR & RCC_APB2ENR_SYSCFGEN) == 0);
 	SYSCFG->EXTICR[3] &= ~SYSCFG_EXTICR4_EXTI13_Msk;
 	SYSCFG->EXTICR[3] |= SYSCFG_EXTICR4_EXTI13_PI;
 
@@ -819,7 +908,7 @@ static void initLCD(void)
 
 	// 1. Enable the LTDC clock in the RCC register.
 	RCC->APB2ENR	|=	RCC_APB2ENR_LTDCEN;
-	while((RCC->APB2ENR & RCC_APB2ENR_LTDCEN_Msk) == 0);
+	while ((RCC->APB2ENR & RCC_APB2ENR_LTDCEN_Msk) == 0);
 
 	// 2. Configure the required pixel clock following the panel datasheet.
 	RCC->DCKCFGR1	&=	~RCC_DCKCFGR1_PLLSAIDIVR_Msk;
@@ -829,7 +918,7 @@ static void initLCD(void)
 						2 << RCC_PLLSAICFGR_PLLSAIQ_Pos | // not used
 						0 << RCC_PLLSAICFGR_PLLSAIP_Pos;  // not used
 	RCC->CR |= RCC_CR_PLLSAION;
-	while((RCC->CR & RCC_CR_PLLSAIRDY_Msk) == 0);
+	while ((RCC->CR & RCC_CR_PLLSAIRDY_Msk) == 0);
 
 	//  The following graph is copied from ST sample code.
 	//  LCD_TFT synchronous timings configuration :
@@ -899,7 +988,7 @@ static void initLCD(void)
 					(LCD_VSYNC + LCD_VBP + LCD_ACTIVE_HEIGHT - 1) 			<< LTDC_AWCR_AAH_Pos;
 	LTDC->TWCR	=	(LCD_HSYNC + LCD_HBP + LCD_ACTIVE_WIDTH + LCD_HFP - 1) 	<< LTDC_TWCR_TOTALW_Pos |
 					(LCD_VSYNC + LCD_VBP + LCD_ACTIVE_HEIGHT + LCD_VFP - 1) << LTDC_TWCR_TOTALH_Pos;
-	// while();
+	// while ();
 
 	// 4. Configure the synchronous signals and clock polarity in the LTDC_GCR register.
 	// (*) Polarity assignment set by default value (low level valid).
@@ -1003,7 +1092,7 @@ static void initLCD(void)
 static void initDMA2D(void)
 {
 	RCC->AHB1ENR	|= RCC_AHB1ENR_DMA2DEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_DMA2DEN_Msk) == 0);
+	while ((RCC->AHB1ENR & RCC_AHB1ENR_DMA2DEN_Msk) == 0);
 }
 
 static void initLED1(void)
@@ -1036,15 +1125,11 @@ static bool_t initSDCard(void)
 
 	// Send CMD0 to identify card operating voltage.
 	if (!sdmmcSendCmd(SD_CMD_GO_IDLE_STATE, SD_RESPONSE_R0, 0)) return False;
-	//sdmmcSendCmd(SD_CMD_GO_IDLE_STATE, 0);
-	//if (!sdmmcCheckCmdResp0()) return False;
 
 	// Send CMD8 to verify SD card version.
 	// [11:8]: Supply Voltage (VHS) 0x1 (Range: 2.7-3.6 V)
 	// [7:0]:  Check Pattern (recommended 0xAA) */
 	if (sdmmcSendCmd(SD_CMD_HS_SEND_EXT_CSD, SD_RESPONSE_R7, 0x1AA)) {
-	//sdmmcSendCmd(SD_CMD_HS_SEND_EXT_CSD, 0x1AA);
-	//if (sdmmcCheckCmdResp7()) {
 		sdcard.version = SD_VERSION_2X;
 	}
 	else {
@@ -1055,16 +1140,12 @@ static bool_t initSDCard(void)
 	do {
 		// Send CMD55 to change command mode to application command.
 		if (!sdmmcSendCmd(SD_CMD_APP_CMD, SD_RESPONSE_R1, 0)) return False;
-		//sdmmcSendCmd(SD_CMD_APP_CMD, 0);
-		//if (!sdmmcCheckCmdResp1(SD_CMD_APP_CMD)) return False;
 
 		// Send ACMD41 to judge if SD card is ready.
 		// SDMMC_VOLTAGE_WINDOW_SD	: 0x80100000
 		// SDMMC_HIGH_CAPACITY		: 0x40000000
 		// SD_SWITCH_1_8V_CAPACITY	: 0x01000000
 		if (!sdmmcSendCmd(SD_CMD_APP_OP_COND, SD_RESPONSE_R3, 0xC1100000)) return False;
-		//sdmmcSendCmd(SD_CMD_APP_OP_COND, 0xC1100000);
-		//if (!sdmmcCheckCmdResp3()) return False;
 
 		// Get operating voltage
 		resp = SDMMC1->RESP1;
@@ -1082,13 +1163,9 @@ static bool_t initSDCard(void)
 
 	// Send CMD2 to get CID.
 	if (!sdmmcSendCmd(SD_CMD_ALL_SEND_CID, SD_RESPONSE_R2, 0)) return False;
-	//sdmmcSendCmd(SD_CMD_ALL_SEND_CID, 0);
-	//if (!sdmmcCheckCmdResp2()) return False;
 
 	// Send CMD3 to assign SD relative card address.
 	if (!sdmmcSendCmd(SD_CMD_SET_REL_ADDR, SD_RESPONSE_R6, 0)) return False;
-	//sdmmcSendCmd(SD_CMD_SET_REL_ADDR, 0);
-	//if (!sdmmcCheckCmdResp6(SD_CMD_SET_REL_ADDR)) return False;
 	addr = sdcard.rca << 16;
 
 	// Send CMD9 to receive CSD information.
@@ -1102,10 +1179,10 @@ static bool_t initSDCard(void)
 	// Send CMD16 to set card block size to 8 bits.
 	if (!sdmmcSendCmd(SD_CMD_SET_BLOCKLEN, SD_RESPONSE_R1, 8)) return False;
 
-	// Set SDMMC interface register to configure data length to 8 bits
+	// Set SDMMC interface register to configure data length to 8 bytes
 	SDMMC1->DTIMER	=	0xFFFFFFFF;
-	SDMMC1->DLEN	=	8;
-	SDMMC1->DCTRL	|=	0b11 << SDMMC_DCTRL_DBLOCKSIZE_Pos |	// 8 bits
+	SDMMC1->DLEN	=	8; // 8 Bytes
+	SDMMC1->DCTRL	=	0b0011 << SDMMC_DCTRL_DBLOCKSIZE_Pos |	// 8 Bytes
 						0b1 << SDMMC_DCTRL_DTDIR_Pos |			// card --> SDMMC
 						0b0 << SDMMC_DCTRL_DTMODE_Pos |			// block mode
 						0b1 << SDMMC_DCTRL_DTEN_Pos;			// enable data transfer
@@ -1117,23 +1194,25 @@ static bool_t initSDCard(void)
 	if (!sdmmcSendCmd(SD_CMD_APP_SEND_SCR, SD_RESPONSE_R1, 0)) return False;
 	// Read all SCR register from data FIFO
 	uint32_t scr[2] = {0, 0};
-	uint8_t* pSCR = (uint8_t*)&scr[0];
-	while(SDMMC1->STA & SDMMC_STA_RXACT_Msk) {
-		uint32_t errMask = SDMMC_STA_RXOVERR | SDMMC_STA_DCRCFAIL | SDMMC_STA_DTIMEOUT;
-		if (SDMMC1->STA & errMask) return False;
-		while((SDMMC1->STA & SDMMC_STA_RXDAVL_Msk) == 0);
-		*pSCR++ = SDMMC1->FIFO;
+	uint32_t* pSCR = (uint32_t*)&scr[0];
+	uint32_t errMask = SDMMC_STA_RXOVERR_Msk | SDMMC_STA_DCRCFAIL_Msk | SDMMC_STA_DTIMEOUT_Msk;
+	while ((SDMMC1->STA & errMask) == 0) {
+		if (SDMMC1->STA & SDMMC_STA_RXDAVL_Msk) *pSCR++ = SDMMC1->FIFO;
+		else if (!(SDMMC1->STA & SDMMC_STA_RXACT_Msk)) break;
 	}
-	SDMMC1->ICR |= 	SDMMC1->STA;
+	if (SDMMC1->STA & errMask) {
+		SDMMC1->ICR |= 	SDMMC1->STA & errMask;
+		return False;
+	}
 	// Change SCR data from big endian to little endian.
 	sdcard.scr.raw[0] =	(scr[1] & 0x000000FF) << 24 |
-					(scr[1] & 0x0000FF00) << 8  |
-					(scr[1] & 0x00FF0000) >> 8  |
-					(scr[1] & 0xFF000000) >> 24;
+						(scr[1] & 0x0000FF00) << 8  |
+						(scr[1] & 0x00FF0000) >> 8  |
+						(scr[1] & 0xFF000000) >> 24;
 	sdcard.scr.raw[1] =	(scr[0] & 0x000000FF) << 24 |
-					(scr[0] & 0x0000FF00) << 8  |
-					(scr[0] & 0x00FF0000) >> 8  |
-					(scr[0] & 0xFF000000) >> 24;
+						(scr[0] & 0x0000FF00) << 8  |
+						(scr[0] & 0x00FF0000) >> 8  |
+						(scr[0] & 0xFF000000) >> 24;
 	sdcard.scr.wideBus = (sdcard.scr.raw[1] & 0x00040000) != 0;
 
 	if (sdcard.scr.wideBus) {
@@ -1144,21 +1223,19 @@ static bool_t initSDCard(void)
 		if (!sdmmcSendCmd(SD_CMD_APP_SET_BUSWIDTH, SD_RESPONSE_R1, 2)) return False;
 	}
 
-	// Initialize SDMMC interface to initialize mode (400KHz, 1bit)
-	SDMMC1->CLKCR	=	0x76 << SDMMC_CLKCR_CLKDIV_Pos |	// TODO : 0x76+2=120, 48MHz/120=400KHz
+	// Initialize SDMMC interface to transfer mode (24MHz, 4bits)
+	SDMMC1->CLKCR	|=	0x00 << SDMMC_CLKCR_CLKDIV_Pos |	// 0+2=2, 48MHz/2=24MHz
 						0b0 << SDMMC_CLKCR_HWFC_EN_Pos |	// disable hardware flow control
-						0b01 << SDMMC_CLKCR_WIDBUS_Pos |	// 4 bit mode SDMMC_D0
-						0b0  << SDMMC_CLKCR_PWRSAV_Pos |	// enable SDMMC_CK in SD bus inactive
+						0b01 << SDMMC_CLKCR_WIDBUS_Pos |	// 4 bits mode SDMMC_D[0:3]
+						0b0  << SDMMC_CLKCR_PWRSAV_Pos |	// enable SDMMC_CK in SD bus inactive (disable power save mode)
 						0b0  << SDMMC_CLKCR_BYPASS_Pos |	// disable bypass CLKDIV
-						0b0 << SDMMC_CLKCR_NEGEDGE_Pos |	// rising edge R/W
-						0b0 << SDMMC_CLKCR_CLKEN_Pos;		// disable SDMMC clock
+						0b0 << SDMMC_CLKCR_NEGEDGE_Pos;		// rising edge R/W
+						//0b1 << SDMMC_CLKCR_CLKEN_Pos;		// enable SDMMC clock
 
 	// Send CMD16 to set card block size.
 	if (!sdmmcSendCmd(SD_CMD_SET_BLOCKLEN, SD_RESPONSE_R1, SD_BLOCKSIZE)) return False;
 
-	// Send CMD16 to set card block size.
-	resp = SDMMC1->RESP1;
-	if (resp & 0x02000000) return False;
+	// --- SD card data transfer preparation is completed ! ---
 
 	return True;
 }
@@ -1170,10 +1247,10 @@ static void initSDMMC(void)
 
 	// Enable RRC
 	RCC->APB2ENR	|=	RCC_APB2ENR_SDMMC1EN;
-	while((RCC->APB2ENR & RCC_APB2ENR_SDMMC1EN_Msk) == 0);
+	while ((RCC->APB2ENR & RCC_APB2ENR_SDMMC1EN_Msk) == 0);
 
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_DMA2EN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_DMA2EN_Msk) == 0);
+	while ((RCC->AHB1ENR & RCC_AHB1ENR_DMA2EN_Msk) == 0);
 
 	// Set SDMMC clock
 	RCC->DCKCFGR2	&=	~RCC_DCKCFGR2_CK48MSEL_Msk;
@@ -1231,7 +1308,7 @@ static void initTIM7(void) // TIM7 initialization for low speed timer(500ms)
 {
 	// Enable APB1 TIM7 RCC
 	RCC->APB1ENR	|= RCC_APB1ENR_TIM7EN;
-	while((RCC->APB1ENR & RCC_APB1ENR_TIM7EN_Msk) == 0);
+	while ((RCC->APB1ENR & RCC_APB1ENR_TIM7EN_Msk) == 0);
 
 	// Enable TIM7 update interrupt
 	TIM7->DIER		|= TIM_DIER_UIE;
@@ -1269,7 +1346,7 @@ static void initNVICPriority(void)
 	// "|=" can not be used here, because VECTKEY write key is "0x05FA" and "|=" will change it
 	SCB->AIRCR =	0x05FA << SCB_AIRCR_VECTKEY_Pos |
 					0b011  << SCB_AIRCR_PRIGROUP_Pos; // PRIGROUP = 0b011 (preemption:16, sub:0)
-	while((SCB->AIRCR & SCB_AIRCR_PRIGROUP_Msk) != (0b011 << SCB_AIRCR_PRIGROUP_Pos));
+	while ((SCB->AIRCR & SCB_AIRCR_PRIGROUP_Msk) != (0b011 << SCB_AIRCR_PRIGROUP_Pos));
 
 	// Global interrupt design in sample project can refer to the following setting.
 	// SVC(FreeRTOS)		: preemption:15, IRQn:11, This priority will be modified to lowest priority forcibly in RTOS.
@@ -1349,7 +1426,7 @@ static void initSDRAMGPIO(void)
 {
 	// GPIOC
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOCEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOCEN_Msk) == 0);
+	while ((RCC->AHB1ENR & RCC_AHB1ENR_GPIOCEN_Msk) == 0);
 	// PC3  --> FMC_SDCKE0
 	GPIOC->MODER	|=	0b10	<< GPIO_MODER_MODER3_Pos;		// MODER = Multiple(0b10)
 	GPIOC->OTYPER	|=	0b0		<< GPIO_OTYPER_OT3_Pos;			// OTYPER = PP
@@ -1359,7 +1436,7 @@ static void initSDRAMGPIO(void)
 
 	// GPIOD
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIODEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIODEN_Msk) == 0);
+	while ((RCC->AHB1ENR & RCC_AHB1ENR_GPIODEN_Msk) == 0);
 	// PD0  --> FMC_D2
 	// PD1  --> FMC_D3
 	// PD8  --> FMC_D13
@@ -1376,7 +1453,7 @@ static void initSDRAMGPIO(void)
 
 	// GPIOE
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOEEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOEEN_Msk) == 0);
+	while ((RCC->AHB1ENR & RCC_AHB1ENR_GPIOEEN_Msk) == 0);
 	// PE0  --> FMC_NBL0
 	// PE1  --> FMC_NBL1
 	// PE7  --> FMC_D4
@@ -1397,7 +1474,7 @@ static void initSDRAMGPIO(void)
 
 	// GPIOF
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOFEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOFEN_Msk) == 0);
+	while ((RCC->AHB1ENR & RCC_AHB1ENR_GPIOFEN_Msk) == 0);
 	// PF0  --> FMC_A0
 	// PF1  --> FMC_A1
 	// PF2  --> FMC_A2
@@ -1418,7 +1495,7 @@ static void initSDRAMGPIO(void)
 
 	// GPIOG
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOGEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOGEN_Msk) == 0);
+	while ((RCC->AHB1ENR & RCC_AHB1ENR_GPIOGEN_Msk) == 0);
 	// PG0  --> FMC_A10
 	// PG1  --> FMC_A11
 	// PG4  --> FMC_BA0
@@ -1434,7 +1511,7 @@ static void initSDRAMGPIO(void)
 
 	// GPIOH
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOHEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOHEN_Msk) == 0);
+	while ((RCC->AHB1ENR & RCC_AHB1ENR_GPIOHEN_Msk) == 0);
 	// PH3  --> FMC_SDNE0
 	// PH5  --> FMC_SDNWE
 	GPIOH->MODER	|=	0x00000880;	// MODER = Multiple(0b10)
@@ -1449,7 +1526,7 @@ static void initUartGPIO(void)
 {
 	// GPIOA
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOAEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOAEN_Msk) == 0);
+	while ((RCC->AHB1ENR & RCC_AHB1ENR_GPIOAEN_Msk) == 0);
 	// PA9  --> USART1 TX
 	GPIOA->MODER	|=	0b10	<< GPIO_MODER_MODER9_Pos;		// MODER = Multiple(0b10)
 	GPIOA->OTYPER	|=	0b0		<< GPIO_OTYPER_OT9_Pos;
@@ -1459,7 +1536,7 @@ static void initUartGPIO(void)
 
 	// GPIOB
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOBEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOBEN_Msk) == 0);
+	while ((RCC->AHB1ENR & RCC_AHB1ENR_GPIOBEN_Msk) == 0);
 	// PB7  --> USART1 RX
 	GPIOB->MODER	|=	0b10	<< GPIO_MODER_MODER7_Pos;		// MODER = Multiple(0b10)
 	GPIOB->OTYPER	|=	0b0		<< GPIO_OTYPER_OT9_Pos;
@@ -1472,7 +1549,7 @@ static void initLED1GPIO(void)
 {
 	// GPIOI
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOIEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOIEN_Msk) == 0);
+	while ((RCC->AHB1ENR & RCC_AHB1ENR_GPIOIEN_Msk) == 0);
 	// PI1  --> LED1
 	GPIOI->MODER	|=	0b01	<< GPIO_MODER_MODER1_Pos;		// MODER = Output
 	GPIOI->OTYPER	|=	0b0		<< GPIO_OTYPER_OT1_Pos;
@@ -1485,21 +1562,21 @@ static void initLCDGPIO(void)
 {
 	// GPIOE
 	RCC->AHB1ENR	|= RCC_AHB1ENR_GPIOEEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOEEN_Msk) == 0);
+	while ((RCC->AHB1ENR & RCC_AHB1ENR_GPIOEEN_Msk) == 0);
 	// PE4  --> LTDC_B0
 	GPIOE->MODER	|=	0b10	<< GPIO_MODER_MODER4_Pos;		// MODER = Multiple(0b10)
 	GPIOE->AFR[0]	|=	14		<< GPIO_AFRL_AFRL4_Pos;			// AF14
 
 	// GPIOG
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOGEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOGEN_Msk) == 0);
+	while ((RCC->AHB1ENR & RCC_AHB1ENR_GPIOGEN_Msk) == 0);
 	// PG12 --> LTDC_B4
 	GPIOG->MODER	|=	0b10	<< GPIO_MODER_MODER12_Pos;		// MODER = Multiple(0b10)
 	GPIOG->AFR[1]	|=	14		<< GPIO_AFRH_AFRH4_Pos;			// AF14
 
 	// GPIOI
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOIEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOIEN_Msk) == 0);
+	while ((RCC->AHB1ENR & RCC_AHB1ENR_GPIOIEN_Msk) == 0);
 	// PI9  --> LTDC_VSYNC
 	// PI10 --> LTDC_HSYNC
 	// PI14 --> LTDC_CLK
@@ -1515,7 +1592,7 @@ static void initLCDGPIO(void)
 
 	// GPIOJ
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOJEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOJEN_Msk) == 0);
+	while ((RCC->AHB1ENR & RCC_AHB1ENR_GPIOJEN_Msk) == 0);
 	// PJ0  --> LTDC_R1
 	// PJ1  --> LTDC_R2
 	// PJ2  --> LTDC_R3
@@ -1537,7 +1614,7 @@ static void initLCDGPIO(void)
 
 	// GPIOK
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOKEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOKEN_Msk) == 0);
+	while ((RCC->AHB1ENR & RCC_AHB1ENR_GPIOKEN_Msk) == 0);
 	// PK0  --> LTDC_G5
 	// PK1  --> LTDC_G6
 	// PK2  --> LTDC_G7
@@ -1564,7 +1641,7 @@ static void initTouchPanelGPIO(void)
 {
 	// GPIOH RCC
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOHEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOHEN_Msk) == 0);
+	while ((RCC->AHB1ENR & RCC_AHB1ENR_GPIOHEN_Msk) == 0);
 	// PH7  --> I2C3_SCL (for FT5336 Control)
 	// PH8  --> I2C3_SDA (for FT5336 Control)
 	GPIOH->MODER	|=	0b10	<< GPIO_MODER_MODER7_Pos |		// MODER = Multiple(0b10)
@@ -1580,7 +1657,7 @@ static void initTouchPanelGPIO(void)
 
 	// GPIOI RCC
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOIEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOIEN_Msk) == 0);
+	while ((RCC->AHB1ENR & RCC_AHB1ENR_GPIOIEN_Msk) == 0);
 	// PI13 --> LCD_INT (for FT5336 Control)
 	GPIOI->MODER	|=	0b00	<< GPIO_MODER_MODER13_Pos;		// MODER = Multiple(0b10)
 	GPIOI->OTYPER	|=	0b0		<< GPIO_OTYPER_OT13_Pos;		// Push and pull
@@ -1593,7 +1670,7 @@ static void initSDMMCGPIO(void)
 {
 	// GPIOC RCC
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIOCEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIOCEN_Msk) == 0);
+	while ((RCC->AHB1ENR & RCC_AHB1ENR_GPIOCEN_Msk) == 0);
 	// PC8  --> SDMMC D0
 	// PC9  --> SDMMC D1
 	// PC10 --> SDMMC D2
@@ -1612,7 +1689,7 @@ static void initSDMMCGPIO(void)
 
 	// GPIOD RCC
 	RCC->AHB1ENR	|=	RCC_AHB1ENR_GPIODEN;
-	while((RCC->AHB1ENR & RCC_AHB1ENR_GPIODEN_Msk) == 0);
+	while ((RCC->AHB1ENR & RCC_AHB1ENR_GPIODEN_Msk) == 0);
 	// PD2  --> SDMMC CMD
 	GPIOD->MODER	|=	0b10	<< GPIO_MODER_MODER2_Pos;		// MODER = Multiple(0b10)
 	GPIOD->OTYPER	|=	0b0		<< GPIO_OTYPER_OT2_Pos;			// Push and pull
@@ -1736,7 +1813,7 @@ static bool_t sdmmcSendCmd(uint8_t cmd, uint8_t resp, uint32_t arg)
 static bool_t sdmmcCheckCmdResp0(void)
 {
 	uint32_t count = SD_SEND_CMD_TIMEOUT_CNT;
-	while((SDMMC1->STA & SDMMC_STA_CMDSENT_Msk) == 0 && count-- != 0);
+	while ((SDMMC1->STA & SDMMC_STA_CMDSENT_Msk) == 0 && count-- != 0);
 	SDMMC1->ICR |= 	SDMMC1->STA;
 
 	return count != 0; // count == 0 : timeout
