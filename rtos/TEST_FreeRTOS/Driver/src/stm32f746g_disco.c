@@ -302,6 +302,54 @@ bool_t isSDCardInsert(void)
 	return res;
 }
 
+bool_t sdReadDMA(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf)
+{
+	// 1. Send CMD16 to set card block size.
+	if (!sdmmcSendCmd(SD_CMD_SET_BLOCKLEN, SD_RESPONSE_R1, SD_BLOCKSIZE)) return False;
+
+	// 2. Clear DCTRL register
+	// According to the notes of 35.8.9 chapter of STM32F746XX RM,
+	// the DCTRL register setting must follow this conditions:
+	// >>>> After a data write, data cannot be written to this register for
+	// >>>> three SDMMCCLK (48 MHz)	clock periods plus two PCLK2 clock periods.
+	// Note: PCLK2 is 108MHz in this system.
+	// According test result, here must insert the delay as below !!!
+	for (volatile uint32_t i = 0; i < 500000; i++);
+	SDMMC1->DCTRL = 0;
+
+	// 3. Enable SDMMC interrupt.
+	SDMMC1->MASK	=	SDMMC_MASK_CCRCFAILIE_Msk |
+						SDMMC_MASK_DTIMEOUTIE_Msk |
+						SDMMC_MASK_RXOVERRIE_Msk |
+						SDMMC_MASK_DATAENDIE_Msk;
+
+	// 4. Connect DMA channel (stream3/channel4) between SDMMC and memory.
+	// Note : DMA2_Stream3->CR setting has been execute in device initialization phase.
+	DMA2_Stream3->NDTR = (uint32_t)(blockNum * SD_BLOCKSIZE / 4); // by byte
+	DMA2_Stream3->PAR  = (uint32_t)(&(SDMMC1->FIFO));
+	DMA2_Stream3->M0AR = (uint32_t)(buf);
+	DMA2_Stream3->CR |= DMA_SxCR_EN; // start DMA transfer
+
+	// 5. Configure SDMMC data transfer mode and Enable DMA.
+	SDMMC1->DTIMER	=	0xFFFFFFFF;
+	SDMMC1->DLEN	=	SD_BLOCKSIZE;	// 512 Bytes
+	SDMMC1->DCTRL	=	0b1001 << SDMMC_DCTRL_DBLOCKSIZE_Pos |	// 512 Bytes
+						0b1 << SDMMC_DCTRL_DTDIR_Pos |			// card --> SDMMC
+						0b0 << SDMMC_DCTRL_DTMODE_Pos |			// block mode
+						0b1 << SDMMC_DCTRL_DMAEN_Pos |			// enable DMA
+						0b1 << SDMMC_DCTRL_DTEN_Pos;			// enable data transfer
+
+	// 6. Send CMD17 or CMD18 to notify SD card send data.
+	if (blockNum == 1) {
+		if (!sdmmcSendCmd(SD_CMD_READ_SINGLE_BLOCK, SD_RESPONSE_R1, blockAddr)) return False;
+	}
+	else {
+		if (!sdmmcSendCmd(SD_CMD_READ_MULT_BLOCK, SD_RESPONSE_R1, blockAddr)) return False;
+	}
+
+	return True;
+}
+
 bool_t sdRead1Block(const uint32_t blockAddr, uint8_t* buf)
 {
 	// According to the notes of 35.8.9 chapter of STM32F746XX RM,
@@ -1273,49 +1321,63 @@ static void initSDMMC(void)
 	RCC->DCKCFGR2	&=	~RCC_DCKCFGR2_SDMMC1SEL_Msk;
 	RCC->DCKCFGR2	|=	0b0 << RCC_DCKCFGR2_SDMMC1SEL_Pos;	// select 48MHz for SDMMC
 
-	// Configure DMA RX
-	DMA2_Stream3->CR &= ~DMA_SxCR_EN;
-	DMA2_Stream3->CR = 	0b100	<< DMA_SxCR_CHSEL_Pos |		// stream3, channel4
-						0b00	<< DMA_SxCR_DIR_Pos |		// peripheral to memory
-						0b0		<< DMA_SxCR_PINC_Pos |		// peripheral increment disable
-						0b1		<< DMA_SxCR_MINC_Pos |		// memory increment enable
-						0b10	<< DMA_SxCR_PSIZE_Pos |		// peripheral data size = word
-						0b10	<< DMA_SxCR_MSIZE_Pos |		// memory data size = word
-						0b1		<< DMA_SxCR_PFCTRL_Pos |	// PFC (peripheral is flow controller)
-						0b11	<< DMA_SxCR_PL_Pos |		// highest DMA priority
-						0b01	<< DMA_SxCR_PBURST_Pos |	// peripheral burst = 4 bytes
-						0b01	<< DMA_SxCR_MBURST_Pos;		// peripheral burst = 4 bytes
+	// ----- SDMMC RX DMA setting -----
+	// Configure SDMMC RX DMA
+	DMA2_Stream3->CR	&=	~DMA_SxCR_EN_Msk;
+	DMA2_Stream3->CR	= 	0b100	<< DMA_SxCR_CHSEL_Pos |		// stream3, channel4
+							0b00	<< DMA_SxCR_DIR_Pos |		// peripheral to memory
+							0b0		<< DMA_SxCR_PINC_Pos |		// peripheral increment disable
+							0b1		<< DMA_SxCR_MINC_Pos |		// memory increment enable
+							0b10	<< DMA_SxCR_PSIZE_Pos |		// peripheral data size = word
+							0b10	<< DMA_SxCR_MSIZE_Pos |		// memory data size = word
+							0b1		<< DMA_SxCR_PFCTRL_Pos |	// PFC (peripheral is flow controller)
+							0b11	<< DMA_SxCR_PL_Pos |		// highest DMA priority
+							0b01	<< DMA_SxCR_PBURST_Pos |	// peripheral burst = 4 bytes
+							0b01	<< DMA_SxCR_MBURST_Pos;		// peripheral burst = 4 bytes
+	DMA2_Stream3->FCR	=	0b1		<< DMA_SxFCR_DMDIS_Pos |	// disable direct mode
+							0b11	<< DMA_SxFCR_FTH_Pos;		// FIFO full
 
-	DMA2_Stream3->FCR = 0b1		<< DMA_SxFCR_DMDIS_Pos |	// disable direct mode
-						0b11	<< DMA_SxFCR_FTH_Pos;		// FIFO full
+	// Clear SDMMC RX DMA interrupt flag
+	DMA2->LIFCR			|= 	DMA_LIFCR_CTCIF3_Msk |
+							DMA_LIFCR_CTEIF3_Msk |
+							DMA_LIFCR_CDMEIF3_Msk |
+							DMA_LIFCR_CFEIF3_Msk;
 
-	DMA2->LIFCR		|= 	DMA_LIFCR_CTCIF3_Msk |
-						DMA_LIFCR_CHTIF3_Msk |
-						DMA_LIFCR_CTEIF3_Msk |
-						DMA_LIFCR_CDMEIF3_Msk |
-						DMA_LIFCR_CFEIF3_Msk;
+	// Set SDMMC RX DMA interrupt mask
+	DMA2_Stream3->CR	|=	DMA_SxCR_TCIE_Msk | DMA_SxCR_TEIE_Msk | DMA_SxCR_DMEIE_Msk;
+	DMA2_Stream3->FCR	|=	DMA_SxFCR_FEIE_Msk;
 
-	// Configure DMA TX
-	DMA2_Stream6->CR &= ~DMA_SxCR_EN;
-	DMA2_Stream6->CR = 	0b100	<< DMA_SxCR_CHSEL_Pos |		// stream6, channel4
-						0b01	<< DMA_SxCR_DIR_Pos |		// memory to peripheral
-						0b0		<< DMA_SxCR_PINC_Pos |		// peripheral increment disable
-						0b1		<< DMA_SxCR_MINC_Pos |		// memory increment enable
-						0b10	<< DMA_SxCR_PSIZE_Pos |		// peripheral data size = word
-						0b10	<< DMA_SxCR_MSIZE_Pos |		// memory data size = word
-						0b1		<< DMA_SxCR_PFCTRL_Pos |	// PFC (peripheral is flow controller)
-						0b11	<< DMA_SxCR_PL_Pos |		// highest DMA priority
-						0b01	<< DMA_SxCR_PBURST_Pos |	// peripheral burst = 4 bytes
-						0b01	<< DMA_SxCR_MBURST_Pos;		// peripheral burst = 4 bytes
+	// Enable SDMMC RX DMA
+	DMA2_Stream3->CR	|=	DMA_SxCR_EN_Msk;
 
-	DMA2_Stream6->FCR = 0b1		<< DMA_SxFCR_DMDIS_Pos |	// disable direct mode
-						0b11	<< DMA_SxFCR_FTH_Pos;		// FIFO full
+	// ----- SDMMC TX DMA setting -----
+	// Configure SDMMC TX DMA
+	DMA2_Stream6->CR	&=	~DMA_SxCR_EN_Msk;
+	DMA2_Stream6->CR	=	0b100	<< DMA_SxCR_CHSEL_Pos |		// stream6, channel4
+							0b01	<< DMA_SxCR_DIR_Pos |		// memory to peripheral
+							0b0		<< DMA_SxCR_PINC_Pos |		// peripheral increment disable
+							0b1		<< DMA_SxCR_MINC_Pos |		// memory increment enable
+							0b10	<< DMA_SxCR_PSIZE_Pos |		// peripheral data size = word
+							0b10	<< DMA_SxCR_MSIZE_Pos |		// memory data size = word
+							0b1		<< DMA_SxCR_PFCTRL_Pos |	// PFC (peripheral is flow controller)
+							0b11	<< DMA_SxCR_PL_Pos |		// highest DMA priority
+							0b01	<< DMA_SxCR_PBURST_Pos |	// peripheral burst = 4 bytes
+							0b01	<< DMA_SxCR_MBURST_Pos;		// peripheral burst = 4 bytes
+	DMA2_Stream6->FCR	= 	0b1		<< DMA_SxFCR_DMDIS_Pos |	// disable direct mode
+							0b11	<< DMA_SxFCR_FTH_Pos;		// FIFO full
 
-	DMA2->HIFCR		|=	DMA_HIFCR_CTCIF6_Msk |
-						DMA_HIFCR_CHTIF6_Msk |
-						DMA_HIFCR_CTEIF6_Msk |
-						DMA_HIFCR_CDMEIF6_Msk |
-						DMA_HIFCR_CFEIF6_Msk;
+	// Clear SDMMC TX DMA interrupt flag
+	DMA2->HIFCR			|=	DMA_HIFCR_CTCIF6_Msk |
+							DMA_HIFCR_CTEIF6_Msk |
+							DMA_HIFCR_CDMEIF6_Msk |
+							DMA_HIFCR_CFEIF6_Msk;
+
+	// Set SDMMC TX DMA interrupt mask
+	DMA2_Stream6->CR	|=	DMA_SxCR_TCIE_Msk | DMA_SxCR_TEIE_Msk | DMA_SxCR_DMEIE_Msk;
+	DMA2_Stream6->FCR	|=	DMA_SxFCR_FEIE_Msk;
+
+	// Enable SDMMC TX DMA
+	DMA2_Stream6->CR	|=	DMA_SxCR_EN_Msk;
 }
 
 #ifdef MODE_STAND_ALONE
@@ -1400,13 +1462,13 @@ static void initNVICPriority(void)
 	NVIC->IP[40]  |= 13 << 4;
 	NVIC->ISER[1] |= 0b1 << (40 - 32);
 
-	// Initialize SDIO interrupt (IRQn:49)
-	//NVIC->IP[49]  |= 13 << 4;
-	//NVIC->ISER[1] |= 0b1 << (49 - 32);
+	// Initialize SDMMC interrupt (IRQn:49)
+	NVIC->IP[49]  |= 13 << 4;
+	NVIC->ISER[1] |= 0b1 << (49 - 32);
 
 	// Initialize SDIO DMARx (DMA2_Stream3) interrupt (IRQn:59)
-	//NVIC->IP[59]  |= 14 << 4;
-	//NVIC->ISER[1] |= 0b1 << (59 - 32);
+	NVIC->IP[59]  |= 14 << 4;
+	NVIC->ISER[1] |= 0b1 << (59 - 32);
 
 	// Initialize SDIO DMATx (DMA2_Stream6) interrupt (IRQn:69)
 	//NVIC->IP[69]  |= 14 << 4;
