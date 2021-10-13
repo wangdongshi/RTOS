@@ -59,34 +59,36 @@ void EXTI15_10_IRQHandler(void)
 // SDMMC interrupt from microSD card
 void SDMMC1_IRQHandler(void)
 {
-	// Disable SDMMC interrupt
-	uint32_t itMask =	SDMMC_MASK_CCRCFAILIE_Msk |
-						SDMMC_MASK_DTIMEOUTIE_Msk |
-						SDMMC_MASK_RXOVERRIE_Msk |
-						SDMMC_MASK_DATAENDIE_Msk;
-	SDMMC1->MASK &= ~itMask;
-
 	// Result processing
-	//if (SDMMC1->STA & SDMMC_STA_DATAEND_Msk) {
-	//}
+	if (SDMMC1->STA & SDMMC_STA_DATAEND_Msk) {
+		// Disable SDMMC interrupt
+		uint32_t itMask =	SDMMC_MASK_CCRCFAILIE_Msk |
+							SDMMC_MASK_DTIMEOUTIE_Msk |
+							SDMMC_MASK_RXOVERRIE_Msk |
+							SDMMC_MASK_DATAENDIE_Msk;
+		SDMMC1->MASK &= ~itMask;
+	}
 
 	// Clear all error bit flags
-	SDMMC1->ICR = SDMMC1->STA;
+	//SDMMC1->ICR = SDMMC1->STA;
 }
 
 // DAM interrupt for microSD card RX
 void DMA2_Stream3_IRQHandler(void)
 {
-	// Disable SDMMC DMA interrupt
-	SDMMC1->DCTRL &= ~SDMMC_DCTRL_DMAEN_Msk;
-
 	// Result processing
 	if (DMA2->LISR & DMA_LISR_TCIF3_Msk) {
 		// Send CMD12 to stop data transfer from SD card
 		sdmmcSendCmd(SD_CMD_STOP_TRANSMISSION, SD_RESPONSE_R1, 0);
 	}
 
-	// Clear SDMMC RX DMA interrupt flag
+	// Disable SDMMC DMA interrupt
+	SDMMC1->DCTRL &= ~SDMMC_DCTRL_DMAEN_Msk;
+
+	// Clear all SDMMC error bit flags
+	SDMMC1->ICR = SDMMC1->STA;
+
+	// Clear all DMA interrupt flag
 	DMA2->LIFCR |= 	DMA_LIFCR_CTCIF3_Msk |
 					DMA_LIFCR_CTEIF3_Msk |
 					DMA_LIFCR_CDMEIF3_Msk |

@@ -370,6 +370,7 @@ bool_t sdReadDMA(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf
 	// According test result, here must insert the delay as below !!!
 	for (volatile uint32_t i = 0; i < 500000; i++);
 	SDMMC1->DCTRL = 0;
+	SDMMC1->ICR = SDMMC1->STA;
 
 	// 3. Enable SDMMC interrupt.
 	SDMMC1->MASK	|=	SDMMC_MASK_CCRCFAILIE_Msk |
@@ -696,7 +697,8 @@ bool_t checkSDMMC(const uint16_t data)
 	//if (!sdRead1Block(randomAddr, &desData[0])) return False;
 	//if (!sdRead1Block(randomAddr+SD_BLOCKSIZE, &desData[512])) return False;
 	if (!sdReadDMA(randomAddr, 2, &desData[0])) return False;
-	vTaskDelay(1000);
+	//vTaskDelay(1000);
+	for (volatile uint32_t i = 0; i < 1000000; i++);
 	for (uint16_t i = 0; i < SD_BLOCKSIZE; i++) {
 		if (srcData[i] != desData[i]) return False;
 	}
@@ -1909,12 +1911,14 @@ static bool_t sdmmcCheckCmdResp1(uint8_t cmd)
 	if (cmd == SD_CMD_STOP_TRANSMISSION) count = 0xFFFFFFFF; //SD_STOP_TRANS_TIMEOUT_CNT;
 
 	// Did not consider CCRCFAIL, CMDREND and CTIMEOUT error flags, because they will cause timeout.
-	while ((SDMMC1->STA & SDMMC_STA_CMDACT_Msk) && count-- != 0);
-	SDMMC1->ICR |= 	SDMMC1->STA;
-	if (count == 0) return False;
-	if ((uint8_t)(SDMMC1->RESPCMD) != cmd) return False;
-	// Response have been received
-	if (SDMMC1->RESP1 & SD_CMD_RESP_R1_ERRORBITS) return False; // response have been received
+	if (cmd != SD_CMD_STOP_TRANSMISSION) {
+		while ((SDMMC1->STA & SDMMC_STA_CMDACT_Msk) && count-- != 0);
+		SDMMC1->ICR |= 	SDMMC1->STA;
+		if (count == 0) return False;
+		if ((uint8_t)(SDMMC1->RESPCMD) != cmd) return False;
+		// Response have been received
+		if (SDMMC1->RESP1 & SD_CMD_RESP_R1_ERRORBITS) return False; // response have been received
+	}
 
 	return True;
 }
