@@ -9,6 +9,7 @@
  *
  **********************************************************************/
 #include <string.h>
+#include "platform.h"
 #include "types.h"
 #include "debug.h"
 #include "assert_param.h"
@@ -39,7 +40,9 @@
 
 // SD constant value definition
 #define SD_BLOCKSIZE					(512)
-#define SD_SEND_CMD_TIMEOUT_CNT			(5000 * (216000000 / 8 / 1000))
+#define SD_TIMEOUT_CNT_BASE				(216000000 / 8 / 1000)
+#define SD_SEND_CMD_TIMEOUT_CNT			(5000 * SD_TIMEOUT_CNT_BASE)
+#define SD_STOP_TRANS_TIMEOUT_CNT		(10000 * SD_TIMEOUT_CNT_BASE)
 #define SD_CMD_RESP_R1_ERRORBITS		(0xFDFFE008)
 #define SD_CMD_RESP_R6_ERRORBITS		(0x0000E000)
 #define SD_RESPONSE_R0					(0)
@@ -173,7 +176,6 @@ static void setCharBuf12x16(
 		const uint32_t foreColor,
 		const uint32_t backColor);
 
-static bool_t sdmmcSendCmd(uint8_t cmd, uint8_t resp, uint32_t arg);
 static bool_t sdmmcCheckCmdResp0(void);
 static bool_t sdmmcCheckCmdResp1(uint8_t cmd);
 static bool_t sdmmcCheckCmdResp2(uint8_t cmd);
@@ -302,10 +304,62 @@ bool_t isSDCardInsert(void)
 	return res;
 }
 
+bool_t sdmmcSendCmd(const uint8_t cmd, const uint8_t resp, const uint32_t arg)
+{
+	uint8_t respLength = 0b01;
+
+	// set WAITRESP area
+	switch (cmd) {
+	case SD_CMD_GO_IDLE_STATE:
+		respLength = 0b00; // no response
+		break;
+	case SD_CMD_ALL_SEND_CID:
+	case SD_CMD_SEND_CSD:
+		respLength = 0b11; // long response
+		break;
+	default:
+		respLength = 0b01; // short response
+		break;
+	}
+
+	// send command
+	SDMMC1->ARG	=	arg;
+	SDMMC1->CMD	=	cmd << SDMMC_CMD_CMDINDEX_Pos |
+					respLength << SDMMC_CMD_WAITRESP_Pos |
+					0b0 << SDMMC_CMD_WAITINT_Pos | // no interrupt
+					0b1 << SDMMC_CMD_CPSMEN_Pos;   // enable CPSM
+
+	// check response
+	bool_t res = False;
+	switch (resp) {
+	case SD_RESPONSE_R0:
+		res = sdmmcCheckCmdResp0();
+		break;
+	default:
+	case SD_RESPONSE_R1:
+		res = sdmmcCheckCmdResp1(cmd);
+		break;
+	case SD_RESPONSE_R2:
+		res = sdmmcCheckCmdResp2(cmd);
+		break;
+	case SD_RESPONSE_R3:
+		res = sdmmcCheckCmdResp3();
+		break;
+	case SD_RESPONSE_R6:
+		res = sdmmcCheckCmdResp6(cmd);
+		break;
+	case SD_RESPONSE_R7:
+		res = sdmmcCheckCmdResp7();
+		break;
+	}
+
+	return res;
+}
+
 bool_t sdReadDMA(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf)
 {
 	// 1. Send CMD16 to set card block size.
-	if (!sdmmcSendCmd(SD_CMD_SET_BLOCKLEN, SD_RESPONSE_R1, SD_BLOCKSIZE)) return False;
+	//if (!sdmmcSendCmd(SD_CMD_SET_BLOCKLEN, SD_RESPONSE_R1, SD_BLOCKSIZE)) return False;
 
 	// 2. Clear DCTRL register
 	// According to the notes of 35.8.9 chapter of STM32F746XX RM,
@@ -318,21 +372,21 @@ bool_t sdReadDMA(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf
 	SDMMC1->DCTRL = 0;
 
 	// 3. Enable SDMMC interrupt.
-	SDMMC1->MASK	=	SDMMC_MASK_CCRCFAILIE_Msk |
+	SDMMC1->MASK	|=	SDMMC_MASK_CCRCFAILIE_Msk |
 						SDMMC_MASK_DTIMEOUTIE_Msk |
 						SDMMC_MASK_RXOVERRIE_Msk |
 						SDMMC_MASK_DATAENDIE_Msk;
 
 	// 4. Connect DMA channel (stream3/channel4) between SDMMC and memory.
 	// Note : DMA2_Stream3->CR setting has been execute in device initialization phase.
-	DMA2_Stream3->NDTR = (uint32_t)(blockNum * SD_BLOCKSIZE / 4); // by byte
+	DMA2_Stream3->NDTR = (uint32_t)(blockNum * SD_BLOCKSIZE / 4); // by word (DMA2_Stream3 transfer unit)
 	DMA2_Stream3->PAR  = (uint32_t)(&(SDMMC1->FIFO));
 	DMA2_Stream3->M0AR = (uint32_t)(buf);
 	DMA2_Stream3->CR |= DMA_SxCR_EN; // start DMA transfer
 
-	// 5. Configure SDMMC data transfer mode and Enable DMA.
+	// 5. Configure SDMMC data transfer mode and enable DMA stream.
 	SDMMC1->DTIMER	=	0xFFFFFFFF;
-	SDMMC1->DLEN	=	SD_BLOCKSIZE;	// 512 Bytes
+	SDMMC1->DLEN	=	blockNum * SD_BLOCKSIZE;				// data length
 	SDMMC1->DCTRL	=	0b1001 << SDMMC_DCTRL_DBLOCKSIZE_Pos |	// 512 Bytes
 						0b1 << SDMMC_DCTRL_DTDIR_Pos |			// card --> SDMMC
 						0b0 << SDMMC_DCTRL_DTMODE_Pos |			// block mode
@@ -340,11 +394,12 @@ bool_t sdReadDMA(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf
 						0b1 << SDMMC_DCTRL_DTEN_Pos;			// enable data transfer
 
 	// 6. Send CMD17 or CMD18 to notify SD card send data.
+	uint32_t addr = blockAddr * SD_BLOCKSIZE;
 	if (blockNum == 1) {
-		if (!sdmmcSendCmd(SD_CMD_READ_SINGLE_BLOCK, SD_RESPONSE_R1, blockAddr)) return False;
+		if (!sdmmcSendCmd(SD_CMD_READ_SINGLE_BLOCK, SD_RESPONSE_R1, addr)) return False;
 	}
 	else {
-		if (!sdmmcSendCmd(SD_CMD_READ_MULT_BLOCK, SD_RESPONSE_R1, blockAddr)) return False;
+		if (!sdmmcSendCmd(SD_CMD_READ_MULT_BLOCK, SD_RESPONSE_R1, addr)) return False;
 	}
 
 	return True;
@@ -631,13 +686,17 @@ bool_t checkSDMMC(const uint16_t data)
 {
 	uint32_t randomAddr = data * SD_BLOCKSIZE;
 	uint8_t srcData[SD_BLOCKSIZE];
-	uint8_t desData[SD_BLOCKSIZE];
+	uint8_t desData[SD_BLOCKSIZE*2];
 
 	for (uint16_t i = 0; i < SD_BLOCKSIZE; i++) {
-		srcData[i] = i & 0xFF;
+		srcData[i] = (i+2) & 0xFF;
 	}
 	if (!sdWrite1Block(randomAddr, &srcData[0])) return False;
-	if (!sdRead1Block(randomAddr, &desData[0])) return False;
+	if (!sdWrite1Block(randomAddr+SD_BLOCKSIZE, &srcData[0])) return False;
+	//if (!sdRead1Block(randomAddr, &desData[0])) return False;
+	//if (!sdRead1Block(randomAddr+SD_BLOCKSIZE, &desData[512])) return False;
+	if (!sdReadDMA(randomAddr, 2, &desData[0])) return False;
+	vTaskDelay(1000);
 	for (uint16_t i = 0; i < SD_BLOCKSIZE; i++) {
 		if (srcData[i] != desData[i]) return False;
 	}
@@ -1239,7 +1298,7 @@ static bool_t initSDCard(void)
 
 	// --- SD card enumeration process is completed ! ---
 
-	// Send CMD16 to set card block size to 8 bits.
+	// Send CMD16 to set card block size to 8 bytes.
 	if (!sdmmcSendCmd(SD_CMD_SET_BLOCKLEN, SD_RESPONSE_R1, 8)) return False;
 
 	// Set SDMMC interface register to configure data length to 8 bytes
@@ -1348,7 +1407,7 @@ static void initSDMMC(void)
 	DMA2_Stream3->FCR	|=	DMA_SxFCR_FEIE_Msk;
 
 	// Enable SDMMC RX DMA
-	DMA2_Stream3->CR	|=	DMA_SxCR_EN_Msk;
+	//DMA2_Stream3->CR	|=	DMA_SxCR_EN_Msk;
 
 	// ----- SDMMC TX DMA setting -----
 	// Configure SDMMC TX DMA
@@ -1377,7 +1436,7 @@ static void initSDMMC(void)
 	DMA2_Stream6->FCR	|=	DMA_SxFCR_FEIE_Msk;
 
 	// Enable SDMMC TX DMA
-	DMA2_Stream6->CR	|=	DMA_SxCR_EN_Msk;
+	//DMA2_Stream6->CR	|=	DMA_SxCR_EN_Msk;
 }
 
 #ifdef MODE_STAND_ALONE
@@ -1432,9 +1491,9 @@ static void initNVICPriority(void)
 	// USART1(Debug)		: preemption:14, IRQn:37
 	// TIMER7(LED1 flicker)	: preemption:14, IRQn:55
 	// EXIT13(TouchPanel)	: preemption:13, IRQn:40
-	// SDIO(FatFs)			: preemption:13, IRQn:49
-	// SDDMARx(DMA2_Stream3): preemption:14, IRQn:59
-	// SDDMATx(DMA2_Stream6): preemption:14, IRQn:69
+	// SDIO(FatFs)			: preemption:14, IRQn:49
+	// SDDMARx(DMA2_Stream3): preemption:13, IRQn:59
+	// SDDMATx(DMA2_Stream6): preemption:13, IRQn:69
 
 	// Initialize SVCall interrupt (IRQn:11)
 	SCB->SHPR[2] |= 15 << (24 + 4);
@@ -1463,15 +1522,15 @@ static void initNVICPriority(void)
 	NVIC->ISER[1] |= 0b1 << (40 - 32);
 
 	// Initialize SDMMC interrupt (IRQn:49)
-	NVIC->IP[49]  |= 13 << 4;
+	NVIC->IP[49]  |= 14 << 4;
 	NVIC->ISER[1] |= 0b1 << (49 - 32);
 
 	// Initialize SDIO DMARx (DMA2_Stream3) interrupt (IRQn:59)
-	NVIC->IP[59]  |= 14 << 4;
+	NVIC->IP[59]  |= 13 << 4;
 	NVIC->ISER[1] |= 0b1 << (59 - 32);
 
 	// Initialize SDIO DMATx (DMA2_Stream6) interrupt (IRQn:69)
-	//NVIC->IP[69]  |= 14 << 4;
+	//NVIC->IP[69]  |= 13 << 4;
 	//NVIC->ISER[2] |= 0b1 << (69 - 64);
 }
 
@@ -1835,58 +1894,6 @@ static void setCharBuf12x16(
 	}
 }
 
-static bool_t sdmmcSendCmd(uint8_t cmd, uint8_t resp, uint32_t arg)
-{
-	uint8_t respLength = 0b01;
-
-	// set WAITRESP area
-	switch (cmd) {
-	case SD_CMD_GO_IDLE_STATE:
-		respLength = 0b00; // no response
-		break;
-	case SD_CMD_ALL_SEND_CID:
-	case SD_CMD_SEND_CSD:
-		respLength = 0b11; // long response
-		break;
-	default:
-		respLength = 0b01; // short response
-		break;
-	}
-
-	// send command
-	SDMMC1->ARG	=	arg;
-	SDMMC1->CMD	=	cmd << SDMMC_CMD_CMDINDEX_Pos |
-					respLength << SDMMC_CMD_WAITRESP_Pos |
-					0b0 << SDMMC_CMD_WAITINT_Pos | // no interrupt
-					0b1 << SDMMC_CMD_CPSMEN_Pos;   // enable CPSM
-
-	// check response
-	bool_t res = False;
-	switch (resp) {
-	case SD_RESPONSE_R0:
-		res = sdmmcCheckCmdResp0();
-		break;
-	default:
-	case SD_RESPONSE_R1:
-		res = sdmmcCheckCmdResp1(cmd);
-		break;
-	case SD_RESPONSE_R2:
-		res = sdmmcCheckCmdResp2(cmd);
-		break;
-	case SD_RESPONSE_R3:
-		res = sdmmcCheckCmdResp3();
-		break;
-	case SD_RESPONSE_R6:
-		res = sdmmcCheckCmdResp6(cmd);
-		break;
-	case SD_RESPONSE_R7:
-		res = sdmmcCheckCmdResp7();
-		break;
-	}
-
-	return res;
-}
-
 static bool_t sdmmcCheckCmdResp0(void)
 {
 	uint32_t count = SD_SEND_CMD_TIMEOUT_CNT;
@@ -1899,6 +1906,7 @@ static bool_t sdmmcCheckCmdResp0(void)
 static bool_t sdmmcCheckCmdResp1(uint8_t cmd)
 {
 	uint32_t count = SD_SEND_CMD_TIMEOUT_CNT;
+	if (cmd == SD_CMD_STOP_TRANSMISSION) count = 0xFFFFFFFF; //SD_STOP_TRANS_TIMEOUT_CNT;
 
 	// Did not consider CCRCFAIL, CMDREND and CTIMEOUT error flags, because they will cause timeout.
 	while ((SDMMC1->STA & SDMMC_STA_CMDACT_Msk) && count-- != 0);

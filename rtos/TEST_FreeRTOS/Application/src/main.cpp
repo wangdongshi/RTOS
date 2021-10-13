@@ -127,10 +127,10 @@ static bool_t checkDevices(void)
 
 #ifdef MODE_TEST_DRIVER
 	uint16_t random = (uint16_t)(0x000000FF & getRandomData());
-	if (!checkDMA(random)) {
-		TRACE("Failed to initialize DMA(M2M) !\r\n");
-		return False;
-	}
+	//if (!checkDMA(random)) {
+	//	TRACE("Failed to initialize DMA(M2M) !\r\n");
+	//	return False;
+	//}
 #endif
 
 #ifdef MODE_TEST_DRIVER

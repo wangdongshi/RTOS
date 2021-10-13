@@ -47,6 +47,69 @@ typedef enum {
 	COLOR_A4		= 0b1010
 } RGB_TYPE;
 
+// SD constant value definition
+#define SD_BLOCKSIZE					(512)
+//#define SD_SEND_CMD_TIMEOUT_CNT			(5000 * (216000000 / 8 / 1000))
+//#define SD_STOP_TRANS_TIMEOUT_CNT		(100000000 * (216000000 / 8 / 1000))
+//#define SD_CMD_RESP_R1_ERRORBITS		(0xFDFFE008)
+//#define SD_CMD_RESP_R6_ERRORBITS		(0x0000E000)
+#define SD_RESPONSE_R0					(0)
+#define SD_RESPONSE_R1					(1)
+#define SD_RESPONSE_R2					(2)
+#define SD_RESPONSE_R3					(3)
+#define SD_RESPONSE_R6					(6)
+#define SD_RESPONSE_R7					(7)
+// SD Card normal commands
+#define SD_CMD_GO_IDLE_STATE			(0)
+#define SD_CMD_SEND_OP_COND				(1)
+#define SD_CMD_ALL_SEND_CID				(2)
+#define SD_CMD_SET_REL_ADDR				(3)
+#define SD_CMD_SET_DSR					(4)
+#define SD_CMD_SDMMC_SEN_OP_COND		(5)
+#define SD_CMD_HS_SWITCH				(6)
+#define SD_CMD_SEL_DESEL_CARD			(7)
+#define SD_CMD_HS_SEND_EXT_CSD			(8)
+#define SD_CMD_SEND_CSD					(9)
+#define SD_CMD_SEND_CID					(10)
+#define SD_CMD_READ_DAT_UNTIL_STOP		(11)
+#define SD_CMD_STOP_TRANSMISSION		(12)
+#define SD_CMD_SEND_STATUS				(13)
+#define SD_CMD_HS_BUSTEST_READ			(14)
+#define SD_CMD_GO_INACTIVE_STATE		(15)
+#define SD_CMD_SET_BLOCKLEN				(16)
+#define SD_CMD_READ_SINGLE_BLOCK		(17)
+#define SD_CMD_READ_MULT_BLOCK			(18)
+#define SD_CMD_HS_BUSTEST_WRITE			(19)
+#define SD_CMD_WRITE_DAT_UNTIL_STOP		(20)
+#define SD_CMD_SET_BLOCK_COUNT			(23)
+#define SD_CMD_WRITE_SINGLE_BLOCK		(24)
+#define SD_CMD_WRITE_MULT_BLOCK			(25)
+#define SD_CMD_PROG_CID					(26)
+#define SD_CMD_PROG_CSD					(27)
+#define SD_CMD_SET_WRITE_PROT			(28)
+#define SD_CMD_CLR_WRITE_PROT			(29)
+#define SD_CMD_SEND_WRITE_PROT			(30)
+#define SD_CMD_SD_ERASE_GRP_START		(32)
+#define SD_CMD_SD_ERASE_GRP_END			(33)
+#define SD_CMD_ERASE_GRP_START			(35)
+#define SD_CMD_ERASE_GRP_END			(36)
+#define SD_CMD_ERASE					(38)
+#define SD_CMD_FAST_IO					(39)
+#define SD_CMD_GO_IRQ_STATE				(40)
+#define SD_CMD_LOCK_UNLOCK				(42)
+#define SD_CMD_APP_CMD					(55)
+#define SD_CMD_GEN_CMD					(56)
+#define SD_CMD_NO_CMD					(64)
+// SD Card specific commands
+#define SD_CMD_APP_SET_BUSWIDTH			(6)
+#define SD_CMD_APP_STATUS				(13)
+#define SD_CMD_APP_SEND_NUM_WRITE_BLOCK (22)
+#define SD_CMD_APP_OP_COND				(41)
+#define SD_CMD_APP_SET_CLR_CARD_DETECT	(42)
+#define SD_CMD_APP_SEND_SCR				(51)
+#define SD_CMD_SDMMC_RW_DIRECT			(52)
+#define SD_CMD_SDMMC_RW_EXTENDED		(53)
+
 // Defined in link script
 extern uint32_t _ssdram; // SDRAM start address
 extern uint32_t _sdram_size;
@@ -61,8 +124,10 @@ void i2c3Write1Byte(const uint8_t slaveAddr, const uint8_t devAddr, const uint8_
 uint8_t i2c3Read1Byte(const uint8_t slaveAddr, const uint8_t devAddr);
 
 bool_t isSDCardInsert(void);
-bool_t sdRead1Block(const uint32_t sdAddr, uint8_t* buf);
-bool_t sdWrite1Block(const uint32_t sdAddr, uint8_t* buf);
+bool_t sdmmcSendCmd(const uint8_t cmd, const uint8_t resp, const uint32_t arg);
+bool_t sdRead1Block(const uint32_t blockAddr, uint8_t* buf);
+bool_t sdWrite1Block(const uint32_t blockAddr, uint8_t* buf);
+bool_t sdReadDMA(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf);
 
 void toggleLED1(void);
 void showLogo(void);

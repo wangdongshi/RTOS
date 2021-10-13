@@ -28,6 +28,9 @@ void USART1_IRQHandler(void);
 extern EHmiMain* pHmi;
 
 void EXTI15_10_IRQHandler(void);
+void SDMMC1_IRQHandler(void);
+void DMA2_Stream3_IRQHandler(void);
+void DMA2_Stream6_IRQHandler(void);
 
 #ifdef __cplusplus
 }
