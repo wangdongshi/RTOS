@@ -139,6 +139,8 @@ typedef struct {
 } SD_INFO;
 
 SD_INFO __attribute__( ( aligned(4) ) ) sdcard;
+uint8_t __attribute__( ( aligned(4) ) ) sdTestSrc[SD_BLOCKSIZE*2];
+uint8_t __attribute__( ( aligned(4) ) ) sdTestDes[SD_BLOCKSIZE*2];
 
 uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) )   charBuffer[12 * 16 * COLOR_BYTE_ARGB8888];
 uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) ) frameBuffer1[LCD_FRAME_BUF_SIZE];
@@ -358,10 +360,7 @@ bool_t sdmmcSendCmd(const uint8_t cmd, const uint8_t resp, const uint32_t arg)
 
 bool_t sdReadDMA(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf)
 {
-	// 1. Send CMD16 to set card block size.
-	//if (!sdmmcSendCmd(SD_CMD_SET_BLOCKLEN, SD_RESPONSE_R1, SD_BLOCKSIZE)) return False;
-
-	// 2. Clear DCTRL register
+	// 1. Wait for DCTRL register recover.
 	// According to the notes of 35.8.9 chapter of STM32F746XX RM,
 	// the DCTRL register setting must follow this conditions:
 	// >>>> After a data write, data cannot be written to this register for
@@ -369,30 +368,30 @@ bool_t sdReadDMA(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf
 	// Note: PCLK2 is 108MHz in this system.
 	// According test result, here must insert the delay as below !!!
 	for (volatile uint32_t i = 0; i < 500000; i++);
-	SDMMC1->DCTRL = 0;
-	SDMMC1->ICR = SDMMC1->STA;
 
-	// 3. Enable SDMMC interrupt.
-	SDMMC1->MASK	|=	SDMMC_MASK_CCRCFAILIE_Msk |
-						SDMMC_MASK_DTIMEOUTIE_Msk |
-						SDMMC_MASK_RXOVERRIE_Msk |
-						SDMMC_MASK_DATAENDIE_Msk;
+	// 2. Clear SDMMC status flag register
+	SDMMC1->ICR			|=	SDMMC1->STA;
+
+	// 3. Enable SDMMC interrupt (for error handle).
+	SDMMC1->MASK		|=	SDMMC_MASK_CCRCFAILIE_Msk |
+							SDMMC_MASK_DTIMEOUTIE_Msk |
+							SDMMC_MASK_RXOVERRIE_Msk;
 
 	// 4. Connect DMA channel (stream3/channel4) between SDMMC and memory.
 	// Note : DMA2_Stream3->CR setting has been execute in device initialization phase.
-	DMA2_Stream3->NDTR = (uint32_t)(blockNum * SD_BLOCKSIZE / 4); // by word (DMA2_Stream3 transfer unit)
-	DMA2_Stream3->PAR  = (uint32_t)(&(SDMMC1->FIFO));
-	DMA2_Stream3->M0AR = (uint32_t)(buf);
-	DMA2_Stream3->CR |= DMA_SxCR_EN; // start DMA transfer
+	DMA2_Stream3->NDTR	=	(uint32_t)(blockNum * SD_BLOCKSIZE / 4); // by word (DMA2_Stream3 transfer unit)
+	DMA2_Stream3->PAR	=	(uint32_t)(&(SDMMC1->FIFO));
+	DMA2_Stream3->M0AR	=	(uint32_t)(buf);
+	DMA2_Stream3->CR	|=	DMA_SxCR_EN; // start DMA transfer
 
 	// 5. Configure SDMMC data transfer mode and enable DMA stream.
-	SDMMC1->DTIMER	=	0xFFFFFFFF;
-	SDMMC1->DLEN	=	blockNum * SD_BLOCKSIZE;				// data length
-	SDMMC1->DCTRL	=	0b1001 << SDMMC_DCTRL_DBLOCKSIZE_Pos |	// 512 Bytes
-						0b1 << SDMMC_DCTRL_DTDIR_Pos |			// card --> SDMMC
-						0b0 << SDMMC_DCTRL_DTMODE_Pos |			// block mode
-						0b1 << SDMMC_DCTRL_DMAEN_Pos |			// enable DMA
-						0b1 << SDMMC_DCTRL_DTEN_Pos;			// enable data transfer
+	SDMMC1->DTIMER		=	0xFFFFFFFF;
+	SDMMC1->DLEN		=	blockNum * SD_BLOCKSIZE;				// data length
+	SDMMC1->DCTRL		=	0b1001 << SDMMC_DCTRL_DBLOCKSIZE_Pos |	// 512 Bytes
+							0b1 << SDMMC_DCTRL_DTDIR_Pos |			// card --> SDMMC
+							0b0 << SDMMC_DCTRL_DTMODE_Pos |			// block mode
+							0b1 << SDMMC_DCTRL_DMAEN_Pos |			// enable DMA
+							0b1 << SDMMC_DCTRL_DTEN_Pos;			// enable data transfer
 
 	// 6. Send CMD17 or CMD18 to notify SD card send data.
 	uint32_t addr = blockAddr * SD_BLOCKSIZE;
@@ -686,21 +685,18 @@ bool_t checkDMA(uint16_t data)
 bool_t checkSDMMC(const uint16_t data)
 {
 	uint32_t randomAddr = data * SD_BLOCKSIZE;
-	uint8_t srcData[SD_BLOCKSIZE];
-	uint8_t desData[SD_BLOCKSIZE*2];
 
-	for (uint16_t i = 0; i < SD_BLOCKSIZE; i++) {
-		srcData[i] = (i+2) & 0xFF;
+	for (uint16_t i = 0; i < SD_BLOCKSIZE*2; i++) {
+		sdTestSrc[i] = (i+3) & 0xFF;
 	}
-	if (!sdWrite1Block(randomAddr, &srcData[0])) return False;
-	if (!sdWrite1Block(randomAddr+SD_BLOCKSIZE, &srcData[0])) return False;
-	//if (!sdRead1Block(randomAddr, &desData[0])) return False;
-	//if (!sdRead1Block(randomAddr+SD_BLOCKSIZE, &desData[512])) return False;
-	if (!sdReadDMA(randomAddr, 2, &desData[0])) return False;
-	//vTaskDelay(1000);
-	for (volatile uint32_t i = 0; i < 1000000; i++);
-	for (uint16_t i = 0; i < SD_BLOCKSIZE; i++) {
-		if (srcData[i] != desData[i]) return False;
+	if (!sdWrite1Block(randomAddr, &sdTestSrc[0])) return False;
+	if (!sdWrite1Block(randomAddr+1, &sdTestSrc[0])) return False;
+	//if (!sdRead1Block(randomAddr, &sdTestDes[0])) return False;
+	//if (!sdRead1Block(randomAddr+1, &sdTestDes[512])) return False;
+	if (!sdReadDMA(randomAddr, 2, &sdTestDes[0])) return False;
+	vTaskDelay(50);
+	for (uint16_t i = 0; i < SD_BLOCKSIZE * 2; i++) {
+		if (sdTestSrc[i] != sdTestDes[i]) return False;
 	}
 	return True;
 }
@@ -1348,13 +1344,13 @@ static bool_t initSDCard(void)
 	}
 
 	// Initialize SDMMC interface to transfer mode (24MHz, 4bits)
-	SDMMC1->CLKCR	|=	0x00 << SDMMC_CLKCR_CLKDIV_Pos |	// 0+2=2, 48MHz/2=24MHz
-						0b1 << SDMMC_CLKCR_HWFC_EN_Pos |	// disable hardware flow control
+	SDMMC1->CLKCR	=	0x00 << SDMMC_CLKCR_CLKDIV_Pos |	// 0+2=2, 48MHz/2=24MHz
+						0b1 << SDMMC_CLKCR_HWFC_EN_Pos |	// enable hardware flow control
 						0b01 << SDMMC_CLKCR_WIDBUS_Pos |	// 4 bits mode SDMMC_D[0:3]
 						0b0  << SDMMC_CLKCR_PWRSAV_Pos |	// enable SDMMC_CK in SD bus inactive (disable power save mode)
 						0b0  << SDMMC_CLKCR_BYPASS_Pos |	// disable bypass CLKDIV
-						0b0 << SDMMC_CLKCR_NEGEDGE_Pos;		// rising edge R/W
-						//0b1 << SDMMC_CLKCR_CLKEN_Pos;		// enable SDMMC clock
+						0b0 << SDMMC_CLKCR_NEGEDGE_Pos |	// rising edge R/W
+						0b1 << SDMMC_CLKCR_CLKEN_Pos;		// enable SDMMC clock
 
 	// Send CMD16 to set card block size.
 	if (!sdmmcSendCmd(SD_CMD_SET_BLOCKLEN, SD_RESPONSE_R1, SD_BLOCKSIZE)) return False;
@@ -1378,9 +1374,9 @@ static void initSDMMC(void)
 
 	// Set SDMMC clock
 	RCC->DCKCFGR2	&=	~RCC_DCKCFGR2_CK48MSEL_Msk;
-	RCC->DCKCFGR2	|=	0b0 << RCC_DCKCFGR2_CK48MSEL_Pos;	// 48MHz from PLLQ
+	RCC->DCKCFGR2	|=	0b0 << RCC_DCKCFGR2_CK48MSEL_Pos;		// 48MHz from PLLQ
 	RCC->DCKCFGR2	&=	~RCC_DCKCFGR2_SDMMC1SEL_Msk;
-	RCC->DCKCFGR2	|=	0b0 << RCC_DCKCFGR2_SDMMC1SEL_Pos;	// select 48MHz for SDMMC
+	RCC->DCKCFGR2	|=	0b0 << RCC_DCKCFGR2_SDMMC1SEL_Pos;		// select 48MHz for SDMMC
 
 	// ----- SDMMC RX DMA setting -----
 	// Configure SDMMC RX DMA
@@ -1401,15 +1397,11 @@ static void initSDMMC(void)
 	// Clear SDMMC RX DMA interrupt flag
 	DMA2->LIFCR			|= 	DMA_LIFCR_CTCIF3_Msk |
 							DMA_LIFCR_CTEIF3_Msk |
-							DMA_LIFCR_CDMEIF3_Msk |
 							DMA_LIFCR_CFEIF3_Msk;
 
 	// Set SDMMC RX DMA interrupt mask
 	DMA2_Stream3->CR	|=	DMA_SxCR_TCIE_Msk | DMA_SxCR_TEIE_Msk | DMA_SxCR_DMEIE_Msk;
 	DMA2_Stream3->FCR	|=	DMA_SxFCR_FEIE_Msk;
-
-	// Enable SDMMC RX DMA
-	//DMA2_Stream3->CR	|=	DMA_SxCR_EN_Msk;
 
 	// ----- SDMMC TX DMA setting -----
 	// Configure SDMMC TX DMA
@@ -1430,15 +1422,11 @@ static void initSDMMC(void)
 	// Clear SDMMC TX DMA interrupt flag
 	DMA2->HIFCR			|=	DMA_HIFCR_CTCIF6_Msk |
 							DMA_HIFCR_CTEIF6_Msk |
-							DMA_HIFCR_CDMEIF6_Msk |
 							DMA_HIFCR_CFEIF6_Msk;
 
 	// Set SDMMC TX DMA interrupt mask
 	DMA2_Stream6->CR	|=	DMA_SxCR_TCIE_Msk | DMA_SxCR_TEIE_Msk | DMA_SxCR_DMEIE_Msk;
 	DMA2_Stream6->FCR	|=	DMA_SxFCR_FEIE_Msk;
-
-	// Enable SDMMC TX DMA
-	//DMA2_Stream6->CR	|=	DMA_SxCR_EN_Msk;
 }
 
 #ifdef MODE_STAND_ALONE
@@ -1493,9 +1481,9 @@ static void initNVICPriority(void)
 	// USART1(Debug)		: preemption:14, IRQn:37
 	// TIMER7(LED1 flicker)	: preemption:14, IRQn:55
 	// EXIT13(TouchPanel)	: preemption:13, IRQn:40
-	// SDIO(FatFs)			: preemption:14, IRQn:49
-	// SDDMARx(DMA2_Stream3): preemption:13, IRQn:59
-	// SDDMATx(DMA2_Stream6): preemption:13, IRQn:69
+	// SDIO(FatFs)			: preemption:13, IRQn:49
+	// SDDMARx(DMA2_Stream3): preemption:14, IRQn:59
+	// SDDMATx(DMA2_Stream6): preemption:14, IRQn:69
 
 	// Initialize SVCall interrupt (IRQn:11)
 	SCB->SHPR[2] |= 15 << (24 + 4);
@@ -1524,15 +1512,15 @@ static void initNVICPriority(void)
 	NVIC->ISER[1] |= 0b1 << (40 - 32);
 
 	// Initialize SDMMC interrupt (IRQn:49)
-	NVIC->IP[49]  |= 14 << 4;
+	NVIC->IP[49]  |= 13 << 4;
 	NVIC->ISER[1] |= 0b1 << (49 - 32);
 
 	// Initialize SDIO DMARx (DMA2_Stream3) interrupt (IRQn:59)
-	NVIC->IP[59]  |= 13 << 4;
+	NVIC->IP[59]  |= 14 << 4;
 	NVIC->ISER[1] |= 0b1 << (59 - 32);
 
 	// Initialize SDIO DMATx (DMA2_Stream6) interrupt (IRQn:69)
-	//NVIC->IP[69]  |= 13 << 4;
+	//NVIC->IP[69]  |= 14 << 4;
 	//NVIC->ISER[2] |= 0b1 << (69 - 64);
 }
 
@@ -1911,14 +1899,12 @@ static bool_t sdmmcCheckCmdResp1(uint8_t cmd)
 	if (cmd == SD_CMD_STOP_TRANSMISSION) count = 0xFFFFFFFF; //SD_STOP_TRANS_TIMEOUT_CNT;
 
 	// Did not consider CCRCFAIL, CMDREND and CTIMEOUT error flags, because they will cause timeout.
-	if (cmd != SD_CMD_STOP_TRANSMISSION) {
-		while ((SDMMC1->STA & SDMMC_STA_CMDACT_Msk) && count-- != 0);
-		SDMMC1->ICR |= 	SDMMC1->STA;
-		if (count == 0) return False;
-		if ((uint8_t)(SDMMC1->RESPCMD) != cmd) return False;
-		// Response have been received
-		if (SDMMC1->RESP1 & SD_CMD_RESP_R1_ERRORBITS) return False; // response have been received
-	}
+	while ((SDMMC1->STA & SDMMC_STA_CMDACT_Msk) && count-- != 0);
+	SDMMC1->ICR |= 	SDMMC1->STA;
+	if (count == 0) return False;
+	if ((uint8_t)(SDMMC1->RESPCMD) != cmd) return False;
+	// Response have been received
+	if (SDMMC1->RESP1 & SD_CMD_RESP_R1_ERRORBITS) return False; // response have been received
 
 	return True;
 }
