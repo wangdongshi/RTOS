@@ -39,68 +39,11 @@
 #define LCD_VFP							(2)
 
 // SD constant value definition
-#define SD_BLOCKSIZE					(512)
 #define SD_TIMEOUT_CNT_BASE				(216000000 / 8 / 1000)
 #define SD_SEND_CMD_TIMEOUT_CNT			(5000 * SD_TIMEOUT_CNT_BASE)
 #define SD_STOP_TRANS_TIMEOUT_CNT		(10000 * SD_TIMEOUT_CNT_BASE)
 #define SD_CMD_RESP_R1_ERRORBITS		(0xFDFFE008)
 #define SD_CMD_RESP_R6_ERRORBITS		(0x0000E000)
-#define SD_RESPONSE_R0					(0)
-#define SD_RESPONSE_R1					(1)
-#define SD_RESPONSE_R2					(2)
-#define SD_RESPONSE_R3					(3)
-#define SD_RESPONSE_R6					(6)
-#define SD_RESPONSE_R7					(7)
-// SD Card normal commands
-#define SD_CMD_GO_IDLE_STATE			(0)
-#define SD_CMD_SEND_OP_COND				(1)
-#define SD_CMD_ALL_SEND_CID				(2)
-#define SD_CMD_SET_REL_ADDR				(3)
-#define SD_CMD_SET_DSR					(4)
-#define SD_CMD_SDMMC_SEN_OP_COND		(5)
-#define SD_CMD_HS_SWITCH				(6)
-#define SD_CMD_SEL_DESEL_CARD			(7)
-#define SD_CMD_HS_SEND_EXT_CSD			(8)
-#define SD_CMD_SEND_CSD					(9)
-#define SD_CMD_SEND_CID					(10)
-#define SD_CMD_READ_DAT_UNTIL_STOP		(11)
-#define SD_CMD_STOP_TRANSMISSION		(12)
-#define SD_CMD_SEND_STATUS				(13)
-#define SD_CMD_HS_BUSTEST_READ			(14)
-#define SD_CMD_GO_INACTIVE_STATE		(15)
-#define SD_CMD_SET_BLOCKLEN				(16)
-#define SD_CMD_READ_SINGLE_BLOCK		(17)
-#define SD_CMD_READ_MULT_BLOCK			(18)
-#define SD_CMD_HS_BUSTEST_WRITE			(19)
-#define SD_CMD_WRITE_DAT_UNTIL_STOP		(20)
-#define SD_CMD_SET_BLOCK_COUNT			(23)
-#define SD_CMD_WRITE_SINGLE_BLOCK		(24)
-#define SD_CMD_WRITE_MULT_BLOCK			(25)
-#define SD_CMD_PROG_CID					(26)
-#define SD_CMD_PROG_CSD					(27)
-#define SD_CMD_SET_WRITE_PROT			(28)
-#define SD_CMD_CLR_WRITE_PROT			(29)
-#define SD_CMD_SEND_WRITE_PROT			(30)
-#define SD_CMD_SD_ERASE_GRP_START		(32)
-#define SD_CMD_SD_ERASE_GRP_END			(33)
-#define SD_CMD_ERASE_GRP_START			(35)
-#define SD_CMD_ERASE_GRP_END			(36)
-#define SD_CMD_ERASE					(38)
-#define SD_CMD_FAST_IO					(39)
-#define SD_CMD_GO_IRQ_STATE				(40)
-#define SD_CMD_LOCK_UNLOCK				(42)
-#define SD_CMD_APP_CMD					(55)
-#define SD_CMD_GEN_CMD					(56)
-#define SD_CMD_NO_CMD					(64)
-// SD Card specific commands
-#define SD_CMD_APP_SET_BUSWIDTH			(6)
-#define SD_CMD_APP_STATUS				(13)
-#define SD_CMD_APP_SEND_NUM_WRITE_BLOCK (22)
-#define SD_CMD_APP_OP_COND				(41)
-#define SD_CMD_APP_SET_CLR_CARD_DETECT	(42)
-#define SD_CMD_APP_SEND_SCR				(51)
-#define SD_CMD_SDMMC_RW_DIRECT			(52)
-#define SD_CMD_SDMMC_RW_EXTENDED		(53)
 
 typedef enum {
 	SD_VERSION_1X,
@@ -179,10 +122,10 @@ static void setCharBuf12x16(
 		const uint32_t backColor);
 
 static bool_t sdmmcCheckCmdResp0(void);
-static bool_t sdmmcCheckCmdResp1(uint8_t cmd);
-static bool_t sdmmcCheckCmdResp2(uint8_t cmd);
+static bool_t sdmmcCheckCmdResp1(const SD_COMMAND cmd);
+static bool_t sdmmcCheckCmdResp2(const SD_COMMAND cmd);
 static bool_t sdmmcCheckCmdResp3(void);
-static bool_t sdmmcCheckCmdResp6(uint8_t cmd);
+static bool_t sdmmcCheckCmdResp6(const SD_COMMAND cmd);
 static bool_t sdmmcCheckCmdResp7(void);
 
 // External API function group
@@ -306,7 +249,7 @@ bool_t isSDCardInsert(void)
 	return res;
 }
 
-bool_t sdmmcSendCmd(const uint8_t cmd, const uint8_t resp, const uint32_t arg)
+bool_t sdmmcSendCmd(const SD_COMMAND cmd, const SD_RESP_TYPE resp, const uint32_t arg)
 {
 	uint8_t respLength = 0b01;
 
@@ -356,53 +299,6 @@ bool_t sdmmcSendCmd(const uint8_t cmd, const uint8_t resp, const uint32_t arg)
 	}
 
 	return res;
-}
-
-bool_t sdDMARead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf)
-{
-	// 1. Wait for DCTRL register recover.
-	// According to the notes of 35.8.9 chapter of STM32F746XX RM,
-	// the DCTRL register setting must follow this conditions:
-	// >>>> After a data write, data cannot be written to this register for
-	// >>>> three SDMMCCLK (48 MHz)	clock periods plus two PCLK2 clock periods.
-	// Note: PCLK2 is 108MHz in this system.
-	// According test result, here must insert the delay as below !!!
-	for (volatile uint32_t i = 0; i < 500000; i++);
-
-	// 2. Clear SDMMC status flag register
-	SDMMC1->ICR			|=	SDMMC1->STA;
-
-	// 3. Enable SDMMC interrupt (for error handle).
-	SDMMC1->MASK		|=	SDMMC_MASK_CCRCFAILIE_Msk |
-							SDMMC_MASK_DTIMEOUTIE_Msk |
-							SDMMC_MASK_RXOVERRIE_Msk;
-
-	// 4. Connect DMA channel (stream3/channel4) between SDMMC and memory.
-	// Note : DMA2_Stream3->CR setting has been execute in device initialization phase.
-	DMA2_Stream3->NDTR	=	(uint32_t)(blockNum * SD_BLOCKSIZE / 4); // by word (DMA2_Stream3 transfer unit)
-	DMA2_Stream3->PAR	=	(uint32_t)(&(SDMMC1->FIFO));
-	DMA2_Stream3->M0AR	=	(uint32_t)(buf);
-	DMA2_Stream3->CR	|=	DMA_SxCR_EN; // start DMA transfer
-
-	// 5. Configure SDMMC data transfer mode and enable DMA stream.
-	SDMMC1->DTIMER		=	0xFFFFFFFF;
-	SDMMC1->DLEN		=	blockNum * SD_BLOCKSIZE;				// data length
-	SDMMC1->DCTRL		=	0b1001 << SDMMC_DCTRL_DBLOCKSIZE_Pos |	// 512 Bytes
-							0b1 << SDMMC_DCTRL_DTDIR_Pos |			// card --> SDMMC
-							0b0 << SDMMC_DCTRL_DTMODE_Pos |			// block mode
-							0b1 << SDMMC_DCTRL_DMAEN_Pos |			// enable DMA
-							0b1 << SDMMC_DCTRL_DTEN_Pos;			// enable data transfer
-
-	// 6. Send CMD17 or CMD18 to notify SD card send data.
-	uint32_t addr = blockAddr * SD_BLOCKSIZE;
-	if (blockNum == 1) {
-		if (!sdmmcSendCmd(SD_CMD_READ_SINGLE_BLOCK, SD_RESPONSE_R1, addr)) return False;
-	}
-	else {
-		if (!sdmmcSendCmd(SD_CMD_READ_MULT_BLOCK, SD_RESPONSE_R1, addr)) return False;
-	}
-
-	return True;
 }
 
 bool_t sdPollingRead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf)
@@ -501,6 +397,100 @@ bool_t sdPollingWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t
 	if (blockNum > 1) {
 		if(!sdmmcSendCmd(SD_CMD_STOP_TRANSMISSION, SD_RESPONSE_R1, 0)) return False;
 	}
+
+	return True;
+}
+
+bool_t sdDMARead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf)
+{
+	// 1. Wait for DCTRL register recover.
+	// According to the notes of 35.8.9 chapter of STM32F746XX RM,
+	// the DCTRL register setting must follow this conditions:
+	// >>>> After a data write, data cannot be written to this register for
+	// >>>> three SDMMCCLK (48 MHz)	clock periods plus two PCLK2 clock periods.
+	// Note: PCLK2 is 108MHz in this system.
+	// According test result, here must insert the delay as below !!!
+	for (volatile uint32_t i = 0; i < 500000; i++);
+
+	// 2. Clear SDMMC status flag register
+	SDMMC1->ICR			|=	SDMMC1->STA;
+
+	// 3. Enable SDMMC interrupt (for error handle).
+	SDMMC1->MASK		|=	SDMMC_MASK_CCRCFAILIE_Msk |
+							SDMMC_MASK_DTIMEOUTIE_Msk |
+							SDMMC_MASK_RXOVERRIE_Msk;
+
+	// 4. Connect DMA channel (stream3/channel4) between SDMMC and memory.
+	// Note : DMA2_Stream3->CR setting has been execute in device initialization phase.
+	DMA2_Stream3->NDTR	=	(uint32_t)(blockNum * SD_BLOCKSIZE / 4); // by word (DMA2_Stream3 transfer unit)
+	DMA2_Stream3->PAR	=	(uint32_t)(&(SDMMC1->FIFO));
+	DMA2_Stream3->M0AR	=	(uint32_t)(buf);
+	DMA2_Stream3->CR	|=	DMA_SxCR_EN; // start DMA transfer
+
+	// 5. Configure SDMMC data transfer mode and enable DMA stream.
+	SDMMC1->DTIMER		=	0xFFFFFFFF;
+	SDMMC1->DLEN		=	blockNum * SD_BLOCKSIZE;				// data length
+	SDMMC1->DCTRL		=	0b1001 << SDMMC_DCTRL_DBLOCKSIZE_Pos |	// 512 Bytes
+							0b1 << SDMMC_DCTRL_DTDIR_Pos |			// card --> SDMMC
+							0b0 << SDMMC_DCTRL_DTMODE_Pos |			// block mode
+							0b1 << SDMMC_DCTRL_DMAEN_Pos |			// enable DMA
+							0b1 << SDMMC_DCTRL_DTEN_Pos;			// enable data transfer
+
+	// 6. Send CMD17 or CMD18 to notify SD card send data.
+	uint32_t addr = blockAddr * SD_BLOCKSIZE;
+	if (blockNum == 1) {
+		if (!sdmmcSendCmd(SD_CMD_READ_SINGLE_BLOCK, SD_RESPONSE_R1, addr)) return False;
+	}
+	else {
+		if (!sdmmcSendCmd(SD_CMD_READ_MULT_BLOCK, SD_RESPONSE_R1, addr)) return False;
+	}
+
+	return True;
+}
+
+bool_t sdDMAWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf)
+{
+	// 1. Wait for DCTRL register recover.
+	// According to the notes of 35.8.9 chapter of STM32F746XX RM,
+	// the DCTRL register setting must follow this conditions:
+	// >>>> After a data write, data cannot be written to this register for
+	// >>>> three SDMMCCLK (48 MHz)	clock periods plus two PCLK2 clock periods.
+	// Note: PCLK2 is 108MHz in this system.
+	// According test result, here must insert the delay as below !!!
+	for (volatile uint32_t i = 0; i < 500000; i++);
+
+	// 2. Clear SDMMC status flag register
+	SDMMC1->ICR			|=	SDMMC1->STA;
+
+	// 3. Enable SDMMC interrupt (for error handle).
+	SDMMC1->MASK		|=	SDMMC_MASK_CCRCFAILIE_Msk |
+							SDMMC_MASK_DTIMEOUTIE_Msk |
+							SDMMC_MASK_TXUNDERRIE_Msk;
+
+	// 4. Send CMD24 or CMD25 to notify SD card send data.
+	uint32_t addr = blockAddr * SD_BLOCKSIZE;
+	if (blockNum == 1) {
+		if (!sdmmcSendCmd(SD_CMD_WRITE_SINGLE_BLOCK, SD_RESPONSE_R1, addr)) return False;
+	}
+	else {
+		if (!sdmmcSendCmd(SD_CMD_WRITE_MULT_BLOCK, SD_RESPONSE_R1, addr)) return False;
+	}
+
+	// 5. Connect DMA channel (stream6/channel4) between SDMMC and memory.
+	// Note : DMA2_Stream3->CR setting has been execute in device initialization phase.
+	DMA2_Stream6->NDTR	=	(uint32_t)(blockNum * SD_BLOCKSIZE / 4); // by word (DMA2_Stream6 transfer unit)
+	DMA2_Stream6->PAR	=	(uint32_t)(&(SDMMC1->FIFO));
+	DMA2_Stream6->M0AR	=	(uint32_t)(buf);
+	DMA2_Stream6->CR	|=	DMA_SxCR_EN; // start DMA transfer
+
+	// 6. Configure SDMMC data transfer mode and enable DMA stream.
+	SDMMC1->DTIMER		=	0xFFFFFFFF;
+	SDMMC1->DLEN		=	blockNum * SD_BLOCKSIZE;				// data length
+	SDMMC1->DCTRL		=	0b1001 << SDMMC_DCTRL_DBLOCKSIZE_Pos |	// 512 Bytes
+							0b0 << SDMMC_DCTRL_DTDIR_Pos |			// SDMMC --> card
+							0b0 << SDMMC_DCTRL_DTMODE_Pos |			// block mode
+							0b1 << SDMMC_DCTRL_DMAEN_Pos |			// enable DMA
+							0b1 << SDMMC_DCTRL_DTEN_Pos;			// enable data transfer
 
 	return True;
 }
@@ -702,11 +692,12 @@ bool_t checkSDMMC(const uint16_t data)
 	uint32_t randomAddr = data * SD_BLOCKSIZE;
 
 	// Set source data.
-	for (uint16_t i = 0; i < SD_BLOCKSIZE*2; i++) sdTestSrc[i] = (i+3) & 0xFF;
+	for (uint16_t i = 0; i < SD_BLOCKSIZE*2; i++) sdTestSrc[i] = (i+2) & 0xFF;
 
 	// Write source data to SD card, and read back from SD card.
-	if (!sdPollingWrite(randomAddr, 2, &sdTestSrc[0])) return False;
+	//if (!sdPollingWrite(randomAddr, 2, &sdTestSrc[0])) return False;
 	//if (!sdPollingRead(randomAddr, 2, &sdTestDes[0])) return False;
+	if (!sdDMAWrite(randomAddr, 2, &sdTestSrc[0])) return False;
 	if (!sdDMARead(randomAddr, 2, &sdTestDes[0])) return False;
 
 	// Judge SD card R/W result.
@@ -1535,8 +1526,8 @@ static void initNVICPriority(void)
 	NVIC->ISER[1] |= 0b1 << (59 - 32);
 
 	// Initialize SDIO DMATx (DMA2_Stream6) interrupt (IRQn:69)
-	//NVIC->IP[69]  |= 14 << 4;
-	//NVIC->ISER[2] |= 0b1 << (69 - 64);
+	NVIC->IP[69]  |= 14 << 4;
+	NVIC->ISER[2] |= 0b1 << (69 - 64);
 }
 
 #ifdef MODE_STAND_ALONE
@@ -1908,12 +1899,11 @@ static bool_t sdmmcCheckCmdResp0(void)
 	return count != 0; // count == 0 : timeout
 }
 
-static bool_t sdmmcCheckCmdResp1(uint8_t cmd)
+static bool_t sdmmcCheckCmdResp1(const SD_COMMAND cmd)
 {
 	uint32_t count = SD_SEND_CMD_TIMEOUT_CNT;
 	if (cmd == SD_CMD_STOP_TRANSMISSION) count = 0xFFFFFFFF; //SD_STOP_TRANS_TIMEOUT_CNT;
 
-	// Did not consider CCRCFAIL, CMDREND and CTIMEOUT error flags, because they will cause timeout.
 	uint32_t endMask =	SDMMC_STA_CMDREND_Msk |		// CMD response is correctly received.
 						SDMMC_STA_CCRCFAIL_Msk |	// CMD response is received, but CRC has error.
 						SDMMC_STA_CTIMEOUT_Msk |	// CMD response is timeout.
@@ -1933,7 +1923,7 @@ static bool_t sdmmcCheckCmdResp1(uint8_t cmd)
 	return True;
 }
 
-static bool_t sdmmcCheckCmdResp2(uint8_t cmd)
+static bool_t sdmmcCheckCmdResp2(const SD_COMMAND cmd)
 {
 	uint32_t count = SD_SEND_CMD_TIMEOUT_CNT;
 
@@ -1971,7 +1961,7 @@ static bool_t sdmmcCheckCmdResp3(void)
 	return True;
 }
 
-static bool_t sdmmcCheckCmdResp6(uint8_t cmd)
+static bool_t sdmmcCheckCmdResp6(const SD_COMMAND cmd)
 {
 	uint32_t count = SD_SEND_CMD_TIMEOUT_CNT;
 
