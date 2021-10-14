@@ -82,8 +82,8 @@ typedef struct {
 } SD_INFO;
 
 SD_INFO __attribute__( ( aligned(4) ) ) sdcard;
-uint8_t __attribute__( ( aligned(4) ) ) sdTestSrc[SD_BLOCKSIZE*2];
-uint8_t __attribute__( ( aligned(4) ) ) sdTestDes[SD_BLOCKSIZE*2];
+uint8_t __attribute__( ( aligned(4) ) ) sdTestSrc[SD_BLOCK_SIZE*2];
+uint8_t __attribute__( ( aligned(4) ) ) sdTestDes[SD_BLOCK_SIZE*2];
 
 uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) )   charBuffer[12 * 16 * COLOR_BYTE_ARGB8888];
 uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) ) frameBuffer1[LCD_FRAME_BUF_SIZE];
@@ -313,14 +313,14 @@ bool_t sdPollingRead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t*
 
 	// Configure SDMMC to receive mode.
 	SDMMC1->DTIMER	=	0xFFFFFFFF;
-	SDMMC1->DLEN	=	blockNum * SD_BLOCKSIZE;
+	SDMMC1->DLEN	=	blockNum * SD_BLOCK_SIZE;
 	SDMMC1->DCTRL	=	0b1001 << SDMMC_DCTRL_DBLOCKSIZE_Pos |	// 512 Bytes
 						0b1 << SDMMC_DCTRL_DTDIR_Pos |			// card --> SDMMC
 						0b0 << SDMMC_DCTRL_DTMODE_Pos |			// block mode
 						0b1 << SDMMC_DCTRL_DTEN_Pos;			// enable data transfer
 
 	// Send CMD17 to read one block from SD card.
-	uint32_t addr = blockAddr * SD_BLOCKSIZE;
+	uint32_t addr = blockAddr * SD_BLOCK_SIZE;
 	if (blockNum == 1) {
 		if (!sdmmcSendCmd(SD_CMD_READ_SINGLE_BLOCK, SD_RESPONSE_R1, addr)) return False;
 	}
@@ -330,7 +330,7 @@ bool_t sdPollingRead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t*
 
 	// Poll reading data from SDMMC RX FIFO.
 	uint32_t errMask = SDMMC_STA_RXOVERR_Msk | SDMMC_STA_DCRCFAIL_Msk | SDMMC_STA_DTIMEOUT_Msk;
-	uint32_t remain  = blockNum * SD_BLOCKSIZE;
+	uint32_t remain  = blockNum * SD_BLOCK_SIZE;
 	while (remain > 0) {
 		if (SDMMC1->STA & errMask) return False;
 		if (SDMMC1->STA & SDMMC_STA_RXDAVL_Msk) {
@@ -359,14 +359,14 @@ bool_t sdPollingWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t
 
 	// Configure SDMMC to receive mode
 	SDMMC1->DTIMER	=	0xFFFFFFFF;
-	SDMMC1->DLEN	=	blockNum * SD_BLOCKSIZE;
+	SDMMC1->DLEN	=	blockNum * SD_BLOCK_SIZE;
 	SDMMC1->DCTRL	=	0b1001 << SDMMC_DCTRL_DBLOCKSIZE_Pos |	// 512 Bytes
 						0b0 << SDMMC_DCTRL_DTDIR_Pos |			// SDMMC --> card
 						0b0 << SDMMC_DCTRL_DTMODE_Pos |			// block mode
 						0b1 << SDMMC_DCTRL_DTEN_Pos;			// enable data transfer
 
 	// Send CMD24 to write one block to SD card.
-	uint32_t addr = blockAddr * SD_BLOCKSIZE;
+	uint32_t addr = blockAddr * SD_BLOCK_SIZE;
 	if (blockNum == 1) {
 		if (!sdmmcSendCmd(SD_CMD_WRITE_SINGLE_BLOCK, SD_RESPONSE_R1, addr)) return False;
 	}
@@ -375,7 +375,7 @@ bool_t sdPollingWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t
 	}
 
 	// Poll writing data to SDMMC TX FIFO
-	uint32_t remain = blockNum * SD_BLOCKSIZE;
+	uint32_t remain = blockNum * SD_BLOCK_SIZE;
 	uint32_t errMask = SDMMC_STA_TXUNDERR_Msk | SDMMC_STA_DCRCFAIL_Msk | SDMMC_STA_DTIMEOUT_Msk;
 	while (remain > 0) {
 		if (SDMMC1->STA & errMask) return False;
@@ -422,14 +422,14 @@ bool_t sdDMARead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf
 
 	// 4. Connect DMA channel (stream3/channel4) between SDMMC and memory.
 	// Note : DMA2_Stream3->CR setting has been execute in device initialization phase.
-	DMA2_Stream3->NDTR	=	(uint32_t)(blockNum * SD_BLOCKSIZE / 4); // by word (DMA2_Stream3 transfer unit)
+	DMA2_Stream3->NDTR	=	(uint32_t)(blockNum * SD_BLOCK_SIZE / 4); // by word (DMA2_Stream3 transfer unit)
 	DMA2_Stream3->PAR	=	(uint32_t)(&(SDMMC1->FIFO));
 	DMA2_Stream3->M0AR	=	(uint32_t)(buf);
 	DMA2_Stream3->CR	|=	DMA_SxCR_EN; // start DMA transfer
 
 	// 5. Configure SDMMC data transfer mode and enable DMA stream.
 	SDMMC1->DTIMER		=	0xFFFFFFFF;
-	SDMMC1->DLEN		=	blockNum * SD_BLOCKSIZE;				// data length
+	SDMMC1->DLEN		=	blockNum * SD_BLOCK_SIZE;				// data length
 	SDMMC1->DCTRL		=	0b1001 << SDMMC_DCTRL_DBLOCKSIZE_Pos |	// 512 Bytes
 							0b1 << SDMMC_DCTRL_DTDIR_Pos |			// card --> SDMMC
 							0b0 << SDMMC_DCTRL_DTMODE_Pos |			// block mode
@@ -437,7 +437,7 @@ bool_t sdDMARead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf
 							0b1 << SDMMC_DCTRL_DTEN_Pos;			// enable data transfer
 
 	// 6. Send CMD17 or CMD18 to notify SD card send data.
-	uint32_t addr = blockAddr * SD_BLOCKSIZE;
+	uint32_t addr = blockAddr * SD_BLOCK_SIZE;
 	if (blockNum == 1) {
 		if (!sdmmcSendCmd(SD_CMD_READ_SINGLE_BLOCK, SD_RESPONSE_R1, addr)) return False;
 	}
@@ -468,7 +468,7 @@ bool_t sdDMAWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* bu
 							SDMMC_MASK_TXUNDERRIE_Msk;
 
 	// 4. Send CMD24 or CMD25 to notify SD card send data.
-	uint32_t addr = blockAddr * SD_BLOCKSIZE;
+	uint32_t addr = blockAddr * SD_BLOCK_SIZE;
 	if (blockNum == 1) {
 		if (!sdmmcSendCmd(SD_CMD_WRITE_SINGLE_BLOCK, SD_RESPONSE_R1, addr)) return False;
 	}
@@ -478,14 +478,14 @@ bool_t sdDMAWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* bu
 
 	// 5. Connect DMA channel (stream6/channel4) between SDMMC and memory.
 	// Note : DMA2_Stream3->CR setting has been execute in device initialization phase.
-	DMA2_Stream6->NDTR	=	(uint32_t)(blockNum * SD_BLOCKSIZE / 4); // by word (DMA2_Stream6 transfer unit)
+	DMA2_Stream6->NDTR	=	(uint32_t)(blockNum * SD_BLOCK_SIZE / 4); // by word (DMA2_Stream6 transfer unit)
 	DMA2_Stream6->PAR	=	(uint32_t)(&(SDMMC1->FIFO));
 	DMA2_Stream6->M0AR	=	(uint32_t)(buf);
 	DMA2_Stream6->CR	|=	DMA_SxCR_EN; // start DMA transfer
 
 	// 6. Configure SDMMC data transfer mode and enable DMA stream.
 	SDMMC1->DTIMER		=	0xFFFFFFFF;
-	SDMMC1->DLEN		=	blockNum * SD_BLOCKSIZE;				// data length
+	SDMMC1->DLEN		=	blockNum * SD_BLOCK_SIZE;				// data length
 	SDMMC1->DCTRL		=	0b1001 << SDMMC_DCTRL_DBLOCKSIZE_Pos |	// 512 Bytes
 							0b0 << SDMMC_DCTRL_DTDIR_Pos |			// SDMMC --> card
 							0b0 << SDMMC_DCTRL_DTMODE_Pos |			// block mode
@@ -689,10 +689,10 @@ bool_t checkDMA(uint16_t data)
 
 bool_t checkSDMMC(const uint16_t data)
 {
-	uint32_t randomAddr = data * SD_BLOCKSIZE;
+	uint32_t randomAddr = data * SD_BLOCK_SIZE;
 
 	// Set source data.
-	for (uint16_t i = 0; i < SD_BLOCKSIZE*2; i++) sdTestSrc[i] = (i+2) & 0xFF;
+	for (uint16_t i = 0; i < SD_BLOCK_SIZE*2; i++) sdTestSrc[i] = (i+2) & 0xFF;
 
 	// Write source data to SD card, and read back from SD card.
 	//if (!sdPollingWrite(randomAddr, 2, &sdTestSrc[0])) return False;
@@ -702,7 +702,7 @@ bool_t checkSDMMC(const uint16_t data)
 
 	// Judge SD card R/W result.
 	vTaskDelay(50);
-	for (uint16_t i = 0; i < SD_BLOCKSIZE * 2; i++) if (sdTestSrc[i] != sdTestDes[i]) return False;
+	for (uint16_t i = 0; i < SD_BLOCK_SIZE * 2; i++) if (sdTestSrc[i] != sdTestDes[i]) return False;
 
 	return True;
 }
@@ -1359,7 +1359,7 @@ static bool_t initSDCard(void)
 						0b1 << SDMMC_CLKCR_CLKEN_Pos;		// enable SDMMC clock
 
 	// Send CMD16 to set card block size.
-	if (!sdmmcSendCmd(SD_CMD_SET_BLOCKLEN, SD_RESPONSE_R1, SD_BLOCKSIZE)) return False;
+	if (!sdmmcSendCmd(SD_CMD_SET_BLOCKLEN, SD_RESPONSE_R1, SD_BLOCK_SIZE)) return False;
 
 	// --- SD card data transfer preparation is completed ! ---
 

@@ -23,7 +23,8 @@ extern "C" {
 #define LCD_ACTIVE_WIDTH		(480)
 #define LCD_ACTIVE_HEIGHT		(272)
 
-#define SD_BLOCKSIZE			(512)
+#define SD_BLOCK_SIZE			(512)
+#define SD_BLOCK_NUM			(1000000000 / SD_BLOCK_SIZE)
 
 typedef enum {
 	FONT_SMALL,
