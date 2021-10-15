@@ -18,6 +18,7 @@
 #include "debug.h"
 #include "stm32f746g_disco.h"
 #include "ft5336.h"
+#include "ff.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"

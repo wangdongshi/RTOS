@@ -79,9 +79,23 @@ void mainTask(void *pvParameters)
 	showLogo();
 	checkDevices();
 
-	// main loop
+	// send event flag to EHMI task
 	TaskHandle_t handler = xTaskGetHandle("MAIN_TASK");
 	xEventGroupSetBits(pHmi->EventFlag(), TASK_MAIN_READY_EVENT);
+
+	// test file system
+	/*
+	FATFS fs;
+	FIL fp;
+	if (!f_mount(&fs, "1:", 1)) {
+		TRACE("File system mount is success !\r\n");
+	}
+	else {
+		TRACE("File system mount is failed !\r\n");
+	}
+	*/
+
+	// suspend
 	vTaskSuspend(handler);
 	/*
 	while(1) {
@@ -126,7 +140,7 @@ static bool_t checkDevices(void)
 	}
 
 #ifdef MODE_TEST_DRIVER
-	uint16_t random = (uint16_t)(0x000000FF & getRandomData());
+	uint16_t random = (uint16_t)(0x0000FFFF & getRandomData());
 	//if (!checkDMA(random)) {
 	//	TRACE("Failed to initialize DMA(M2M) !\r\n");
 	//	return False;
@@ -139,9 +153,16 @@ static bool_t checkDevices(void)
 
 #ifdef MODE_TEST_DRIVER
 	// Pay attention to this test. It will break the file system !!!
-	if (isSDCardInsert() && !checkSDMMC(random)) {
-		TRACE("Failed to initialize SD Card !\r\n");
-		return False;
+	if (isSDCardInsert()) {
+		bool_t res = True;
+		if (res) res = setSDCardData(random);
+		if (res) res = getSDCardData(random);
+		vTaskDelay(100);
+		if (res) res = checkSDCardData();
+		if (!res) {
+			TRACE("Failed to initialize SD Card !\r\n");
+			return False;
+		}
 	}
 #endif
 

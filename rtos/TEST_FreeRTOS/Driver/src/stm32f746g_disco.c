@@ -9,7 +9,6 @@
  *
  **********************************************************************/
 #include <string.h>
-#include "platform.h"
 #include "types.h"
 #include "debug.h"
 #include "assert_param.h"
@@ -81,6 +80,7 @@ typedef struct {
 	SD_SCR		scr;
 } SD_INFO;
 
+SD_OP_STATUS __attribute__( ( aligned(4) ) ) sdOpStatus = SD_OP_INITIAL;
 SD_INFO __attribute__( ( aligned(4) ) ) sdcard;
 uint8_t __attribute__( ( aligned(4) ) ) sdTestSrc[SD_BLOCK_SIZE*2];
 uint8_t __attribute__( ( aligned(4) ) ) sdTestDes[SD_BLOCK_SIZE*2];
@@ -131,6 +131,7 @@ static bool_t sdmmcCheckCmdResp7(void);
 // External API function group
 void SystemInit(void)
 {
+	bool_t result;
 	SCB_EnableICache();
 	SCB_EnableDCache();
 	initFPU();
@@ -149,7 +150,9 @@ void SystemInit(void)
 		"3. SD card is not inserted.\r\n",
 		"3. SD card identification is success.\r\n"
 	};
-	TRACE(msg[initSDCard()]);
+	result = initSDCard();
+	TRACE(msg[result]);
+	if (!result) sdOpStatus = SD_OP_INITIAL;
 	initSystick();
 #ifdef MODE_STAND_ALONE
 	initTIM7();
@@ -303,6 +306,8 @@ bool_t sdmmcSendCmd(const SD_COMMAND cmd, const SD_RESP_TYPE resp, const uint32_
 
 bool_t sdPollingRead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf)
 {
+	//while (SDMMC1->DCTRL & SDMMC_DCTRL_DTEN_Msk);
+
 	// According to the notes of 35.8.9 chapter of STM32F746XX RM,
 	// the DCTRL register setting must follow this conditions:
 	// >>>> After a data write, data cannot be written to this register for
@@ -323,9 +328,11 @@ bool_t sdPollingRead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t*
 	uint32_t addr = blockAddr * SD_BLOCK_SIZE;
 	if (blockNum == 1) {
 		if (!sdmmcSendCmd(SD_CMD_READ_SINGLE_BLOCK, SD_RESPONSE_R1, addr)) return False;
+		sdOpStatus = SD_OP_SINGLE_BLOCK_READ;
 	}
 	else {
 		if (!sdmmcSendCmd(SD_CMD_READ_MULT_BLOCK, SD_RESPONSE_R1, addr)) return False;
+		sdOpStatus = SD_OP_MULTI_BLOCK_READ;
 	}
 
 	// Poll reading data from SDMMC RX FIFO.
@@ -343,12 +350,21 @@ bool_t sdPollingRead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t*
 		}
 	}
 	SDMMC1->ICR = SDMMC1->STA;
+	//SDMMC1->DCTRL &= ~SDMMC_DCTRL_DTEN_Msk;
+	sdOpStatus = SD_OP_IDLE;
+
+	// Send CMD12 to stop data transfer from SD card.
+	if (blockNum > 1) {
+		if(!sdmmcSendCmd(SD_CMD_STOP_TRANSMISSION, SD_RESPONSE_R1, 0)) return False;
+	}
 
 	return True;
 }
 
 bool_t sdPollingWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf)
 {
+	//while (SDMMC1->DCTRL & SDMMC_DCTRL_DTEN_Msk);
+
 	// According to the notes of 35.8.9 chapter of STM32F746XX RM,
 	// the DCTRL register setting must follow this conditions:
 	// >>>> After a data write, data cannot be written to this register for
@@ -369,9 +385,11 @@ bool_t sdPollingWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t
 	uint32_t addr = blockAddr * SD_BLOCK_SIZE;
 	if (blockNum == 1) {
 		if (!sdmmcSendCmd(SD_CMD_WRITE_SINGLE_BLOCK, SD_RESPONSE_R1, addr)) return False;
+		sdOpStatus = SD_OP_SINGLE_BLOCK_WRITE;
 	}
 	else {
 		if (!sdmmcSendCmd(SD_CMD_WRITE_MULT_BLOCK, SD_RESPONSE_R1, addr)) return False;
+		sdOpStatus = SD_OP_MULTI_BLOCK_WRITE;
 	}
 
 	// Poll writing data to SDMMC TX FIFO
@@ -392,6 +410,9 @@ bool_t sdPollingWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t
 		}
 	}
 	SDMMC1->ICR = SDMMC1->STA;
+	//SDMMC1->DCTRL &= ~SDMMC_DCTRL_DTEN_Msk;
+	sdOpStatus = SD_OP_IDLE;
+	TRACE("Write SD card %d ~ %d sector.\r\n", blockAddr, blockAddr + blockNum - 1);
 
 	// Send CMD12 to stop data transfer from SD card.
 	if (blockNum > 1) {
@@ -403,6 +424,8 @@ bool_t sdPollingWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t
 
 bool_t sdDMARead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf)
 {
+	//while (SDMMC1->DCTRL & SDMMC_DCTRL_DTEN_Msk);
+
 	// 1. Wait for DCTRL register recover.
 	// According to the notes of 35.8.9 chapter of STM32F746XX RM,
 	// the DCTRL register setting must follow this conditions:
@@ -440,9 +463,11 @@ bool_t sdDMARead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf
 	uint32_t addr = blockAddr * SD_BLOCK_SIZE;
 	if (blockNum == 1) {
 		if (!sdmmcSendCmd(SD_CMD_READ_SINGLE_BLOCK, SD_RESPONSE_R1, addr)) return False;
+		sdOpStatus = SD_OP_SINGLE_BLOCK_READ;
 	}
 	else {
 		if (!sdmmcSendCmd(SD_CMD_READ_MULT_BLOCK, SD_RESPONSE_R1, addr)) return False;
+		sdOpStatus = SD_OP_MULTI_BLOCK_READ;
 	}
 
 	return True;
@@ -450,6 +475,8 @@ bool_t sdDMARead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf
 
 bool_t sdDMAWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf)
 {
+	//while (SDMMC1->DCTRL & SDMMC_DCTRL_DTEN_Msk);
+
 	// 1. Wait for DCTRL register recover.
 	// According to the notes of 35.8.9 chapter of STM32F746XX RM,
 	// the DCTRL register setting must follow this conditions:
@@ -471,10 +498,13 @@ bool_t sdDMAWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* bu
 	uint32_t addr = blockAddr * SD_BLOCK_SIZE;
 	if (blockNum == 1) {
 		if (!sdmmcSendCmd(SD_CMD_WRITE_SINGLE_BLOCK, SD_RESPONSE_R1, addr)) return False;
+		sdOpStatus = SD_OP_SINGLE_BLOCK_WRITE;
 	}
 	else {
 		if (!sdmmcSendCmd(SD_CMD_WRITE_MULT_BLOCK, SD_RESPONSE_R1, addr)) return False;
+		sdOpStatus = SD_OP_MULTI_BLOCK_WRITE;
 	}
+	TRACE("Write SD card %d ~ %d sector.\r\n", blockAddr, blockAddr + blockNum - 1);
 
 	// 5. Connect DMA channel (stream6/channel4) between SDMMC and memory.
 	// Note : DMA2_Stream3->CR setting has been execute in device initialization phase.
@@ -687,22 +717,35 @@ bool_t checkDMA(uint16_t data)
 	return (*pDes == data && *(pDes + 0x3FF8) == data);
 }
 
-bool_t checkSDMMC(const uint16_t data)
+bool_t setSDCardData(const uint16_t blockAddr)
 {
-	uint32_t randomAddr = data * SD_BLOCK_SIZE;
+	// Set source data
+	for (uint16_t i = 0; i < SD_BLOCK_SIZE * 2; i++) {
+		sdTestSrc[i] = (i + 7) & 0xFF;
+	}
 
-	// Set source data.
-	for (uint16_t i = 0; i < SD_BLOCK_SIZE*2; i++) sdTestSrc[i] = (i+2) & 0xFF;
+	// Write source data to SD card
+	//if (!sdPollingWrite(blockAddr, 2, &sdTestSrc[0])) return False;
+	if (!sdDMAWrite(blockAddr, 2, &sdTestSrc[0])) return False;
 
-	// Write source data to SD card, and read back from SD card.
-	//if (!sdPollingWrite(randomAddr, 2, &sdTestSrc[0])) return False;
-	//if (!sdPollingRead(randomAddr, 2, &sdTestDes[0])) return False;
-	if (!sdDMAWrite(randomAddr, 2, &sdTestSrc[0])) return False;
-	if (!sdDMARead(randomAddr, 2, &sdTestDes[0])) return False;
+	return True;
+}
 
-	// Judge SD card R/W result.
-	vTaskDelay(50);
-	for (uint16_t i = 0; i < SD_BLOCK_SIZE * 2; i++) if (sdTestSrc[i] != sdTestDes[i]) return False;
+bool_t getSDCardData(const uint16_t blockAddr)
+{
+	// Read back data from SD card
+	//if (!sdPollingRead(blockAddr, 2, &sdTestDes[0])) return False;
+	if (!sdDMARead(blockAddr, 2, &sdTestDes[0])) return False;
+
+	return True;
+}
+
+bool_t checkSDCardData(void)
+{
+	// Judge SD card R/W result
+	for (uint16_t i = 0; i < SD_BLOCK_SIZE * 2; i++) {
+		if (sdTestSrc[i] != sdTestDes[i]) return False;
+	}
 
 	return True;
 }
@@ -1250,6 +1293,7 @@ static bool_t initSDCard(void)
 	SDMMC1->CLKCR	|=	0b1 << SDMMC_CLKCR_CLKEN_Pos;		// enable SDMMC clock
 
 	// Send CMD0 to identify card operating voltage.
+	sdOpStatus = SD_OP_ENUMERATE;
 	if (!sdmmcSendCmd(SD_CMD_GO_IDLE_STATE, SD_RESPONSE_R0, 0)) return False;
 
 	// Send CMD8 to verify SD card version.
@@ -1361,7 +1405,11 @@ static bool_t initSDCard(void)
 	// Send CMD16 to set card block size.
 	if (!sdmmcSendCmd(SD_CMD_SET_BLOCKLEN, SD_RESPONSE_R1, SD_BLOCK_SIZE)) return False;
 
+	// Clear DTEN
+	SDMMC1->DCTRL &= ~SDMMC_DCTRL_DTEN_Msk;
+
 	// --- SD card data transfer preparation is completed ! ---
+	sdOpStatus = SD_OP_IDLE;
 
 	return True;
 }

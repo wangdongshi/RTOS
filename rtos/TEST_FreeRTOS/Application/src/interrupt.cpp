@@ -61,13 +61,13 @@ void SDMMC1_IRQHandler(void)
 {
 	// Check SD card transfer error
 	if (SDMMC1->STA & SDMMC_STA_RXOVERR_Msk) {
-		printf("SD card data transfer has a RX FIFO overrun error !\r\n");
+		TRACE("SD card data transfer has a RX FIFO overrun error !\r\n");
 	}
 	else if (SDMMC1->STA & SDMMC_STA_DCRCFAIL_Msk) {
-		printf("SD card data CRC check failed !\r\n");
+		TRACE("SD card data CRC check failed !\r\n");
 	}
 	else if (SDMMC1->STA & SDMMC_STA_DTIMEOUT_Msk) {
-		printf("SD card data transfer is time out !\r\n");
+		TRACE("SD card data transfer is time out !\r\n");
 	}
 	else {
 		;
@@ -89,7 +89,7 @@ void SDMMC1_IRQHandler(void)
 						DMA_LIFCR_CFEIF3_Msk;
 
 	// Disable SDMMC data transfer
-	SDMMC1->DCTRL	&=	~SDMMC_DCTRL_DTEN_Msk;
+	//SDMMC1->DCTRL	&=	~SDMMC_DCTRL_DTEN_Msk;
 
 	// Clear all SDMMC error bit flags
 	SDMMC1->ICR		|=	SDMMC1->STA;
@@ -100,13 +100,18 @@ void DMA2_Stream3_IRQHandler(void)
 {
 	// Check SD card DMA transfer error
 	if (DMA2->LISR & DMA_LISR_TEIF3_Msk) {
-		printf("SD card RX DMA transfer failed !\r\n");
+		TRACE("SD card RX DMA transfer failed !\r\n");
 	}
 	else if (DMA2->LISR & DMA_LISR_FEIF3_Msk) {
-		printf("SD card RX DMA FIFO has an error !\r\n");
+		TRACE("SD card RX DMA FIFO has an error !\r\n");
 	}
 	else {
 		;
+	}
+
+	// Send CMD12 to stop data transfer from SD card
+	if (sdOpStatus == SD_OP_MULTI_BLOCK_READ) {
+		sdmmcSendCmd(SD_CMD_STOP_TRANSMISSION, SD_RESPONSE_R1, 0);
 	}
 
 	// Disable SDMMC DMA interrupt
@@ -125,7 +130,7 @@ void DMA2_Stream3_IRQHandler(void)
 						DMA_LIFCR_CFEIF3_Msk;
 
 	// Disable SDMMC data transfer
-	SDMMC1->DCTRL	&=	~SDMMC_DCTRL_DTEN_Msk;
+	//SDMMC1->DCTRL	&=	~SDMMC_DCTRL_DTEN_Msk;
 
 	// Clear all SDMMC error bit flags
 	SDMMC1->ICR		|=	SDMMC1->STA;
@@ -135,18 +140,26 @@ void DMA2_Stream3_IRQHandler(void)
 void DMA2_Stream6_IRQHandler(void)
 {
 	// Check SD card DMA transfer error
-	if (DMA2->LISR & DMA_LISR_TEIF3_Msk) {
-		printf("SD card RX DMA transfer failed !\r\n");
+	if (DMA2->HISR & DMA_HISR_TEIF6_Msk) {
+		TRACE("SD card TX DMA transfer failed !\r\n");
 	}
-	else if (DMA2->LISR & DMA_LISR_FEIF3_Msk) {
-		printf("SD card RX DMA FIFO has an error !\r\n");
+	else if (DMA2->HISR & DMA_HISR_FEIF6_Msk) {
+		if (sdOpStatus == SD_OP_MULTI_BLOCK_WRITE) {
+			DMA2->HIFCR |= DMA_HIFCR_CFEIF6_Msk;
+			return;
+		}
+		else {
+			TRACE("SD card TX DMA FIFO has an error !\r\n");
+		}
 	}
 	else {
 		;
 	}
 
 	// Send CMD12 to stop data transfer from SD card
-	sdmmcSendCmd(SD_CMD_STOP_TRANSMISSION, SD_RESPONSE_R1, 0);
+	if (sdOpStatus == SD_OP_MULTI_BLOCK_WRITE) {
+		sdmmcSendCmd(SD_CMD_STOP_TRANSMISSION, SD_RESPONSE_R1, 0);
+	}
 
 	// Disable SDMMC DMA interrupt
 	SDMMC1->DCTRL	&=	~SDMMC_DCTRL_DMAEN_Msk;
@@ -163,7 +176,7 @@ void DMA2_Stream6_IRQHandler(void)
 						DMA_HIFCR_CFEIF6_Msk;
 
 	// Disable SDMMC data transfer
-	SDMMC1->DCTRL	&=	~SDMMC_DCTRL_DTEN_Msk;
+	//SDMMC1->DCTRL	&=	~SDMMC_DCTRL_DTEN_Msk;
 
 	// Clear all SDMMC error bit flags
 	SDMMC1->ICR		|=	SDMMC1->STA;

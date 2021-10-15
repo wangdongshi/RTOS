@@ -51,6 +51,16 @@ typedef enum {
 } RGB_TYPE;
 
 typedef enum {
+	SD_OP_INITIAL = 0,
+	SD_OP_ENUMERATE,
+	SD_OP_IDLE,
+	SD_OP_SINGLE_BLOCK_READ,
+	SD_OP_MULTI_BLOCK_READ,
+	SD_OP_SINGLE_BLOCK_WRITE,
+	SD_OP_MULTI_BLOCK_WRITE
+} SD_OP_STATUS;
+
+typedef enum {
 	SD_RESPONSE_R0	= 0,
 	SD_RESPONSE_R1	= 1,
 	SD_RESPONSE_R2	= 2,
@@ -116,6 +126,9 @@ typedef enum {
 extern uint32_t _ssdram; // SDRAM start address
 extern uint32_t _sdram_size;
 
+// Refer other global parameter
+extern SD_OP_STATUS sdOpStatus;
+
 void SystemInit(void);
 
 uint8_t usart1ReceiveChar(void);
@@ -172,7 +185,9 @@ void drawString(
 
 uint32_t getRandomData(void);
 bool_t checkDMA(uint16_t data);
-bool_t checkSDMMC(const uint16_t data);
+bool_t setSDCardData(const uint16_t blockAddr);
+bool_t getSDCardData(const uint16_t blockAddr);
+bool_t checkSDCardData(void);
 
 #ifdef __cplusplus
 }
