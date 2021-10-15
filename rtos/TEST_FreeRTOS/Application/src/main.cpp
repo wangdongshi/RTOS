@@ -160,7 +160,7 @@ static bool_t checkDevices(void)
 		vTaskDelay(100);
 		if (res) res = checkSDCardData();
 		if (!res) {
-			TRACE("Failed to initialize SD Card !\r\n");
+			printf("Failed to initialize SD Card !\r\n");
 			return False;
 		}
 	}

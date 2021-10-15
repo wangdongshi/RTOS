@@ -127,7 +127,7 @@ extern uint32_t _ssdram; // SDRAM start address
 extern uint32_t _sdram_size;
 
 // Refer other global parameter
-extern SD_OP_STATUS sdOpStatus;
+extern volatile SD_OP_STATUS sdOpStatus;
 
 void SystemInit(void);
 

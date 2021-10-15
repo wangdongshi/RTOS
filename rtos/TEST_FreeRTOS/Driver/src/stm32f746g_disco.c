@@ -80,7 +80,7 @@ typedef struct {
 	SD_SCR		scr;
 } SD_INFO;
 
-SD_OP_STATUS __attribute__( ( aligned(4) ) ) sdOpStatus = SD_OP_INITIAL;
+volatile SD_OP_STATUS __attribute__( ( aligned(4) ) ) sdOpStatus = SD_OP_INITIAL;
 SD_INFO __attribute__( ( aligned(4) ) ) sdcard;
 uint8_t __attribute__( ( aligned(4) ) ) sdTestSrc[SD_BLOCK_SIZE*2];
 uint8_t __attribute__( ( aligned(4) ) ) sdTestDes[SD_BLOCK_SIZE*2];
@@ -306,7 +306,8 @@ bool_t sdmmcSendCmd(const SD_COMMAND cmd, const SD_RESP_TYPE resp, const uint32_
 
 bool_t sdPollingRead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf)
 {
-	//while (SDMMC1->DCTRL & SDMMC_DCTRL_DTEN_Msk);
+	// Wait for last R/W operation complete.
+	while (sdOpStatus != SD_OP_IDLE);
 
 	// According to the notes of 35.8.9 chapter of STM32F746XX RM,
 	// the DCTRL register setting must follow this conditions:
@@ -314,7 +315,7 @@ bool_t sdPollingRead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t*
 	// >>>> three SDMMCCLK (48 MHz)	clock periods plus two PCLK2 clock periods.
 	// Note: PCLK2 is 108MHz in this system.
 	// According test result, here must insert the delay as below !!!
-	for (volatile uint32_t i = 0; i < 500000; i++);
+	for (volatile uint32_t i = 0; i < 3000; i++);
 
 	// Configure SDMMC to receive mode.
 	SDMMC1->DTIMER	=	0xFFFFFFFF;
@@ -335,7 +336,7 @@ bool_t sdPollingRead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t*
 		sdOpStatus = SD_OP_MULTI_BLOCK_READ;
 	}
 
-	// Poll reading data from SDMMC RX FIFO.
+	// Reading data by polling mode from SDMMC RX FIFO.
 	uint32_t errMask = SDMMC_STA_RXOVERR_Msk | SDMMC_STA_DCRCFAIL_Msk | SDMMC_STA_DTIMEOUT_Msk;
 	uint32_t remain  = blockNum * SD_BLOCK_SIZE;
 	while (remain > 0) {
@@ -349,9 +350,9 @@ bool_t sdPollingRead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t*
 			remain -= 4;
 		}
 	}
-	SDMMC1->ICR = SDMMC1->STA;
-	//SDMMC1->DCTRL &= ~SDMMC_DCTRL_DTEN_Msk;
-	sdOpStatus = SD_OP_IDLE;
+	SDMMC1->ICR		= SDMMC1->STA;
+	SDMMC1->DCTRL	&= ~SDMMC_DCTRL_DTEN_Msk;
+	sdOpStatus		= SD_OP_IDLE;
 
 	// Send CMD12 to stop data transfer from SD card.
 	if (blockNum > 1) {
@@ -363,7 +364,8 @@ bool_t sdPollingRead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t*
 
 bool_t sdPollingWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf)
 {
-	//while (SDMMC1->DCTRL & SDMMC_DCTRL_DTEN_Msk);
+	// Wait for last R/W operation complete.
+	while (sdOpStatus != SD_OP_IDLE);
 
 	// According to the notes of 35.8.9 chapter of STM32F746XX RM,
 	// the DCTRL register setting must follow this conditions:
@@ -371,7 +373,7 @@ bool_t sdPollingWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t
 	// >>>> three SDMMCCLK (48 MHz)	clock periods plus two PCLK2 clock periods.
 	// Note: PCLK2 is 108MHz in this system.
 	// According test result, here must insert the delay as below !!!
-	for (volatile uint32_t i = 0; i < 500000; i++);
+	for (volatile uint32_t i = 0; i < 3000; i++);
 
 	// Configure SDMMC to receive mode
 	SDMMC1->DTIMER	=	0xFFFFFFFF;
@@ -392,7 +394,7 @@ bool_t sdPollingWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t
 		sdOpStatus = SD_OP_MULTI_BLOCK_WRITE;
 	}
 
-	// Poll writing data to SDMMC TX FIFO
+	// Writing data by polling mode to SDMMC TX FIFO.
 	uint32_t remain = blockNum * SD_BLOCK_SIZE;
 	uint32_t errMask = SDMMC_STA_TXUNDERR_Msk | SDMMC_STA_DCRCFAIL_Msk | SDMMC_STA_DTIMEOUT_Msk;
 	while (remain > 0) {
@@ -409,9 +411,12 @@ bool_t sdPollingWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t
 			}
 		}
 	}
-	SDMMC1->ICR = SDMMC1->STA;
-	//SDMMC1->DCTRL &= ~SDMMC_DCTRL_DTEN_Msk;
-	sdOpStatus = SD_OP_IDLE;
+	// Wait for SDMMC transfer complete.
+	while ((SDMMC1->STA & SDMMC_STA_DATAEND_Msk) == 0);
+	SDMMC1->ICR		= SDMMC1->STA;
+	SDMMC1->DCTRL	&= ~SDMMC_DCTRL_DTEN_Msk;
+	sdOpStatus		= SD_OP_IDLE;
+
 	TRACE("Write SD card %d ~ %d sector.\r\n", blockAddr, blockAddr + blockNum - 1);
 
 	// Send CMD12 to stop data transfer from SD card.
@@ -424,33 +429,37 @@ bool_t sdPollingWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t
 
 bool_t sdDMARead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf)
 {
-	//while (SDMMC1->DCTRL & SDMMC_DCTRL_DTEN_Msk);
+	// 1. Wait for last R/W operation complete.
+	while (sdOpStatus != SD_OP_IDLE);
 
-	// 1. Wait for DCTRL register recover.
+	// 2. Wait for DCTRL register recover.
 	// According to the notes of 35.8.9 chapter of STM32F746XX RM,
 	// the DCTRL register setting must follow this conditions:
 	// >>>> After a data write, data cannot be written to this register for
 	// >>>> three SDMMCCLK (48 MHz)	clock periods plus two PCLK2 clock periods.
 	// Note: PCLK2 is 108MHz in this system.
 	// According test result, here must insert the delay as below !!!
-	for (volatile uint32_t i = 0; i < 500000; i++);
+	for (volatile uint32_t i = 0; i < 3000; i++);
 
-	// 2. Clear SDMMC status flag register
+	// 3. Clear SDMMC and DMA status flag register
 	SDMMC1->ICR			|=	SDMMC1->STA;
+	DMA2->LIFCR			|=	DMA_LIFCR_CTCIF3_Msk |
+							DMA_LIFCR_CTEIF3_Msk |
+							DMA_LIFCR_CFEIF3_Msk;
 
-	// 3. Enable SDMMC interrupt (for error handle).
+	// 4. Enable SDMMC interrupt (for error handle).
 	SDMMC1->MASK		|=	SDMMC_MASK_CCRCFAILIE_Msk |
 							SDMMC_MASK_DTIMEOUTIE_Msk |
 							SDMMC_MASK_RXOVERRIE_Msk;
 
-	// 4. Connect DMA channel (stream3/channel4) between SDMMC and memory.
+	// 5. Connect DMA channel (stream3/channel4) between SDMMC and memory.
 	// Note : DMA2_Stream3->CR setting has been execute in device initialization phase.
 	DMA2_Stream3->NDTR	=	(uint32_t)(blockNum * SD_BLOCK_SIZE / 4); // by word (DMA2_Stream3 transfer unit)
 	DMA2_Stream3->PAR	=	(uint32_t)(&(SDMMC1->FIFO));
 	DMA2_Stream3->M0AR	=	(uint32_t)(buf);
 	DMA2_Stream3->CR	|=	DMA_SxCR_EN; // start DMA transfer
 
-	// 5. Configure SDMMC data transfer mode and enable DMA stream.
+	// 6. Configure SDMMC data transfer mode and enable DMA stream.
 	SDMMC1->DTIMER		=	0xFFFFFFFF;
 	SDMMC1->DLEN		=	blockNum * SD_BLOCK_SIZE;				// data length
 	SDMMC1->DCTRL		=	0b1001 << SDMMC_DCTRL_DBLOCKSIZE_Pos |	// 512 Bytes
@@ -459,7 +468,7 @@ bool_t sdDMARead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf
 							0b1 << SDMMC_DCTRL_DMAEN_Pos |			// enable DMA
 							0b1 << SDMMC_DCTRL_DTEN_Pos;			// enable data transfer
 
-	// 6. Send CMD17 or CMD18 to notify SD card send data.
+	// 7. Send CMD17 or CMD18 to notify SD card send data.
 	uint32_t addr = blockAddr * SD_BLOCK_SIZE;
 	if (blockNum == 1) {
 		if (!sdmmcSendCmd(SD_CMD_READ_SINGLE_BLOCK, SD_RESPONSE_R1, addr)) return False;
@@ -475,26 +484,30 @@ bool_t sdDMARead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf
 
 bool_t sdDMAWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf)
 {
-	//while (SDMMC1->DCTRL & SDMMC_DCTRL_DTEN_Msk);
+	// 1. Wait for last R/W operation complete.
+	while (sdOpStatus != SD_OP_IDLE);
 
-	// 1. Wait for DCTRL register recover.
+	// 2. Wait for DCTRL register recover.
 	// According to the notes of 35.8.9 chapter of STM32F746XX RM,
 	// the DCTRL register setting must follow this conditions:
 	// >>>> After a data write, data cannot be written to this register for
 	// >>>> three SDMMCCLK (48 MHz)	clock periods plus two PCLK2 clock periods.
 	// Note: PCLK2 is 108MHz in this system.
 	// According test result, here must insert the delay as below !!!
-	for (volatile uint32_t i = 0; i < 500000; i++);
+	for (volatile uint32_t i = 0; i < 3000; i++);
 
-	// 2. Clear SDMMC status flag register
+	// 3. Clear SDMMC and DMA status flag register
 	SDMMC1->ICR			|=	SDMMC1->STA;
+	DMA2->HIFCR			|=	DMA_HIFCR_CTCIF6_Msk |
+							DMA_HIFCR_CTEIF6_Msk |
+							DMA_HIFCR_CFEIF6_Msk;
 
-	// 3. Enable SDMMC interrupt (for error handle).
+	// 4. Enable SDMMC interrupt (for error handle).
 	SDMMC1->MASK		|=	SDMMC_MASK_CCRCFAILIE_Msk |
 							SDMMC_MASK_DTIMEOUTIE_Msk |
 							SDMMC_MASK_TXUNDERRIE_Msk;
 
-	// 4. Send CMD24 or CMD25 to notify SD card send data.
+	// 5. Send CMD24 or CMD25 to notify SD card send data.
 	uint32_t addr = blockAddr * SD_BLOCK_SIZE;
 	if (blockNum == 1) {
 		if (!sdmmcSendCmd(SD_CMD_WRITE_SINGLE_BLOCK, SD_RESPONSE_R1, addr)) return False;
@@ -506,14 +519,14 @@ bool_t sdDMAWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* bu
 	}
 	TRACE("Write SD card %d ~ %d sector.\r\n", blockAddr, blockAddr + blockNum - 1);
 
-	// 5. Connect DMA channel (stream6/channel4) between SDMMC and memory.
+	// 6. Connect DMA channel (stream6/channel4) between SDMMC and memory.
 	// Note : DMA2_Stream3->CR setting has been execute in device initialization phase.
 	DMA2_Stream6->NDTR	=	(uint32_t)(blockNum * SD_BLOCK_SIZE / 4); // by word (DMA2_Stream6 transfer unit)
 	DMA2_Stream6->PAR	=	(uint32_t)(&(SDMMC1->FIFO));
 	DMA2_Stream6->M0AR	=	(uint32_t)(buf);
 	DMA2_Stream6->CR	|=	DMA_SxCR_EN; // start DMA transfer
 
-	// 6. Configure SDMMC data transfer mode and enable DMA stream.
+	// 7. Configure SDMMC data transfer mode and enable DMA stream.
 	SDMMC1->DTIMER		=	0xFFFFFFFF;
 	SDMMC1->DLEN		=	blockNum * SD_BLOCK_SIZE;				// data length
 	SDMMC1->DCTRL		=	0b1001 << SDMMC_DCTRL_DBLOCKSIZE_Pos |	// 512 Bytes

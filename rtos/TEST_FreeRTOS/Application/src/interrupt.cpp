@@ -60,42 +60,42 @@ void EXTI15_10_IRQHandler(void)
 void SDMMC1_IRQHandler(void)
 {
 	// Check SD card transfer error
-	if (SDMMC1->STA & SDMMC_STA_RXOVERR_Msk) {
-		TRACE("SD card data transfer has a RX FIFO overrun error !\r\n");
-	}
-	else if (SDMMC1->STA & SDMMC_STA_DCRCFAIL_Msk) {
+	if (SDMMC1->STA & SDMMC_STA_DCRCFAIL_Msk) {
 		TRACE("SD card data CRC check failed !\r\n");
 	}
 	else if (SDMMC1->STA & SDMMC_STA_DTIMEOUT_Msk) {
 		TRACE("SD card data transfer is time out !\r\n");
 	}
+	else if (SDMMC1->STA & SDMMC_STA_TXUNDERR_Msk) {
+		TRACE("SD card data transfer has a TX FIFO underflow error !\r\n");
+	}
+	else if (SDMMC1->STA & SDMMC_STA_RXOVERR_Msk) {
+		TRACE("SD card data transfer has a RX FIFO overrun error !\r\n");
+	}
 	else {
 		;
 	}
 
-	// Disable SDMMC DMA interrupt
-	SDMMC1->DCTRL	&=	~SDMMC_DCTRL_DMAEN_Msk;
-
-	// Disable SDMMC interrupt
 	uint32_t itMask	=	SDMMC_MASK_CCRCFAILIE_Msk |
 						SDMMC_MASK_DTIMEOUTIE_Msk |
 						SDMMC_MASK_RXOVERRIE_Msk |
-						SDMMC_MASK_TXUNDERRIE_Msk;
+						SDMMC_MASK_TXUNDERRIE_Msk |
+						SDMMC_MASK_DATAENDIE_Msk;
 	SDMMC1->MASK	&=	~itMask;
+	SDMMC1->DCTRL	&=	~(SDMMC_DCTRL_DMAEN_Msk | SDMMC_DCTRL_DTEN_Msk);
 
-	// Clear all DMA interrupt flag
-	DMA2->LIFCR		|= 	DMA_LIFCR_CTCIF3_Msk |
-						DMA_LIFCR_CTEIF3_Msk |
-						DMA_LIFCR_CFEIF3_Msk;
+	// Here handle the process after writing complete
+	if (SDMMC1->STA & SDMMC_STA_DATAEND_Msk) {
+		if (sdOpStatus == SD_OP_MULTI_BLOCK_WRITE) {
+			sdmmcSendCmd(SD_CMD_STOP_TRANSMISSION, SD_RESPONSE_R1, 0);
+		}
+		sdOpStatus = SD_OP_IDLE;
+	}
 
-	// Disable SDMMC data transfer
-	//SDMMC1->DCTRL	&=	~SDMMC_DCTRL_DTEN_Msk;
-
-	// Clear all SDMMC error bit flags
 	SDMMC1->ICR		|=	SDMMC1->STA;
 }
 
-// DAM interrupt for microSD card RX
+// DMA interrupt for microSD card RX
 void DMA2_Stream3_IRQHandler(void)
 {
 	// Check SD card DMA transfer error
@@ -114,34 +114,35 @@ void DMA2_Stream3_IRQHandler(void)
 		sdmmcSendCmd(SD_CMD_STOP_TRANSMISSION, SD_RESPONSE_R1, 0);
 	}
 
-	// Disable SDMMC DMA interrupt
-	SDMMC1->DCTRL	&=	~SDMMC_DCTRL_DMAEN_Msk;
-
-	// Disable SDMMC interrupt
+	DMA2->LIFCR		|=	DMA_LIFCR_CTCIF3_Msk |
+						DMA_LIFCR_CTEIF3_Msk |
+						DMA_LIFCR_CFEIF3_Msk;
 	uint32_t itMask	=	SDMMC_MASK_CCRCFAILIE_Msk |
 						SDMMC_MASK_DTIMEOUTIE_Msk |
 						SDMMC_MASK_RXOVERRIE_Msk |
 						SDMMC_MASK_TXUNDERRIE_Msk;
 	SDMMC1->MASK	&=	~itMask;
-
-	// Clear all DMA interrupt flag
-	DMA2->LIFCR		|=	DMA_LIFCR_CTCIF3_Msk |
-						DMA_LIFCR_CTEIF3_Msk |
-						DMA_LIFCR_CFEIF3_Msk;
-
-	// Disable SDMMC data transfer
-	//SDMMC1->DCTRL	&=	~SDMMC_DCTRL_DTEN_Msk;
-
-	// Clear all SDMMC error bit flags
 	SDMMC1->ICR		|=	SDMMC1->STA;
+	SDMMC1->DCTRL	&=	~(SDMMC_DCTRL_DMAEN_Msk | SDMMC_DCTRL_DTEN_Msk);
+
+	sdOpStatus = SD_OP_IDLE;
 }
 
-// DAM interrupt for microSD card TX
+// DMA interrupt for microSD card TX
 void DMA2_Stream6_IRQHandler(void)
 {
-	// Check SD card DMA transfer error
-	if (DMA2->HISR & DMA_HISR_TEIF6_Msk) {
-		TRACE("SD card TX DMA transfer failed !\r\n");
+	// Check SD card DMA transfer result
+	if (DMA2->HISR & DMA_HISR_TCIF6_Msk) {
+		// Clear all DMA interrupt flag
+		DMA2->HIFCR	|=	DMA_HIFCR_CTCIF6_Msk |
+						DMA_HIFCR_CTEIF6_Msk |
+						DMA_HIFCR_CFEIF6_Msk;
+		// Pay attention !!!
+		// In SD card writing handler, DMA transfer is just take place between ram and SDMMC FIFO.
+		// After DMA transfer completed, transfer from SDMMC to SD card must be wait.
+		// Here start SDMMC DATAEND interrupt to handle process after writing complete.
+		SDMMC1->MASK |=	SDMMC_MASK_DATAENDIE_Msk;
+		return;
 	}
 	else if (DMA2->HISR & DMA_HISR_FEIF6_Msk) {
 		if (sdOpStatus == SD_OP_MULTI_BLOCK_WRITE) {
@@ -152,32 +153,15 @@ void DMA2_Stream6_IRQHandler(void)
 			TRACE("SD card TX DMA FIFO has an error !\r\n");
 		}
 	}
+	else if (DMA2->HISR & DMA_HISR_TEIF6_Msk) {
+		TRACE("SD card TX DMA transfer failed !\r\n");
+	}
 	else {
 		;
 	}
 
-	// Send CMD12 to stop data transfer from SD card
-	if (sdOpStatus == SD_OP_MULTI_BLOCK_WRITE) {
-		sdmmcSendCmd(SD_CMD_STOP_TRANSMISSION, SD_RESPONSE_R1, 0);
-	}
-
-	// Disable SDMMC DMA interrupt
-	SDMMC1->DCTRL	&=	~SDMMC_DCTRL_DMAEN_Msk;
-
-	// Disable SDMMC interrupt
-	uint32_t itMask	=	SDMMC_MASK_CCRCFAILIE_Msk |
-						SDMMC_MASK_DTIMEOUTIE_Msk |
-						SDMMC_MASK_TXUNDERRIE_Msk;
-	SDMMC1->MASK	&=	~itMask;
-
-	// Clear all DMA interrupt flag
 	DMA2->HIFCR		|=	DMA_HIFCR_CTCIF6_Msk |
 						DMA_HIFCR_CTEIF6_Msk |
 						DMA_HIFCR_CFEIF6_Msk;
-
-	// Disable SDMMC data transfer
-	//SDMMC1->DCTRL	&=	~SDMMC_DCTRL_DTEN_Msk;
-
-	// Clear all SDMMC error bit flags
-	SDMMC1->ICR		|=	SDMMC1->STA;
+	SDMMC1->DCTRL	&=	~(SDMMC_DCTRL_DMAEN_Msk | SDMMC_DCTRL_DTEN_Msk);
 }
