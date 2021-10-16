@@ -12,8 +12,8 @@
 #include "stm32f746g_disco.h"
 
 /* Definitions of physical drive number for each drive */
-#define DEV_RAM		0	/* Example: Map RAMdisk to physical drive 0 */
-#define DEV_MMC		1	/* Example: Map MMC/SD card to physical drive 1 */
+#define DEV_RAM		1	/* Example: Map RAMdisk to physical drive 0 */
+#define DEV_MMC		0	/* Example: Map MMC/SD card to physical drive 1 */
 #define DEV_USB		2	/* Example: Map USB MSD to physical drive 2 */
 
 static DRESULT sd_ioctl (BYTE cmd, void *buff);
@@ -136,7 +136,7 @@ DRESULT disk_read (
 		// translate the arguments here
 
 		//result = MMC_disk_read(buff, sector, count);
-		result = sdDMARead((uint32_t)sector, (uint32_t)count, (uint8_t*)buff);
+		result = sdPollingRead((uint32_t)sector, (uint32_t)count, (uint8_t*)buff);
 
 		// translate the result code here
 		stat = (result) ? RES_OK : RES_PARERR;
@@ -191,7 +191,7 @@ DRESULT disk_write (
 		// translate the arguments here
 
 		//result = MMC_disk_write(buff, sector, count);
-		result = sdDMAWrite((uint32_t)sector, (uint32_t)count, (uint8_t*)buff);
+		result = sdPollingWrite((uint32_t)sector, (uint32_t)count, (uint8_t*)buff);
 
 		// translate the result code here
 		stat = (result) ? RES_OK : RES_PARERR;

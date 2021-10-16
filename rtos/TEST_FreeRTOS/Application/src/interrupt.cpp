@@ -145,13 +145,13 @@ void DMA2_Stream6_IRQHandler(void)
 		return;
 	}
 	else if (DMA2->HISR & DMA_HISR_FEIF6_Msk) {
-		if (sdOpStatus == SD_OP_MULTI_BLOCK_WRITE) {
+		//if (sdOpStatus == SD_OP_MULTI_BLOCK_WRITE) {
 			DMA2->HIFCR |= DMA_HIFCR_CFEIF6_Msk;
 			return;
-		}
-		else {
-			TRACE("SD card TX DMA FIFO has an error !\r\n");
-		}
+		//}
+		//else {
+		//	TRACE("SD card TX DMA FIFO has an error !\r\n");
+		//}
 	}
 	else if (DMA2->HISR & DMA_HISR_TEIF6_Msk) {
 		TRACE("SD card TX DMA transfer failed !\r\n");

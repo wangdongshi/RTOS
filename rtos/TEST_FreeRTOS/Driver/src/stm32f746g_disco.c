@@ -730,7 +730,7 @@ bool_t checkDMA(uint16_t data)
 	return (*pDes == data && *(pDes + 0x3FF8) == data);
 }
 
-bool_t setSDCardData(const uint16_t blockAddr)
+bool_t setSDCardData(const uint32_t blockAddr)
 {
 	// Set source data
 	for (uint16_t i = 0; i < SD_BLOCK_SIZE * 2; i++) {
@@ -744,7 +744,7 @@ bool_t setSDCardData(const uint16_t blockAddr)
 	return True;
 }
 
-bool_t getSDCardData(const uint16_t blockAddr)
+bool_t getSDCardData(const uint32_t blockAddr)
 {
 	// Read back data from SD card
 	//if (!sdPollingRead(blockAddr, 2, &sdTestDes[0])) return False;

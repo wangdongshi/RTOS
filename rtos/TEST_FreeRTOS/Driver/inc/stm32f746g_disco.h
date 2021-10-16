@@ -17,7 +17,6 @@ extern "C" {
 
 #include "types.h"
 
-#define MODE_TEST_DRIVER
 //#define MODE_STAND_ALONE
 
 #define LCD_ACTIVE_WIDTH		(480)
@@ -185,8 +184,8 @@ void drawString(
 
 uint32_t getRandomData(void);
 bool_t checkDMA(uint16_t data);
-bool_t setSDCardData(const uint16_t blockAddr);
-bool_t getSDCardData(const uint16_t blockAddr);
+bool_t setSDCardData(const uint32_t blockAddr);
+bool_t getSDCardData(const uint32_t blockAddr);
 bool_t checkSDCardData(void);
 
 #ifdef __cplusplus

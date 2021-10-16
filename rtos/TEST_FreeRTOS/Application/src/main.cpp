@@ -13,8 +13,13 @@ extern"C"
 #include "libdev.h"
 }
 
+#include <string.h>
 #include "platform.h"
 #include "EHmiMain.h"
+
+//#define TEST_DMA
+//#define TEST_DMA2D
+//#define TEST_SD_CARD
 
 int main(void);
 void startTask(void *pvParameters);
@@ -26,6 +31,7 @@ void executeCmd(const char* cmd);
 #endif
 
 static bool_t checkDevices(void);
+static void testFileSystem(void);
 static void printBanner(void);
 
 EHmiMain* pHmi = new EHmiMain();
@@ -50,7 +56,7 @@ void startTask(void *pvParameters)
 	taskENTER_CRITICAL();
 	xTaskCreate(led1Task,	"LED1_TASK",	400,	NULL,	2,	NULL); // for monitor board
 	xTaskCreate(ehmiTask,	"HMI_TASK",		400,	NULL,	2,	NULL);
-	xTaskCreate(mainTask,	"MAIN_TASK",	400,	NULL,	5,	NULL);
+	xTaskCreate(mainTask,	"MAIN_TASK",	8000,	NULL,	5,	NULL);
 	TaskHandle_t handler = xTaskGetHandle("START_TASK");
 	vTaskDelete(handler);
 	taskEXIT_CRITICAL();
@@ -80,22 +86,13 @@ void mainTask(void *pvParameters)
 	checkDevices();
 
 	// send event flag to EHMI task
-	TaskHandle_t handler = xTaskGetHandle("MAIN_TASK");
 	xEventGroupSetBits(pHmi->EventFlag(), TASK_MAIN_READY_EVENT);
 
 	// test file system
-	/*
-	FATFS fs;
-	FIL fp;
-	if (!f_mount(&fs, "1:", 1)) {
-		TRACE("File system mount is success !\r\n");
-	}
-	else {
-		TRACE("File system mount is failed !\r\n");
-	}
-	*/
+	testFileSystem();
 
 	// suspend
+	TaskHandle_t handler = xTaskGetHandle("MAIN_TASK");
 	vTaskSuspend(handler);
 	/*
 	while(1) {
@@ -139,34 +136,62 @@ static bool_t checkDevices(void)
 		return False;
 	}
 
-#ifdef MODE_TEST_DRIVER
-	uint16_t random = (uint16_t)(0x0000FFFF & getRandomData());
-	//if (!checkDMA(random)) {
-	//	TRACE("Failed to initialize DMA(M2M) !\r\n");
-	//	return False;
-	//}
+#ifdef TEST_DMA
+	if (!checkDMA((uint16_t)(0x0000FFFF & getRandomData())) {
+		TRACE("Failed to initialize DMA(M2M) !\r\n");
+		return False;
+	}
 #endif
 
-#ifdef MODE_TEST_DRIVER
+#ifdef TEST_DMA2D
 	checkDMA2D();
 #endif
 
-#ifdef MODE_TEST_DRIVER
+#ifdef TEST_SD_CARD
 	// Pay attention to this test. It will break the file system !!!
 	if (isSDCardInsert()) {
 		bool_t res = True;
-		if (res) res = setSDCardData(random);
-		if (res) res = getSDCardData(random);
+		uint32_t addr = 0x000FFFFF & getRandomData();
+		if (res) res = setSDCardData(addr);
+		if (res) res = getSDCardData(addr);
 		vTaskDelay(100);
 		if (res) res = checkSDCardData();
 		if (!res) {
-			printf("Failed to initialize SD Card !\r\n");
+			TRACE("Failed to initialize SD Card !\r\n");
 			return False;
 		}
 	}
 #endif
 
 	return True;
+}
+
+static void testFileSystem(void)
+{
+	FATFS		fs;
+	FIL			fp;
+	UINT		num;
+	char		text[] = "Hello, FatFs!";
+
+	if (f_mount(&fs, "0:", 1)) {
+		TRACE("Failed to mount file system mount !\r\n");
+		return;
+	}
+
+	if (f_open(&fp, "0:test.txt", FA_CREATE_ALWAYS | FA_WRITE)) {
+		TRACE("Failed to open file !\r\n");
+		return;
+	}
+
+	if (f_write(&fp, (char*)text, strlen(text), &num)) {
+		TRACE("Failed to write file !\r\n");
+		return;
+	}
+
+	if (f_close(&fp)) {
+		TRACE("Failed to close file !\r\n");
+		return;
+	}
 }
 
 static void printBanner(void)
