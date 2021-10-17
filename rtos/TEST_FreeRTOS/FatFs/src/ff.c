@@ -2936,7 +2936,7 @@ static FRESULT create_name (	/* FR_OK: successful, FR_INVALID_NAME: could not cr
 
 	/* Create file name in directory form */
 	p = *path; sfn = dp->fn;
-	memset(sfn, ' ', 11);
+	memset(sfn, ' ', /*11*/12); // modfiy by Wang.Yu 2021/10/17
 	si = i = 0; ni = 8;
 #if FF_FS_RPATH != 0
 	if (p[si] == '.') { /* Is this a dot entry? */
