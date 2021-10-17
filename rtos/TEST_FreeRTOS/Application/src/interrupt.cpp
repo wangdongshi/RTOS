@@ -90,6 +90,7 @@ void SDMMC1_IRQHandler(void)
 			sdmmcSendCmd(SD_CMD_STOP_TRANSMISSION, SD_RESPONSE_R1, 0);
 		}
 		sdOpStatus = SD_OP_IDLE;
+		xEventGroupSetBitsFromISR(sdTXEvFlg, 0x1, 0);
 	}
 
 	SDMMC1->ICR		|=	SDMMC1->STA;
@@ -126,6 +127,8 @@ void DMA2_Stream3_IRQHandler(void)
 	SDMMC1->DCTRL	&=	~(SDMMC_DCTRL_DMAEN_Msk | SDMMC_DCTRL_DTEN_Msk);
 
 	sdOpStatus = SD_OP_IDLE;
+
+	xEventGroupSetBitsFromISR(sdRXEvFlg, 0x1, 0);
 }
 
 // DMA interrupt for microSD card TX
@@ -145,13 +148,12 @@ void DMA2_Stream6_IRQHandler(void)
 		return;
 	}
 	else if (DMA2->HISR & DMA_HISR_FEIF6_Msk) {
-		//if (sdOpStatus == SD_OP_MULTI_BLOCK_WRITE) {
-			DMA2->HIFCR |= DMA_HIFCR_CFEIF6_Msk;
-			return;
-		//}
-		//else {
-		//	TRACE("SD card TX DMA FIFO has an error !\r\n");
-		//}
+		// Pay attention !!!
+		// Whether it is in multi-block writing or single-block-writing,
+		// they will all cause FEIF interrupt.
+		// So must ignore this interrupt and handle it in TCIF interrupt.
+		DMA2->HIFCR |= DMA_HIFCR_CFEIF6_Msk;
+		return;
 	}
 	else if (DMA2->HISR & DMA_HISR_TEIF6_Msk) {
 		TRACE("SD card TX DMA transfer failed !\r\n");

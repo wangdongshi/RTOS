@@ -20,6 +20,7 @@ extern"C"
 //#define TEST_DMA
 //#define TEST_DMA2D
 //#define TEST_SD_CARD
+#define TEST_FILE_SYSTEM
 
 int main(void);
 void startTask(void *pvParameters);
@@ -31,8 +32,10 @@ void executeCmd(const char* cmd);
 #endif
 
 static bool_t checkDevices(void);
-static void testFileSystem(void);
 static void printBanner(void);
+#ifdef TEST_FILE_SYSTEM
+static void testFileSystem(void);
+#endif
 
 EHmiMain* pHmi = new EHmiMain();
 
@@ -88,8 +91,10 @@ void mainTask(void *pvParameters)
 	// send event flag to EHMI task
 	xEventGroupSetBits(pHmi->EventFlag(), TASK_MAIN_READY_EVENT);
 
+#ifdef TEST_FILE_SYSTEM
 	// test file system
 	testFileSystem();
+#endif
 
 	// suspend
 	TaskHandle_t handler = xTaskGetHandle("MAIN_TASK");
@@ -151,13 +156,13 @@ static bool_t checkDevices(void)
 	// Pay attention to this test. It will break the file system !!!
 	if (isSDCardInsert()) {
 		bool_t res = True;
-		uint32_t addr = 0x000FFFFF & getRandomData();
+		uint32_t addr = (0x000FFFFF & getRandomData()) | 0x8; // avoid the header blocks
+		if (res) res = initSDCard();
 		if (res) res = setSDCardData(addr);
 		if (res) res = getSDCardData(addr);
-		vTaskDelay(100);
 		if (res) res = checkSDCardData();
 		if (!res) {
-			TRACE("Failed to initialize SD Card !\r\n");
+			printf("Failed to initialize SD Card !\r\n");
 			return False;
 		}
 	}
@@ -166,6 +171,7 @@ static bool_t checkDevices(void)
 	return True;
 }
 
+#ifdef TEST_FILE_SYSTEM
 static void testFileSystem(void)
 {
 	FATFS		fs;
@@ -193,6 +199,7 @@ static void testFileSystem(void)
 		return;
 	}
 }
+#endif
 
 static void printBanner(void)
 {

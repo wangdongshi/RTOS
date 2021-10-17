@@ -27,6 +27,10 @@ void USART1_IRQHandler(void);
 
 extern EHmiMain* pHmi;
 
+extern volatile SD_OP_STATUS sdOpStatus;
+extern EventGroupHandle_t sdRXEvFlg;
+extern EventGroupHandle_t sdTXEvFlg;
+
 void EXTI15_10_IRQHandler(void);
 void SDMMC1_IRQHandler(void);
 void DMA2_Stream3_IRQHandler(void);

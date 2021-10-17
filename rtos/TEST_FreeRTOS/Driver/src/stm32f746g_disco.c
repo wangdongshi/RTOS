@@ -80,10 +80,13 @@ typedef struct {
 	SD_SCR		scr;
 } SD_INFO;
 
+EventGroupHandle_t	sdRXEvFlg;
+EventGroupHandle_t	sdTXEvFlg;
+
 volatile SD_OP_STATUS __attribute__( ( aligned(4) ) ) sdOpStatus = SD_OP_INITIAL;
 SD_INFO __attribute__( ( aligned(4) ) ) sdcard;
-uint8_t __attribute__( ( aligned(4) ) ) sdTestSrc[SD_BLOCK_SIZE*2];
-uint8_t __attribute__( ( aligned(4) ) ) sdTestDes[SD_BLOCK_SIZE*2];
+uint8_t __attribute__( ( aligned(4) ) ) sdTestSrc[SD_BLOCK_SIZE * 2];
+uint8_t __attribute__( ( aligned(4) ) ) sdTestDes[SD_BLOCK_SIZE * 2];
 
 uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) )   charBuffer[12 * 16 * COLOR_BYTE_ARGB8888];
 uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) ) frameBuffer1[LCD_FRAME_BUF_SIZE];
@@ -99,7 +102,6 @@ static void initLCD(void);
 static void initDMA2D(void);
 static void initLED1(void);
 static void initSDMMC(void);
-static bool_t initSDCard(void);
 #ifdef MODE_STAND_ALONE
 static void initTIM7(void);
 #endif
@@ -128,10 +130,14 @@ static bool_t sdmmcCheckCmdResp3(void);
 static bool_t sdmmcCheckCmdResp6(const SD_COMMAND cmd);
 static bool_t sdmmcCheckCmdResp7(void);
 
+void delayTick(uint32_t tick)
+{
+	for (volatile uint32_t i = 0; i < tick; i++);
+}
+
 // External API function group
 void SystemInit(void)
 {
-	bool_t result;
 	SCB_EnableICache();
 	SCB_EnableDCache();
 	initFPU();
@@ -142,17 +148,11 @@ void SystemInit(void)
 	TRACE("STM32F746G-DISCO starts to power up...\r\n");
 	initLED1();
 	initLCD();
-	TRACE("1. LCD initialization is success.\r\n");
+	TRACE("LCD initialization is success.\r\n");
 	initTouchPanel();
-	TRACE("2. Touch panel initialization is success.\r\n");
+	TRACE("Touch panel initialization is success.\r\n");
 	initSDMMC();
-	char* msg[2] = {
-		"3. SD card is not inserted.\r\n",
-		"3. SD card identification is success.\r\n"
-	};
-	result = initSDCard();
-	TRACE(msg[result]);
-	if (!result) sdOpStatus = SD_OP_INITIAL;
+	TRACE("SDMMC initialization is success.\r\n");
 	initSystick();
 #ifdef MODE_STAND_ALONE
 	initTIM7();
@@ -250,6 +250,154 @@ bool_t isSDCardInsert(void)
 {
 	bool_t res = !(bool_t)((GPIOC->IDR & GPIO_IDR_ID13_Msk) >> GPIO_IDR_ID13_Pos);
 	return res;
+}
+
+bool_t initSDCard(void)
+{
+	uint32_t resp  = 0;
+	uint32_t volt  = 0;
+	uint32_t addr  = 0;
+	uint32_t count = 0xFFFF;
+
+	if (!isSDCardInsert()) return False;
+
+	// Initialize SDMMC interface to initialize mode (400KHz, 1bit)
+	SDMMC1->CLKCR	=	0x76 << SDMMC_CLKCR_CLKDIV_Pos |	// 0x76+2=120, 48MHz/120=400KHz
+						0b0 << SDMMC_CLKCR_HWFC_EN_Pos |	// disable hardware flow control
+						0b00 << SDMMC_CLKCR_WIDBUS_Pos |	// 1 bit mode SDMMC_D0
+						0b0  << SDMMC_CLKCR_PWRSAV_Pos |	// enable SDMMC_CK in SD bus inactive
+						0b0  << SDMMC_CLKCR_BYPASS_Pos |	// disable bypass CLKDIV
+						0b0 << SDMMC_CLKCR_NEGEDGE_Pos |	// rising edge R/W
+						0b0 << SDMMC_CLKCR_CLKEN_Pos;		// disable SDMMC clock
+
+	// Power on
+	SDMMC1->POWER	=	SDMMC_POWER_PWRCTRL;				// power on
+	//for (volatile uint32_t i = 0; i < 1000000; i++);		// delay > 1ms
+	delayTick(1000000);
+	SDMMC1->CLKCR	|=	0b1 << SDMMC_CLKCR_CLKEN_Pos;		// enable SDMMC clock
+
+	// Send CMD0 to identify card operating voltage.
+	sdOpStatus = SD_OP_ENUMERATE;
+	if (!sdmmcSendCmd(SD_CMD_GO_IDLE_STATE, SD_RESPONSE_R0, 0)) return False;
+
+	// Send CMD8 to verify SD card version.
+	// [11:8]: Supply Voltage (VHS) 0x1 (Range: 2.7-3.6 V)
+	// [7:0]:  Check Pattern (recommended 0xAA) */
+	if (sdmmcSendCmd(SD_CMD_HS_SEND_EXT_CSD, SD_RESPONSE_R7, 0x1AA)) {
+		sdcard.version = SD_VERSION_2X;
+	}
+	else {
+		sdcard.version = SD_VERSION_1X;
+	}
+
+	// Repeat sending CMD41 until SD card is ready.
+	do {
+		// Send CMD55 to change command mode to application command.
+		if (!sdmmcSendCmd(SD_CMD_APP_CMD, SD_RESPONSE_R1, 0)) return False;
+
+		// Send ACMD41 to judge if SD card is ready.
+		// SDMMC_VOLTAGE_WINDOW_SD	: 0x80100000
+		// SDMMC_HIGH_CAPACITY		: 0x40000000
+		// SD_SWITCH_1_8V_CAPACITY	: 0x01000000
+		if (!sdmmcSendCmd(SD_CMD_APP_OP_COND, SD_RESPONSE_R3, 0xC1100000)) return False;
+
+		// Get operating voltage
+		resp = SDMMC1->RESP1;
+		volt = (((resp >> 31) == 1) ? 1 : 0);
+		count--;
+	}
+	while (volt == 0 && count != 0);
+	if (count == 0) return False;
+	if (resp & 0x40000000) {
+		sdcard.type = SD_TYPE_SDHC_SDXC;
+	}
+	else {
+		sdcard.type = SD_TYPE_SDSC;
+	}
+
+	// Send CMD2 to get CID.
+	if (!sdmmcSendCmd(SD_CMD_ALL_SEND_CID, SD_RESPONSE_R2, 0)) return False;
+
+	// Send CMD3 to assign SD relative card address.
+	if (!sdmmcSendCmd(SD_CMD_SET_REL_ADDR, SD_RESPONSE_R6, 0)) return False;
+	addr = sdcard.rca << 16;
+
+	// Send CMD9 to receive CSD information.
+	if (!sdmmcSendCmd(SD_CMD_SEND_CSD, SD_RESPONSE_R2, 0)) return False;
+
+	// Send CMD7 to select the current card.
+	if (!sdmmcSendCmd(SD_CMD_SEL_DESEL_CARD, SD_RESPONSE_R1, addr)) return False;
+
+	// --- SD card enumeration process is completed ! ---
+
+	// Send CMD16 to set card block size to 8 bytes.
+	if (!sdmmcSendCmd(SD_CMD_SET_BLOCKLEN, SD_RESPONSE_R1, 8)) return False;
+
+	// Set SDMMC interface register to configure data length to 8 bytes
+	SDMMC1->DTIMER	=	0xFFFFFFFF;
+	SDMMC1->DLEN	=	8; // 8 Bytes
+	SDMMC1->DCTRL	=	0b0011 << SDMMC_DCTRL_DBLOCKSIZE_Pos |	// 8 Bytes
+						0b1 << SDMMC_DCTRL_DTDIR_Pos |			// card --> SDMMC
+						0b0 << SDMMC_DCTRL_DTMODE_Pos |			// block mode
+						0b1 << SDMMC_DCTRL_DTEN_Pos;			// enable data transfer
+
+	// Send CMD55 to change command mode to application command.
+	if (!sdmmcSendCmd(SD_CMD_APP_CMD, SD_RESPONSE_R1, addr)) return False;
+
+	// Send ACMD51 to get bus wide information from SD card SCR register.
+	if (!sdmmcSendCmd(SD_CMD_APP_SEND_SCR, SD_RESPONSE_R1, 0)) return False;
+	// Read all SCR register from data FIFO
+	uint32_t scr[2] = {0, 0};
+	uint32_t* pSCR = (uint32_t*)&scr[0];
+	uint32_t errMask = SDMMC_STA_RXOVERR_Msk | SDMMC_STA_DCRCFAIL_Msk | SDMMC_STA_DTIMEOUT_Msk;
+	while ((SDMMC1->STA & errMask) == 0) {
+		if (SDMMC1->STA & SDMMC_STA_RXDAVL_Msk) *pSCR++ = SDMMC1->FIFO;
+		else if (!(SDMMC1->STA & SDMMC_STA_RXACT_Msk)) break;
+	}
+	if (SDMMC1->STA & errMask) {
+		SDMMC1->ICR |= 	SDMMC1->STA & errMask;
+		return False;
+	}
+	// Change SCR data from big endian to little endian.
+	sdcard.scr.raw[0] =	(scr[1] & 0x000000FF) << 24 |
+						(scr[1] & 0x0000FF00) << 8  |
+						(scr[1] & 0x00FF0000) >> 8  |
+						(scr[1] & 0xFF000000) >> 24;
+	sdcard.scr.raw[1] =	(scr[0] & 0x000000FF) << 24 |
+						(scr[0] & 0x0000FF00) << 8  |
+						(scr[0] & 0x00FF0000) >> 8  |
+						(scr[0] & 0xFF000000) >> 24;
+	sdcard.scr.wideBus = (sdcard.scr.raw[1] & 0x00040000) != 0;
+
+	if (sdcard.scr.wideBus) {
+		// Send CMD55 to change command mode to application command.
+		if (!sdmmcSendCmd(SD_CMD_APP_CMD, SD_RESPONSE_R1, addr)) return False;
+
+		// Send ACMD6 to set wide bus mode.
+		if (!sdmmcSendCmd(SD_CMD_APP_SET_BUSWIDTH, SD_RESPONSE_R1, 2)) return False;
+	}
+
+	// Initialize SDMMC interface to transfer mode (24MHz, 4bits)
+	SDMMC1->CLKCR	=	0x00 << SDMMC_CLKCR_CLKDIV_Pos |	// 0+2=2, 48MHz/2=24MHz
+						0b1 << SDMMC_CLKCR_HWFC_EN_Pos |	// enable hardware flow control
+						0b01 << SDMMC_CLKCR_WIDBUS_Pos |	// 4 bits mode SDMMC_D[0:3]
+						0b0  << SDMMC_CLKCR_PWRSAV_Pos |	// enable SDMMC_CK in SD bus inactive (disable power save mode)
+						0b0  << SDMMC_CLKCR_BYPASS_Pos |	// disable bypass CLKDIV
+						0b0 << SDMMC_CLKCR_NEGEDGE_Pos |	// rising edge R/W
+						0b1 << SDMMC_CLKCR_CLKEN_Pos;		// enable SDMMC clock
+
+	// Send CMD16 to set card block size.
+	if (!sdmmcSendCmd(SD_CMD_SET_BLOCKLEN, SD_RESPONSE_R1, SD_BLOCK_SIZE)) return False;
+
+	// Clear DTEN
+	SDMMC1->DCTRL &= ~SDMMC_DCTRL_DTEN_Msk;
+
+	// --- SD card data transfer preparation is completed ! ---
+	sdRXEvFlg = xEventGroupCreate();
+	sdTXEvFlg = xEventGroupCreate();
+	sdOpStatus = SD_OP_IDLE;
+
+	return True;
 }
 
 bool_t sdmmcSendCmd(const SD_COMMAND cmd, const SD_RESP_TYPE resp, const uint32_t arg)
@@ -439,7 +587,8 @@ bool_t sdDMARead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf
 	// >>>> three SDMMCCLK (48 MHz)	clock periods plus two PCLK2 clock periods.
 	// Note: PCLK2 is 108MHz in this system.
 	// According test result, here must insert the delay as below !!!
-	for (volatile uint32_t i = 0; i < 10000; i++);
+	//vTaskDelay(500);
+	//delayTick((uint32_t)((blockNum > 1) ? 10000 : 300000));
 
 	// 3. Clear SDMMC and DMA status flag register
 	SDMMC1->ICR			|=	SDMMC1->STA;
@@ -479,6 +628,8 @@ bool_t sdDMARead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf
 		sdOpStatus = SD_OP_MULTI_BLOCK_READ;
 	}
 
+	xEventGroupWaitBits(sdRXEvFlg, 0x1, pdTRUE, pdTRUE, portMAX_DELAY);
+
 	return True;
 }
 
@@ -494,7 +645,8 @@ bool_t sdDMAWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* bu
 	// >>>> three SDMMCCLK (48 MHz)	clock periods plus two PCLK2 clock periods.
 	// Note: PCLK2 is 108MHz in this system.
 	// According test result, here must insert the delay as below !!!
-	for (volatile uint32_t i = 0; i < 10000; i++);
+	//vTaskDelay(500);
+	//delayTick((blockNum > 1) ? 10000 : 300000);
 
 	// 3. Clear SDMMC and DMA status flag register
 	SDMMC1->ICR			|=	SDMMC1->STA;
@@ -534,6 +686,10 @@ bool_t sdDMAWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* bu
 							0b0 << SDMMC_DCTRL_DTMODE_Pos |			// block mode
 							0b1 << SDMMC_DCTRL_DMAEN_Pos |			// enable DMA
 							0b1 << SDMMC_DCTRL_DTEN_Pos;			// enable data transfer
+
+	xEventGroupWaitBits(sdTXEvFlg, 0x1, pdTRUE, pdTRUE, portMAX_DELAY);
+
+	vTaskDelay(500);
 
 	return True;
 }
@@ -739,7 +895,7 @@ bool_t setSDCardData(const uint32_t blockAddr)
 
 	// Write source data to SD card
 	//if (!sdPollingWrite(blockAddr, 2, &sdTestSrc[0])) return False;
-	if (!sdDMAWrite(blockAddr, 2, &sdTestSrc[0])) return False;
+	if (!sdDMAWrite(blockAddr, 1, &sdTestSrc[0])) return False;
 
 	return True;
 }
@@ -748,7 +904,7 @@ bool_t getSDCardData(const uint32_t blockAddr)
 {
 	// Read back data from SD card
 	//if (!sdPollingRead(blockAddr, 2, &sdTestDes[0])) return False;
-	if (!sdDMARead(blockAddr, 2, &sdTestDes[0])) return False;
+	if (!sdDMARead(blockAddr, 1, &sdTestDes[0])) return False;
 
 	return True;
 }
@@ -756,7 +912,7 @@ bool_t getSDCardData(const uint32_t blockAddr)
 bool_t checkSDCardData(void)
 {
 	// Judge SD card R/W result
-	for (uint16_t i = 0; i < SD_BLOCK_SIZE * 2; i++) {
+	for (uint16_t i = 0; i < SD_BLOCK_SIZE/* * 2*/; i++) {
 		if (sdTestSrc[i] != sdTestDes[i]) return False;
 	}
 
@@ -1280,151 +1436,6 @@ static void initDMA2D(void)
 static void initLED1(void)
 {
 	initLED1GPIO();
-}
-
-static bool_t initSDCard(void)
-{
-	uint32_t resp  = 0;
-	uint32_t volt  = 0;
-	uint32_t addr  = 0;
-	uint32_t count = 0xFFFF;
-
-	if (!isSDCardInsert()) return False;
-
-	// Initialize SDMMC interface to initialize mode (400KHz, 1bit)
-	SDMMC1->CLKCR	=	0x76 << SDMMC_CLKCR_CLKDIV_Pos |	// 0x76+2=120, 48MHz/120=400KHz
-						0b0 << SDMMC_CLKCR_HWFC_EN_Pos |	// disable hardware flow control
-						0b00 << SDMMC_CLKCR_WIDBUS_Pos |	// 1 bit mode SDMMC_D0
-						0b0  << SDMMC_CLKCR_PWRSAV_Pos |	// enable SDMMC_CK in SD bus inactive
-						0b0  << SDMMC_CLKCR_BYPASS_Pos |	// disable bypass CLKDIV
-						0b0 << SDMMC_CLKCR_NEGEDGE_Pos |	// rising edge R/W
-						0b0 << SDMMC_CLKCR_CLKEN_Pos;		// disable SDMMC clock
-
-	// Power on
-	SDMMC1->POWER	=	SDMMC_POWER_PWRCTRL;				// power on
-	for (volatile uint32_t i = 0; i < 1000000; i++);		// delay > 1ms
-	SDMMC1->CLKCR	|=	0b1 << SDMMC_CLKCR_CLKEN_Pos;		// enable SDMMC clock
-
-	// Send CMD0 to identify card operating voltage.
-	sdOpStatus = SD_OP_ENUMERATE;
-	if (!sdmmcSendCmd(SD_CMD_GO_IDLE_STATE, SD_RESPONSE_R0, 0)) return False;
-
-	// Send CMD8 to verify SD card version.
-	// [11:8]: Supply Voltage (VHS) 0x1 (Range: 2.7-3.6 V)
-	// [7:0]:  Check Pattern (recommended 0xAA) */
-	if (sdmmcSendCmd(SD_CMD_HS_SEND_EXT_CSD, SD_RESPONSE_R7, 0x1AA)) {
-		sdcard.version = SD_VERSION_2X;
-	}
-	else {
-		sdcard.version = SD_VERSION_1X;
-	}
-
-	// Repeat sending CMD41 until SD card is ready.
-	do {
-		// Send CMD55 to change command mode to application command.
-		if (!sdmmcSendCmd(SD_CMD_APP_CMD, SD_RESPONSE_R1, 0)) return False;
-
-		// Send ACMD41 to judge if SD card is ready.
-		// SDMMC_VOLTAGE_WINDOW_SD	: 0x80100000
-		// SDMMC_HIGH_CAPACITY		: 0x40000000
-		// SD_SWITCH_1_8V_CAPACITY	: 0x01000000
-		if (!sdmmcSendCmd(SD_CMD_APP_OP_COND, SD_RESPONSE_R3, 0xC1100000)) return False;
-
-		// Get operating voltage
-		resp = SDMMC1->RESP1;
-		volt = (((resp >> 31) == 1) ? 1 : 0);
-		count--;
-	}
-	while (volt == 0 && count != 0);
-	if (count == 0) return False;
-	if (resp & 0x40000000) {
-		sdcard.type = SD_TYPE_SDHC_SDXC;
-	}
-	else {
-		sdcard.type = SD_TYPE_SDSC;
-	}
-
-	// Send CMD2 to get CID.
-	if (!sdmmcSendCmd(SD_CMD_ALL_SEND_CID, SD_RESPONSE_R2, 0)) return False;
-
-	// Send CMD3 to assign SD relative card address.
-	if (!sdmmcSendCmd(SD_CMD_SET_REL_ADDR, SD_RESPONSE_R6, 0)) return False;
-	addr = sdcard.rca << 16;
-
-	// Send CMD9 to receive CSD information.
-	if (!sdmmcSendCmd(SD_CMD_SEND_CSD, SD_RESPONSE_R2, 0)) return False;
-
-	// Send CMD7 to select the current card.
-	if (!sdmmcSendCmd(SD_CMD_SEL_DESEL_CARD, SD_RESPONSE_R1, addr)) return False;
-
-	// --- SD card enumeration process is completed ! ---
-
-	// Send CMD16 to set card block size to 8 bytes.
-	if (!sdmmcSendCmd(SD_CMD_SET_BLOCKLEN, SD_RESPONSE_R1, 8)) return False;
-
-	// Set SDMMC interface register to configure data length to 8 bytes
-	SDMMC1->DTIMER	=	0xFFFFFFFF;
-	SDMMC1->DLEN	=	8; // 8 Bytes
-	SDMMC1->DCTRL	=	0b0011 << SDMMC_DCTRL_DBLOCKSIZE_Pos |	// 8 Bytes
-						0b1 << SDMMC_DCTRL_DTDIR_Pos |			// card --> SDMMC
-						0b0 << SDMMC_DCTRL_DTMODE_Pos |			// block mode
-						0b1 << SDMMC_DCTRL_DTEN_Pos;			// enable data transfer
-
-	// Send CMD55 to change command mode to application command.
-	if (!sdmmcSendCmd(SD_CMD_APP_CMD, SD_RESPONSE_R1, addr)) return False;
-
-	// Send ACMD51 to get bus wide information from SD card SCR register.
-	if (!sdmmcSendCmd(SD_CMD_APP_SEND_SCR, SD_RESPONSE_R1, 0)) return False;
-	// Read all SCR register from data FIFO
-	uint32_t scr[2] = {0, 0};
-	uint32_t* pSCR = (uint32_t*)&scr[0];
-	uint32_t errMask = SDMMC_STA_RXOVERR_Msk | SDMMC_STA_DCRCFAIL_Msk | SDMMC_STA_DTIMEOUT_Msk;
-	while ((SDMMC1->STA & errMask) == 0) {
-		if (SDMMC1->STA & SDMMC_STA_RXDAVL_Msk) *pSCR++ = SDMMC1->FIFO;
-		else if (!(SDMMC1->STA & SDMMC_STA_RXACT_Msk)) break;
-	}
-	if (SDMMC1->STA & errMask) {
-		SDMMC1->ICR |= 	SDMMC1->STA & errMask;
-		return False;
-	}
-	// Change SCR data from big endian to little endian.
-	sdcard.scr.raw[0] =	(scr[1] & 0x000000FF) << 24 |
-						(scr[1] & 0x0000FF00) << 8  |
-						(scr[1] & 0x00FF0000) >> 8  |
-						(scr[1] & 0xFF000000) >> 24;
-	sdcard.scr.raw[1] =	(scr[0] & 0x000000FF) << 24 |
-						(scr[0] & 0x0000FF00) << 8  |
-						(scr[0] & 0x00FF0000) >> 8  |
-						(scr[0] & 0xFF000000) >> 24;
-	sdcard.scr.wideBus = (sdcard.scr.raw[1] & 0x00040000) != 0;
-
-	if (sdcard.scr.wideBus) {
-		// Send CMD55 to change command mode to application command.
-		if (!sdmmcSendCmd(SD_CMD_APP_CMD, SD_RESPONSE_R1, addr)) return False;
-
-		// Send ACMD6 to set wide bus mode.
-		if (!sdmmcSendCmd(SD_CMD_APP_SET_BUSWIDTH, SD_RESPONSE_R1, 2)) return False;
-	}
-
-	// Initialize SDMMC interface to transfer mode (24MHz, 4bits)
-	SDMMC1->CLKCR	=	0x00 << SDMMC_CLKCR_CLKDIV_Pos |	// 0+2=2, 48MHz/2=24MHz
-						0b1 << SDMMC_CLKCR_HWFC_EN_Pos |	// enable hardware flow control
-						0b01 << SDMMC_CLKCR_WIDBUS_Pos |	// 4 bits mode SDMMC_D[0:3]
-						0b0  << SDMMC_CLKCR_PWRSAV_Pos |	// enable SDMMC_CK in SD bus inactive (disable power save mode)
-						0b0  << SDMMC_CLKCR_BYPASS_Pos |	// disable bypass CLKDIV
-						0b0 << SDMMC_CLKCR_NEGEDGE_Pos |	// rising edge R/W
-						0b1 << SDMMC_CLKCR_CLKEN_Pos;		// enable SDMMC clock
-
-	// Send CMD16 to set card block size.
-	if (!sdmmcSendCmd(SD_CMD_SET_BLOCKLEN, SD_RESPONSE_R1, SD_BLOCK_SIZE)) return False;
-
-	// Clear DTEN
-	SDMMC1->DCTRL &= ~SDMMC_DCTRL_DTEN_Msk;
-
-	// --- SD card data transfer preparation is completed ! ---
-	sdOpStatus = SD_OP_IDLE;
-
-	return True;
 }
 
 static void initSDMMC(void)

@@ -84,12 +84,18 @@ DSTATUS disk_initialize (
 
 	default:
 	case DEV_MMC :
+	{
+		char* msg[2] = {
+			"Failed to identify SD card.\r\n",
+			"SD card identification is success.\r\n"
+		};
 		//result = MMC_disk_initialize();
-		result = isSDCardInsert();
+		result = initSDCard();
+		TRACE(msg[result]);
 
 		// translate the result code here
 		stat = (result) ? RES_OK : RES_ERROR;
-
+	}
 		break;
 
 	case DEV_USB :

@@ -54,7 +54,7 @@ private :
 	QueueHandle_t		mtx;
 	QueueHandle_t		deq;
 	bool				is_ready;
-	short		   	m_screen_id;
+	short		   		m_screen_id;
 	SCBoard*			m_screen;
 };
 

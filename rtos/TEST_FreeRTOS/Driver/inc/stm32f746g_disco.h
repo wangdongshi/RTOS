@@ -16,6 +16,7 @@ extern "C" {
 #endif
 
 #include "types.h"
+#include "platform.h" // TODO : for SD sync R/W
 
 //#define MODE_STAND_ALONE
 
@@ -125,8 +126,7 @@ typedef enum {
 extern uint32_t _ssdram; // SDRAM start address
 extern uint32_t _sdram_size;
 
-// Refer other global parameter
-extern volatile SD_OP_STATUS sdOpStatus;
+void delayTick(uint32_t tick);
 
 void SystemInit(void);
 
@@ -138,6 +138,7 @@ void i2c3Write1Byte(const uint8_t slaveAddr, const uint8_t devAddr, const uint8_
 uint8_t i2c3Read1Byte(const uint8_t slaveAddr, const uint8_t devAddr);
 
 bool_t isSDCardInsert(void);
+bool_t initSDCard(void);
 bool_t sdmmcSendCmd(const SD_COMMAND cmd, const SD_RESP_TYPE resp, const uint32_t arg);
 bool_t sdPollingRead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf);
 bool_t sdPollingWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf);

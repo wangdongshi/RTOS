@@ -72,6 +72,7 @@
 /* Set the following definitions to 1 to include the API function, or zero
 to exclude the API function. */
 
+#define INCLUDE_xTimerPendFunctionCall			1 // add by Wang.Yu 2021/10/15
 #define INCLUDE_xTaskGetHandle					1 // add by Wang.Yu 2021/9/5
 #define INCLUDE_vTaskPrioritySet				1
 #define INCLUDE_uxTaskPriorityGet				1
