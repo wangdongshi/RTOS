@@ -139,7 +139,7 @@ void delayTick(uint32_t tick)
 void SystemInit(void)
 {
 	SCB_EnableICache();
-	SCB_EnableDCache();
+	//SCB_EnableDCache();  // TODO : for switching SDRAM and NAND flash address mapping
 	initFPU();
 	initSystemClock();
 	initSDRAM();
@@ -977,13 +977,13 @@ static void initSDRAM(void)
 {
 	uint32_t reg, mask;
 
-	// Initialize GPIO for FMC
-	initSDRAMGPIO();
-
 	// Mapping SDRAM start address to XIP area (0xC0000000 --> 0x60000000).
 	RCC->APB2ENR	|=	RCC_APB2ENR_SYSCFGEN;
 	while ((RCC->APB2ENR & RCC_APB2ENR_SYSCFGEN) == 0);
 	SYSCFG->MEMRMP  |=	0x01 << SYSCFG_MEMRMP_SWP_FMC_Pos;
+
+	// Initialize GPIO for FMC
+	initSDRAMGPIO();
 
 	// Enable FMC RCC
 	RCC->AHB3ENR	|=	RCC_AHB3ENR_FMCEN;
