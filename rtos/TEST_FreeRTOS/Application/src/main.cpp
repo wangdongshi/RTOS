@@ -20,7 +20,7 @@ extern"C"
 //#define TEST_DMA
 //#define TEST_DMA2D
 //#define TEST_SD_CARD
-#define TEST_FILE_SYSTEM
+//#define TEST_FILE_SYSTEM
 
 int main(void);
 void startTask(void *pvParameters);

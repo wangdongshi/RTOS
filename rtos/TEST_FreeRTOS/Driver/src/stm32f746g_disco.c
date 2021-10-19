@@ -980,6 +980,11 @@ static void initSDRAM(void)
 	// Initialize GPIO for FMC
 	initSDRAMGPIO();
 
+	// Mapping SDRAM start address to XIP area (0xC0000000 --> 0x60000000).
+	RCC->APB2ENR	|=	RCC_APB2ENR_SYSCFGEN;
+	while ((RCC->APB2ENR & RCC_APB2ENR_SYSCFGEN) == 0);
+	SYSCFG->MEMRMP  |=	0x01 << SYSCFG_MEMRMP_SWP_FMC_Pos;
+
 	// Enable FMC RCC
 	RCC->AHB3ENR	|=	RCC_AHB3ENR_FMCEN;
 	while ((RCC->AHB3ENR & RCC_AHB3ENR_FMCEN_Msk) == 0);
