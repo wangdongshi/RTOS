@@ -463,7 +463,7 @@ bool_t sdPollingRead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t*
 	// >>>> three SDMMCCLK (48 MHz)	clock periods plus two PCLK2 clock periods.
 	// Note: PCLK2 is 108MHz in this system.
 	// According test result, here must insert the delay as below !!!
-	for (volatile uint32_t i = 0; i < 10000; i++);
+	for (volatile uint32_t i = 0; i < 80000; i++);
 
 	// Configure SDMMC to receive mode.
 	SDMMC1->DTIMER	=	0xFFFFFFFF;
@@ -521,7 +521,7 @@ bool_t sdPollingWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t
 	// >>>> three SDMMCCLK (48 MHz)	clock periods plus two PCLK2 clock periods.
 	// Note: PCLK2 is 108MHz in this system.
 	// According test result, here must insert the delay as below !!!
-	for (volatile uint32_t i = 0; i < 10000; i++);
+	for (volatile uint32_t i = 0; i < 80000; i++);
 
 	// Configure SDMMC to receive mode
 	SDMMC1->DTIMER	=	0xFFFFFFFF;
@@ -589,6 +589,7 @@ bool_t sdDMARead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf
 	// According test result, here must insert the delay as below !!!
 	//vTaskDelay(500);
 	//delayTick((uint32_t)((blockNum > 1) ? 10000 : 300000));
+	for (volatile uint32_t i = 0; i < 80000; i++);
 
 	// 3. Clear SDMMC and DMA status flag register
 	SDMMC1->ICR			|=	SDMMC1->STA;
@@ -647,6 +648,7 @@ bool_t sdDMAWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* bu
 	// According test result, here must insert the delay as below !!!
 	//vTaskDelay(500);
 	//delayTick((blockNum > 1) ? 10000 : 300000);
+	for (volatile uint32_t i = 0; i < 80000; i++);
 
 	// 3. Clear SDMMC and DMA status flag register
 	SDMMC1->ICR			|=	SDMMC1->STA;
@@ -688,8 +690,6 @@ bool_t sdDMAWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* bu
 							0b1 << SDMMC_DCTRL_DTEN_Pos;			// enable data transfer
 
 	xEventGroupWaitBits(sdTXEvFlg, 0x1, pdTRUE, pdTRUE, portMAX_DELAY);
-
-	vTaskDelay(500);
 
 	return True;
 }

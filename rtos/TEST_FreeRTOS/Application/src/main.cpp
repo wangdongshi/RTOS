@@ -18,11 +18,11 @@ extern int libEntry(void);
 #include "platform.h"
 #include "EHmiMain.h"
 
-#define TEST_DYNAMIC_LOAD
 //#define TEST_DMA
 //#define TEST_DMA2D
 //#define TEST_SD_CARD
-//#define TEST_FILE_SYSTEM
+#define TEST_FILE_SYSTEM
+//#define TEST_DYNAMIC_LOAD
 
 int main(void);
 void startTask(void *pvParameters);
@@ -189,22 +189,22 @@ static void testFileSystem(void)
 	char		text[] = "Hello, FatFs!";
 
 	if (f_mount(&fs, "0:", 1)) {
-		TRACE("Failed to mount file system mount !\r\n");
+		printf("Failed to mount file system mount !\r\n");
 		return;
 	}
 
 	if (f_open(&fp, "0:test.txt", FA_CREATE_ALWAYS | FA_WRITE)) {
-		TRACE("Failed to open file !\r\n");
+		printf("Failed to open file !\r\n");
 		return;
 	}
 
 	if (f_write(&fp, (char*)text, strlen(text), &num)) {
-		TRACE("Failed to write file !\r\n");
+		printf("Failed to write file !\r\n");
 		return;
 	}
 
 	if (f_close(&fp)) {
-		TRACE("Failed to close file !\r\n");
+		printf("Failed to close file !\r\n");
 		return;
 	}
 }
