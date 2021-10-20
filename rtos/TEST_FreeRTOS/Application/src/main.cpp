@@ -11,12 +11,14 @@
 extern"C"
 {
 #include "libdev.h"
+extern int libEntry(void);
 }
 
 #include <string.h>
 #include "platform.h"
 #include "EHmiMain.h"
 
+#define TEST_DYNAMIC_LOAD
 //#define TEST_DMA
 //#define TEST_DMA2D
 //#define TEST_SD_CARD
@@ -35,6 +37,9 @@ static bool_t checkDevices(void);
 static void printBanner(void);
 #ifdef TEST_FILE_SYSTEM
 static void testFileSystem(void);
+#endif
+#ifdef TEST_DYNAMIC_LOAD
+static void testDynamicLoad(void);
 #endif
 
 EHmiMain* pHmi = new EHmiMain();
@@ -94,6 +99,10 @@ void mainTask(void *pvParameters)
 #ifdef TEST_FILE_SYSTEM
 	// test file system
 	testFileSystem();
+#endif
+
+#ifdef TEST_DYNAMIC_LOAD
+	testDynamicLoad();
 #endif
 
 	// suspend
@@ -198,6 +207,14 @@ static void testFileSystem(void)
 		TRACE("Failed to close file !\r\n");
 		return;
 	}
+}
+#endif
+
+#ifdef TEST_DYNAMIC_LOAD
+static void testDynamicLoad(void)
+{
+	libEntry();
+	TRACE("Dynamic loading function is OK");
 }
 #endif
 
