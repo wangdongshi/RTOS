@@ -50,6 +50,18 @@ typedef enum {
 } SD_VERSION;
 
 typedef enum {
+	SD_STATUS_READY				= 0x00000001,
+	SD_STATUS_IDENTIFICATION	= 0x00000002,
+	SD_STATUS_STANDBY			= 0x00000003,
+	SD_STATUS_TRANSFER			= 0x00000004,
+	SD_STATUS_SENDING			= 0x00000005,
+	SD_STATUS_RECEIVING			= 0x00000006,
+	SD_STATUS_PROGRAMMING		= 0x00000007,
+	SD_STATUS_DISCONNECTED		= 0x00000008,
+	SD_STATUS_ERROR				= 0x000000FF
+} SD_STATUS;
+
+typedef enum {
 	SD_TYPE_SDSC,
 	SD_TYPE_SDHC_SDXC
 } SD_TYPE;
@@ -74,6 +86,7 @@ typedef struct {
 	SD_VERSION	version;
 	SD_TYPE		type;
 	uint32_t	category;
+	SD_STATUS	status;
 	uint16_t	rca;
 	SD_CID		cid;
 	SD_CSD		csd;
@@ -244,12 +257,6 @@ void toggleLED1(void)
 	uint32_t data = GPIOI->ODR & GPIO_ODR_OD1_Msk;
 	GPIOI->ODR &= ~GPIO_ODR_OD1_Msk;
 	GPIOI->ODR |= (~data) & GPIO_ODR_OD1_Msk;
-}
-
-bool_t isSDCardInsert(void)
-{
-	bool_t res = !(bool_t)((GPIOC->IDR & GPIO_IDR_ID13_Msk) >> GPIO_IDR_ID13_Pos);
-	return res;
 }
 
 bool_t initSDCard(void)
@@ -452,6 +459,23 @@ bool_t sdmmcSendCmd(const SD_COMMAND cmd, const SD_RESP_TYPE resp, const uint32_
 	return res;
 }
 
+bool_t isSDCardInsert(void)
+{
+	bool_t res = !(bool_t)((GPIOC->IDR & GPIO_IDR_ID13_Msk) >> GPIO_IDR_ID13_Pos);
+	return res;
+}
+
+bool_t isSDCardInTansfer(void)
+{
+	return (sdcard.status == SD_STATUS_TRANSFER);
+}
+
+bool_t updateSDCardStatus(void)
+{
+	uint32_t addr = sdcard.rca << 16;
+	return sdmmcSendCmd(SD_CMD_SEND_STATUS, SD_RESPONSE_R1, addr);
+}
+
 bool_t sdPollingRead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf)
 {
 	// Wait for last R/W operation complete.
@@ -578,7 +602,10 @@ bool_t sdPollingWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t
 bool_t sdDMARead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf)
 {
 	// 1. Wait for last R/W operation complete.
-	while (sdOpStatus != SD_OP_IDLE);
+	do {
+		if (!updateSDCardStatus()) return False;
+	}
+	while (isSDCardInTansfer());
 
 	// 2. Wait for DCTRL register recover.
 	// According to the notes of 35.8.9 chapter of STM32F746XX RM,
@@ -637,7 +664,10 @@ bool_t sdDMARead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf
 bool_t sdDMAWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf)
 {
 	// 1. Wait for last R/W operation complete.
-	while (sdOpStatus != SD_OP_IDLE);
+	do {
+		if (!updateSDCardStatus()) return False;
+	}
+	while (isSDCardInTansfer());
 
 	// 2. Wait for DCTRL register recover.
 	// According to the notes of 35.8.9 chapter of STM32F746XX RM,
@@ -1996,6 +2026,8 @@ static bool_t sdmmcCheckCmdResp1(const SD_COMMAND cmd)
 	if ((uint8_t)(SDMMC1->RESPCMD) != cmd) return False;
 	// Response have been received
 	if (SDMMC1->RESP1 & SD_CMD_RESP_R1_ERRORBITS) return False; // response have been received
+
+	if (cmd == SD_CMD_SEND_STATUS) sdcard.status = SDMMC1->RESP1;
 
 	return True;
 }

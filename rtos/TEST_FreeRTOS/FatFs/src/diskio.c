@@ -141,8 +141,15 @@ DRESULT disk_read (
 	case DEV_MMC :
 		// translate the arguments here
 
-		//result = sdDMARead((uint32_t)sector, (uint32_t)count, (uint8_t*)buff);
-		result = sdPollingRead((uint32_t)sector, (uint32_t)count, (uint8_t*)buff);
+		result = sdDMARead((uint32_t)sector, (uint32_t)count, (uint8_t*)buff);
+		//result = sdPollingRead((uint32_t)sector, (uint32_t)count, (uint8_t*)buff);
+
+		if (result && updateSDCardStatus()) {
+			while (isSDCardInTansfer());
+		}
+		else {
+			result = False;
+		}
 
 		// translate the result code here
 		stat = (result) ? RES_OK : RES_PARERR;
@@ -196,8 +203,15 @@ DRESULT disk_write (
 	case DEV_MMC :
 		// translate the arguments here
 
-		//result = sdDMAWrite((uint32_t)sector, (uint32_t)count, (uint8_t*)buff);
-		result = sdPollingWrite((uint32_t)sector, (uint32_t)count, (uint8_t*)buff);
+		result = sdDMAWrite((uint32_t)sector, (uint32_t)count, (uint8_t*)buff);
+		//result = sdPollingWrite((uint32_t)sector, (uint32_t)count, (uint8_t*)buff);
+
+		if (result && updateSDCardStatus()) {
+			while (isSDCardInTansfer());
+		}
+		else {
+			result = False;
+		}
 
 		// translate the result code here
 		stat = (result) ? RES_OK : RES_PARERR;

@@ -137,9 +137,11 @@ void usart1Send(const uint8_t* message);
 void i2c3Write1Byte(const uint8_t slaveAddr, const uint8_t devAddr, const uint8_t data);
 uint8_t i2c3Read1Byte(const uint8_t slaveAddr, const uint8_t devAddr);
 
-bool_t isSDCardInsert(void);
 bool_t initSDCard(void);
 bool_t sdmmcSendCmd(const SD_COMMAND cmd, const SD_RESP_TYPE resp, const uint32_t arg);
+bool_t isSDCardInsert(void);
+bool_t isSDCardInTansfer(void);
+bool_t updateSDCardStatus(void);
 bool_t sdPollingRead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf);
 bool_t sdPollingWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf);
 bool_t sdDMARead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf);

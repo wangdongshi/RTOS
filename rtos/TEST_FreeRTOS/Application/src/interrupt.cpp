@@ -94,6 +94,8 @@ void SDMMC1_IRQHandler(void)
 	}
 
 	SDMMC1->ICR		|=	SDMMC1->STA;
+
+	updateSDCardStatus();
 }
 
 // DMA interrupt for microSD card RX
@@ -129,6 +131,8 @@ void DMA2_Stream3_IRQHandler(void)
 	sdOpStatus = SD_OP_IDLE;
 
 	xEventGroupSetBitsFromISR(sdRXEvFlg, 0x1, 0);
+
+	updateSDCardStatus();
 }
 
 // DMA interrupt for microSD card TX
