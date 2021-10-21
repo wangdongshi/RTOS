@@ -183,10 +183,11 @@ static bool_t checkDevices(void)
 #ifdef TEST_FILE_SYSTEM
 static void testFileSystem(void)
 {
-	FATFS		fs;
-	FIL			fp;
-	UINT		num;
-	char		text[] = "Hello, FatFs!";
+	FATFS	fs;
+	FIL		fp;
+	UINT	num;
+	char	text[] = "Hello, FatFs!";
+	char	buff[32];
 
 	if (f_mount(&fs, "0:", 1)) {
 		printf("Failed to mount file system mount !\r\n");
@@ -207,6 +208,24 @@ static void testFileSystem(void)
 		printf("Failed to close file !\r\n");
 		return;
 	}
+
+	if (f_open(&fp, "0:test.txt", FA_READ)) {
+		printf("Failed to open file !\r\n");
+		return;
+	}
+
+	if (f_read(&fp, (char*)&buff, strlen(text), &num)) {
+		printf("Failed to read file !\r\n");
+		return;
+	}
+
+	if (f_close(&fp)) {
+		printf("Failed to close file !\r\n");
+		return;
+	}
+
+	buff[strlen(text)] = '\0';
+	printf("%s\r\n", buff);
 }
 #endif
 

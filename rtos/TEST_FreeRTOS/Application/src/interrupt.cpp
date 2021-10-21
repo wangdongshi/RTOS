@@ -61,28 +61,28 @@ void SDMMC1_IRQHandler(void)
 {
 	// Check SD card transfer error
 	if (SDMMC1->STA & SDMMC_STA_DCRCFAIL_Msk) {
-		TRACE("SD card data CRC check failed !\r\n");
+		printf("SD card data CRC check failed !\r\n");
 	}
 	else if (SDMMC1->STA & SDMMC_STA_DTIMEOUT_Msk) {
-		TRACE("SD card data transfer is time out !\r\n");
+		printf("SD card data transfer is time out !\r\n");
 	}
 	else if (SDMMC1->STA & SDMMC_STA_TXUNDERR_Msk) {
-		TRACE("SD card data transfer has a TX FIFO underflow error !\r\n");
+		printf("SD card data transfer has a TX FIFO underflow error !\r\n");
 	}
 	else if (SDMMC1->STA & SDMMC_STA_RXOVERR_Msk) {
-		TRACE("SD card data transfer has a RX FIFO overrun error !\r\n");
+		printf("SD card data transfer has a RX FIFO overrun error !\r\n");
 	}
 	else {
 		;
 	}
 
-	uint32_t itMask	=	SDMMC_MASK_CCRCFAILIE_Msk |
-						SDMMC_MASK_DTIMEOUTIE_Msk |
-						SDMMC_MASK_RXOVERRIE_Msk |
-						SDMMC_MASK_TXUNDERRIE_Msk |
-						SDMMC_MASK_DATAENDIE_Msk;
-	SDMMC1->MASK	&=	~itMask;
-	SDMMC1->DCTRL	&=	~(SDMMC_DCTRL_DMAEN_Msk | SDMMC_DCTRL_DTEN_Msk);
+	uint32_t itMask			=	SDMMC_MASK_CCRCFAILIE_Msk |
+								SDMMC_MASK_DTIMEOUTIE_Msk |
+								SDMMC_MASK_RXOVERRIE_Msk |
+								SDMMC_MASK_TXUNDERRIE_Msk |
+								SDMMC_MASK_DATAENDIE_Msk;
+	SDMMC1->MASK			&=	~itMask;
+	SDMMC1->DCTRL			&=	~(SDMMC_DCTRL_DMAEN_Msk | SDMMC_DCTRL_DTEN_Msk);
 
 	// Here handle the process after writing complete
 	if (SDMMC1->STA & SDMMC_STA_DATAEND_Msk) {
@@ -93,9 +93,7 @@ void SDMMC1_IRQHandler(void)
 		xEventGroupSetBitsFromISR(sdTXEvFlg, 0x1, 0);
 	}
 
-	SDMMC1->ICR		|=	SDMMC1->STA;
-
-	updateSDCardStatus();
+	SDMMC1->ICR				|=	SDMMC1->STA;
 }
 
 // DMA interrupt for microSD card RX
@@ -103,10 +101,11 @@ void DMA2_Stream3_IRQHandler(void)
 {
 	// Check SD card DMA transfer error
 	if (DMA2->LISR & DMA_LISR_TEIF3_Msk) {
-		TRACE("SD card RX DMA transfer failed !\r\n");
+		printf("SD card RX DMA transfer failed !\r\n");
 	}
 	else if (DMA2->LISR & DMA_LISR_FEIF3_Msk) {
-		TRACE("SD card RX DMA FIFO has an error !\r\n");
+		DMA2->LIFCR 		|=	DMA_LIFCR_CFEIF3_Msk;
+		return;
 	}
 	else {
 		;
@@ -117,22 +116,22 @@ void DMA2_Stream3_IRQHandler(void)
 		sdmmcSendCmd(SD_CMD_STOP_TRANSMISSION, SD_RESPONSE_R1, 0);
 	}
 
-	DMA2->LIFCR		|=	DMA_LIFCR_CTCIF3_Msk |
-						DMA_LIFCR_CTEIF3_Msk |
-						DMA_LIFCR_CFEIF3_Msk;
-	uint32_t itMask	=	SDMMC_MASK_CCRCFAILIE_Msk |
-						SDMMC_MASK_DTIMEOUTIE_Msk |
-						SDMMC_MASK_RXOVERRIE_Msk |
-						SDMMC_MASK_TXUNDERRIE_Msk;
-	SDMMC1->MASK	&=	~itMask;
-	SDMMC1->ICR		|=	SDMMC1->STA;
-	SDMMC1->DCTRL	&=	~(SDMMC_DCTRL_DMAEN_Msk | SDMMC_DCTRL_DTEN_Msk);
+	DMA2->LIFCR				|=	DMA_LIFCR_CTCIF3_Msk |
+								DMA_LIFCR_CTEIF3_Msk |
+								DMA_LIFCR_CFEIF3_Msk;
+	DMA2_Stream3->CR		&=	~DMA_SxCR_EN_Msk;
 
-	sdOpStatus = SD_OP_IDLE;
+	uint32_t itMask			=	SDMMC_MASK_CCRCFAILIE_Msk |
+								SDMMC_MASK_DTIMEOUTIE_Msk |
+								SDMMC_MASK_RXOVERRIE_Msk |
+								SDMMC_MASK_TXUNDERRIE_Msk;
+	SDMMC1->MASK			&=	~itMask;
+	SDMMC1->ICR				|=	SDMMC1->STA;
+	SDMMC1->DCTRL			&=	~(SDMMC_DCTRL_DMAEN_Msk | SDMMC_DCTRL_DTEN_Msk);
 
 	xEventGroupSetBitsFromISR(sdRXEvFlg, 0x1, 0);
 
-	updateSDCardStatus();
+	sdOpStatus = SD_OP_IDLE;
 }
 
 // DMA interrupt for microSD card TX
@@ -141,14 +140,15 @@ void DMA2_Stream6_IRQHandler(void)
 	// Check SD card DMA transfer result
 	if (DMA2->HISR & DMA_HISR_TCIF6_Msk) {
 		// Clear all DMA interrupt flag
-		DMA2->HIFCR	|=	DMA_HIFCR_CTCIF6_Msk |
-						DMA_HIFCR_CTEIF6_Msk |
-						DMA_HIFCR_CFEIF6_Msk;
+		DMA2->HIFCR			|=	DMA_HIFCR_CTCIF6_Msk |
+								DMA_HIFCR_CTEIF6_Msk |
+								DMA_HIFCR_CFEIF6_Msk;
+		DMA2_Stream6->CR	&=	~DMA_SxCR_EN_Msk;
 		// Pay attention !!!
 		// In SD card writing handler, DMA transfer is just take place between ram and SDMMC FIFO.
 		// After DMA transfer completed, transfer from SDMMC to SD card must be wait.
 		// Here start SDMMC DATAEND interrupt to handle process after writing complete.
-		SDMMC1->MASK |=	SDMMC_MASK_DATAENDIE_Msk;
+		SDMMC1->MASK		|=	SDMMC_MASK_DATAENDIE_Msk;
 		return;
 	}
 	else if (DMA2->HISR & DMA_HISR_FEIF6_Msk) {
@@ -156,18 +156,20 @@ void DMA2_Stream6_IRQHandler(void)
 		// Whether it is in multi-block writing or single-block-writing,
 		// they will all cause FEIF interrupt.
 		// So must ignore this interrupt and handle it in TCIF interrupt.
-		DMA2->HIFCR |= DMA_HIFCR_CFEIF6_Msk;
+		DMA2->HIFCR 		|=	DMA_HIFCR_CFEIF6_Msk;
 		return;
 	}
 	else if (DMA2->HISR & DMA_HISR_TEIF6_Msk) {
-		TRACE("SD card TX DMA transfer failed !\r\n");
+		printf("SD card TX DMA transfer failed !\r\n");
 	}
 	else {
 		;
 	}
 
-	DMA2->HIFCR		|=	DMA_HIFCR_CTCIF6_Msk |
-						DMA_HIFCR_CTEIF6_Msk |
-						DMA_HIFCR_CFEIF6_Msk;
-	SDMMC1->DCTRL	&=	~(SDMMC_DCTRL_DMAEN_Msk | SDMMC_DCTRL_DTEN_Msk);
+	DMA2->HIFCR				|=	DMA_HIFCR_CTCIF6_Msk |
+								DMA_HIFCR_CTEIF6_Msk |
+								DMA_HIFCR_CFEIF6_Msk;
+	SDMMC1->DCTRL			&=	~(SDMMC_DCTRL_DMAEN_Msk | SDMMC_DCTRL_DTEN_Msk);
+
+	DMA2_Stream6->CR 		&=	~DMA_SxCR_EN_Msk;
 }

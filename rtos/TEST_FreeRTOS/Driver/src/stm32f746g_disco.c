@@ -487,7 +487,7 @@ bool_t sdPollingRead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t*
 	// >>>> three SDMMCCLK (48 MHz)	clock periods plus two PCLK2 clock periods.
 	// Note: PCLK2 is 108MHz in this system.
 	// According test result, here must insert the delay as below !!!
-	for (volatile uint32_t i = 0; i < 80000; i++);
+	delayTick(80000);
 
 	// Configure SDMMC to receive mode.
 	SDMMC1->DTIMER	=	0xFFFFFFFF;
@@ -531,6 +531,13 @@ bool_t sdPollingRead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t*
 		if(!sdmmcSendCmd(SD_CMD_STOP_TRANSMISSION, SD_RESPONSE_R1, 0)) return False;
 	}
 
+	// Wait for SD card transfer complete.
+	do {
+		updateSDCardStatus();
+	}
+	while (isSDCardInTansfer());
+	sdOpStatus = SD_OP_IDLE;
+
 	return True;
 }
 
@@ -545,7 +552,7 @@ bool_t sdPollingWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t
 	// >>>> three SDMMCCLK (48 MHz)	clock periods plus two PCLK2 clock periods.
 	// Note: PCLK2 is 108MHz in this system.
 	// According test result, here must insert the delay as below !!!
-	for (volatile uint32_t i = 0; i < 80000; i++);
+	delayTick(80000);
 
 	// Configure SDMMC to receive mode
 	SDMMC1->DTIMER	=	0xFFFFFFFF;
@@ -589,12 +596,19 @@ bool_t sdPollingWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t
 	SDMMC1->DCTRL	&= ~SDMMC_DCTRL_DTEN_Msk;
 	sdOpStatus		= SD_OP_IDLE;
 
-	TRACE("Write SD card %d ~ %d sector.\r\n", blockAddr, blockAddr + blockNum - 1);
-
 	// Send CMD12 to stop data transfer from SD card.
 	if (blockNum > 1) {
 		if(!sdmmcSendCmd(SD_CMD_STOP_TRANSMISSION, SD_RESPONSE_R1, 0)) return False;
 	}
+
+	// Wait for SD card transfer complete.
+	do {
+		updateSDCardStatus();
+	}
+	while (isSDCardInTansfer());
+	sdOpStatus = SD_OP_IDLE;
+
+	TRACE("Write SD card %d ~ %d sector.\r\n", blockAddr, blockAddr + blockNum - 1);
 
 	return True;
 }
@@ -602,10 +616,7 @@ bool_t sdPollingWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t
 bool_t sdDMARead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf)
 {
 	// 1. Wait for last R/W operation complete.
-	do {
-		if (!updateSDCardStatus()) return False;
-	}
-	while (isSDCardInTansfer());
+	while (sdOpStatus != SD_OP_IDLE);
 
 	// 2. Wait for DCTRL register recover.
 	// According to the notes of 35.8.9 chapter of STM32F746XX RM,
@@ -614,9 +625,8 @@ bool_t sdDMARead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf
 	// >>>> three SDMMCCLK (48 MHz)	clock periods plus two PCLK2 clock periods.
 	// Note: PCLK2 is 108MHz in this system.
 	// According test result, here must insert the delay as below !!!
-	//vTaskDelay(500);
-	//delayTick((uint32_t)((blockNum > 1) ? 10000 : 300000));
-	for (volatile uint32_t i = 0; i < 80000; i++);
+	delayTick(300000);
+	// TODO : it should be changed by "vTaskDelay(500);"
 
 	// 3. Clear SDMMC and DMA status flag register
 	SDMMC1->ICR			|=	SDMMC1->STA;
@@ -658,16 +668,20 @@ bool_t sdDMARead(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf
 
 	xEventGroupWaitBits(sdRXEvFlg, 0x1, pdTRUE, pdTRUE, portMAX_DELAY);
 
+	// 8. Wait for SD card transfer complete.
+	do {
+		updateSDCardStatus();
+	}
+	while (isSDCardInTansfer());
+	sdOpStatus = SD_OP_IDLE;
+
 	return True;
 }
 
 bool_t sdDMAWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* buf)
 {
 	// 1. Wait for last R/W operation complete.
-	do {
-		if (!updateSDCardStatus()) return False;
-	}
-	while (isSDCardInTansfer());
+	while (sdOpStatus != SD_OP_IDLE);
 
 	// 2. Wait for DCTRL register recover.
 	// According to the notes of 35.8.9 chapter of STM32F746XX RM,
@@ -676,9 +690,8 @@ bool_t sdDMAWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* bu
 	// >>>> three SDMMCCLK (48 MHz)	clock periods plus two PCLK2 clock periods.
 	// Note: PCLK2 is 108MHz in this system.
 	// According test result, here must insert the delay as below !!!
-	//vTaskDelay(500);
-	//delayTick((blockNum > 1) ? 10000 : 300000);
-	for (volatile uint32_t i = 0; i < 80000; i++);
+	delayTick(300000);
+	// TODO : it should be changed by "vTaskDelay(500);"
 
 	// 3. Clear SDMMC and DMA status flag register
 	SDMMC1->ICR			|=	SDMMC1->STA;
@@ -701,7 +714,6 @@ bool_t sdDMAWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* bu
 		if (!sdmmcSendCmd(SD_CMD_WRITE_MULT_BLOCK, SD_RESPONSE_R1, addr)) return False;
 		sdOpStatus = SD_OP_MULTI_BLOCK_WRITE;
 	}
-	TRACE("Write SD card %d ~ %d sector.\r\n", blockAddr, blockAddr + blockNum - 1);
 
 	// 6. Connect DMA channel (stream6/channel4) between SDMMC and memory.
 	// Note : DMA2_Stream3->CR setting has been execute in device initialization phase.
@@ -720,6 +732,15 @@ bool_t sdDMAWrite(const uint32_t blockAddr, const uint32_t blockNum, uint8_t* bu
 							0b1 << SDMMC_DCTRL_DTEN_Pos;			// enable data transfer
 
 	xEventGroupWaitBits(sdTXEvFlg, 0x1, pdTRUE, pdTRUE, portMAX_DELAY);
+
+	// 8. Wait for SD card transfer complete.
+	do {
+		updateSDCardStatus();
+	}
+	while (isSDCardInTansfer());
+	sdOpStatus = SD_OP_IDLE;
+
+	TRACE("Write SD card %d ~ %d sector.\r\n", blockAddr, blockAddr + blockNum - 1);
 
 	return True;
 }
