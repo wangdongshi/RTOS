@@ -24,10 +24,11 @@ unsigned int SCDrawCommand::GetStringWidth(const unsigned short* str, const unsi
 {
 	unsigned int width = 0;
 
-	do {
+	while (*str) {
 		unsigned int i = static_cast<unsigned int>(*str);
 		width += (SC_FONT_SMALL == font) ? sFont.st.cdef[i].width : mFont.st.cdef[i].width;
-	} while (*str++);
+		str++;
+	}
 
 	return width;
 }
