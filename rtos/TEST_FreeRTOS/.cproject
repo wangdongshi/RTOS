@@ -44,8 +44,10 @@
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\Library\inc&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\Application\inc&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\Driver\inc&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\Driver\inc\eth&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\FreeRTOS\inc&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\FatFs\inc&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\LwIP\inc&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\EHmi\inc&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\Utility\inc&quot;"/>
 								</option>
@@ -61,8 +63,10 @@
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\Library\inc&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\Application\inc&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\Driver\inc&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\Driver\inc\eth&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\FreeRTOS\inc&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\FatFs\inc&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\LwIP\inc&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\EHmi\inc&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\Utility\inc&quot;"/>
 								</option>
@@ -155,8 +159,10 @@
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\Library\inc&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\Application\inc&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\Driver\inc&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\Driver\inc\eth&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\FreeRTOS\inc&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\FatFs\inc&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\LwIP\inc&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\EHmi\inc&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\Utility\inc&quot;"/>
 								</option>
@@ -169,8 +175,10 @@
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\Library\inc&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\Application\inc&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\Driver\inc&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\Driver\inc\eth&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\FreeRTOS\inc&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\FatFs\inc&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\LwIP\inc&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\EHmi\inc&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}\Utility\inc&quot;"/>
 								</option>

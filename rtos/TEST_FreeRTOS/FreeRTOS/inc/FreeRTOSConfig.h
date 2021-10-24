@@ -61,6 +61,7 @@
 #define configMAX_CO_ROUTINE_PRIORITIES 		( 2 )
 
 #define configSUPPORT_DYNAMIC_ALLOCATION		1 // add by Wang.Yu 2021/9/5
+#define configUSE_TASK_NOTIFICATIONS			1 // add by Wang.Yu 2021/10/15
 #define configUSE_MUTEXES						1
 #define configUSE_COUNTING_SEMAPHORES 			1
 #define configUSE_ALTERNATIVE_API 				0

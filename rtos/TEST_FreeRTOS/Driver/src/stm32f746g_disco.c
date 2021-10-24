@@ -16,6 +16,7 @@
 #include "image.h"
 #include "stm32f746xx.h"
 #include "stm32f746g_disco.h"
+#include "stm32f7xx_hal_conf.h"
 #include "ft5336.h"
 
 // Clock constant value definition
@@ -93,6 +94,9 @@ typedef struct {
 	SD_SCR		scr;
 } SD_INFO;
 
+extern ETH_HandleTypeDef heth;
+
+uint32_t SystemCoreClock;
 EventGroupHandle_t	sdRXEvFlg;
 EventGroupHandle_t	sdTXEvFlg;
 
@@ -166,6 +170,7 @@ void SystemInit(void)
 	TRACE("Touch panel initialization is success.\r\n");
 	initSDMMC();
 	TRACE("SDMMC initialization is success.\r\n");
+	HAL_ETH_MspInit(&heth);
 	initSystick();
 #ifdef MODE_STAND_ALONE
 	initTIM7();
@@ -1021,6 +1026,8 @@ static void initSystemClock(void)
 		(RCC_CFGR_HPRE_DIV1 | RCC_CFGR_PPRE1_DIV4 | RCC_CFGR_PPRE2_DIV2));
 	RCC->CFGR |=	RCC_CFGR_SW_PLL; // switch main clock to PLL
 	while ((RCC->CFGR & RCC_CFGR_SWS_Msk) != RCC_CFGR_SWS_PLL);
+
+	SystemCoreClock = 216000000;
 }
 
 // SDRAM initialization

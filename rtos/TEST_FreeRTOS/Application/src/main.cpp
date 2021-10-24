@@ -17,6 +17,8 @@ extern int libEntry(void);
 #include <string.h>
 #include "platform.h"
 #include "EHmiMain.h"
+#include "lwip.h"
+#include "http_task.h"
 
 //#define TEST_DMA
 //#define TEST_DMA2D
@@ -63,7 +65,8 @@ void startTask(void *pvParameters)
 	// create system resource
 	taskENTER_CRITICAL();
 	xTaskCreate(led1Task,	"LED1_TASK",	400,	NULL,	2,	NULL); // for monitor board
-	xTaskCreate(ehmiTask,	"HMI_TASK",		400,	NULL,	2,	NULL);
+	xTaskCreate(ehmiTask,	"EHMI_TASK",	400,	NULL,	2,	NULL);
+	xTaskCreate(httpTask,	"HTTP_TASK",	400,	NULL,	3,	NULL);
 	xTaskCreate(mainTask,	"MAIN_TASK",	8000,	NULL,	5,	NULL);
 	TaskHandle_t handler = xTaskGetHandle("START_TASK");
 	vTaskDelete(handler);
@@ -92,6 +95,7 @@ void mainTask(void *pvParameters)
 	printBanner();
 	showLogo();
 	checkDevices();
+	MX_LWIP_Init();
 
 	// send event flag to EHMI task
 	xEventGroupSetBits(pHmi->EventFlag(), TASK_MAIN_READY_EVENT);
