@@ -76,7 +76,9 @@ __ALIGN_BEGIN uint8_t Tx_Buff[ETH_TXBUFNB][ETH_TX_BUF_SIZE] __ALIGN_END; /* Ethe
 /* USER CODE END 2 */
 
 /* Semaphore to signal incoming packets */
-osSemaphoreId s_xSemaphore = NULL;
+//osSemaphoreId s_xSemaphore = NULL;
+SemaphoreHandle_t ethRxMutex = NULL;
+
 /* Global Ethernet handle */
 ETH_HandleTypeDef heth;
 
@@ -184,7 +186,8 @@ void HAL_ETH_MspDeInit(ETH_HandleTypeDef* ethHandle)
   */
 void HAL_ETH_RxCpltCallback(ETH_HandleTypeDef *heth)
 {
-  osSemaphoreRelease(s_xSemaphore);
+  //osSemaphoreRelease(s_xSemaphore);
+  osSemaphoreRelease(ethRxMutex);
 }
 
 /* USER CODE BEGIN 4 */
@@ -267,13 +270,15 @@ static void low_level_init(struct netif *netif)
   #endif /* LWIP_ARP */
 
 /* create a binary semaphore used for informing ethernetif of frame reception */
-  osSemaphoreDef(SEM);
-  s_xSemaphore = osSemaphoreCreate(osSemaphore(SEM), 1);
+  //osSemaphoreDef(SEM);
+  //s_xSemaphore = osSemaphoreCreate(osSemaphore(SEM), 1);
+  ethRxMutex = xSemaphoreCreateMutex();
 
 /* create the task that handles the ETH_MAC */
 /* USER CODE BEGIN OS_THREAD_DEF_CREATE_CMSIS_RTOS_V1 */
-  osThreadDef(EthIf, ethernetif_input, osPriorityRealtime, 0, INTERFACE_THREAD_STACK_SIZE);
-  osThreadCreate (osThread(EthIf), netif);
+  //osThreadDef(EthIf, ethernetif_input, osPriorityRealtime, 0, INTERFACE_THREAD_STACK_SIZE);
+  //osThreadCreate (osThread(EthIf), netif);
+  xTaskCreate(ethernetif_input, "ETH_IF_TASK", INTERFACE_THREAD_STACK_SIZE, netif, osPriorityRealtime, NULL);
 /* USER CODE END OS_THREAD_DEF_CREATE_CMSIS_RTOS_V1 */
   /* Enable MAC and DMA transmission and reception */
   HAL_ETH_Start(&heth);
@@ -492,14 +497,15 @@ static struct pbuf * low_level_input(struct netif *netif)
  *
  * @param netif the lwip network interface structure for this ethernetif
  */
-void ethernetif_input(void const * argument)
+void ethernetif_input(void * argument)
 {
   struct pbuf *p;
   struct netif *netif = (struct netif *) argument;
 
   for( ;; )
   {
-    if (osSemaphoreWait(s_xSemaphore, TIME_WAITING_FOR_INPUT) == osOK)
+    //if (osSemaphoreWait(s_xSemaphore, TIME_WAITING_FOR_INPUT) == osOK)
+    if (xSemaphoreTake(ethRxMutex, TIME_WAITING_FOR_INPUT))
     {
       do
       {
@@ -621,7 +627,7 @@ err_t ethernetif_init(struct netif *netif)
   * @param  netif: the network interface
   * @retval None
   */
-void ethernetif_link_moniter_task(void const *argument)
+void ethernetif_link_moniter_task(void *argument)
 
 {
   uint32_t regvalue = 0;

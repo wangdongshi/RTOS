@@ -37,7 +37,7 @@ void Error_Handler(void);
 
 /* USER CODE END 1 */
 /* Semaphore to signal Ethernet Link state update */
-osSemaphoreId Netif_LinkSemaphore = NULL;
+osSemaphoreId ethLinkMutex = NULL;
 /* Ethernet link thread Argument */
 struct link_str link_arg;
 
@@ -88,15 +88,17 @@ void MX_LWIP_Init(void)
   netif_set_link_callback(&gnetif, ethernetif_update_config);
 
   /* create a binary semaphore used for informing ethernetif of frame reception */
-  osSemaphoreDef(Netif_SEM);
-  Netif_LinkSemaphore = osSemaphoreCreate(osSemaphore(Netif_SEM) , 1 );
+  //osSemaphoreDef(Netif_SEM);
+  //ethLinkMutex = osSemaphoreCreate(osSemaphore(Netif_SEM) , 1 );
+  ethLinkMutex = xSemaphoreCreateMutex();
 
   link_arg.netif = &gnetif;
-  link_arg.semaphore = Netif_LinkSemaphore;
+  link_arg.mutex = ethLinkMutex;
   /* Create the Ethernet link handler thread */
 /* USER CODE BEGIN OS_THREAD_DEF_CREATE_CMSIS_RTOS_V1 */
-  osThreadDef(LinkThr, ethernetif_link_moniter_task, osPriorityBelowNormal, 0, configMINIMAL_STACK_SIZE * 2);
-  osThreadCreate (osThread(LinkThr), &link_arg);
+  //osThreadDef(LinkThr, ethernetif_link_moniter_task, osPriorityBelowNormal, 0, configMINIMAL_STACK_SIZE * 2);
+  //osThreadCreate (osThread(LinkThr), &link_arg);
+  xTaskCreate(ethernetif_link_moniter_task, "ETH_LINK_TASK", configMINIMAL_STACK_SIZE * 2, &link_arg, osPriorityBelowNormal, NULL);
 /* USER CODE END OS_THREAD_DEF_CREATE_CMSIS_RTOS_V1 */
 
   /* Start DHCP negotiation for a network interface (IPv4) */
