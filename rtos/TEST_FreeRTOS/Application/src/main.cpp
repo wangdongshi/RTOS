@@ -23,7 +23,7 @@ extern int libEntry(void);
 //#define TEST_DMA
 //#define TEST_DMA2D
 //#define TEST_SD_CARD
-#define TEST_FILE_SYSTEM
+//#define TEST_FILE_SYSTEM
 //#define TEST_DYNAMIC_LOAD
 
 int main(void);
@@ -45,6 +45,8 @@ static void testDynamicLoad(void);
 #endif
 
 EHmiMain* pHmi = new EHmiMain();
+extern void ethernetif_input(void * argument);
+extern void ethernetif_link_moniter_task(void *argument);
 
 int main(void)
 {
@@ -64,6 +66,8 @@ void startTask(void *pvParameters)
 {
 	// create system resource
 	taskENTER_CRITICAL();
+	xTaskCreate(ethernetif_link_moniter_task, "ETH_LINK_TASK", 400, /*&link_arg*/NULL, 3, NULL);
+	xTaskCreate(ethernetif_input, "ETH_IF_TASK", 400, NULL, 7, NULL);
 	xTaskCreate(led1Task,	"LED1_TASK",	400,	NULL,	2,	NULL); // for monitor board
 	xTaskCreate(ehmiTask,	"EHMI_TASK",	400,	NULL,	2,	NULL);
 	xTaskCreate(httpTask,	"HTTP_TASK",	400,	NULL,	3,	NULL);
@@ -92,10 +96,10 @@ void ehmiTask(void * pvParameters)
 void mainTask(void *pvParameters)
 {
 	// initialization
+	MX_LWIP_Init();
 	printBanner();
 	showLogo();
 	checkDevices();
-	MX_LWIP_Init();
 
 	// send event flag to EHMI task
 	xEventGroupSetBits(pHmi->EventFlag(), TASK_MAIN_READY_EVENT);
@@ -110,13 +114,12 @@ void mainTask(void *pvParameters)
 #endif
 
 	// suspend
-	TaskHandle_t handler = xTaskGetHandle("MAIN_TASK");
-	vTaskSuspend(handler);
-	/*
+	//TaskHandle_t handler = xTaskGetHandle("MAIN_TASK");
+	//vTaskSuspend(handler);
+
 	while(1) {
 		vTaskDelay(2000);
 	}
-	*/
 }
 
 void* operator new(size_t size)

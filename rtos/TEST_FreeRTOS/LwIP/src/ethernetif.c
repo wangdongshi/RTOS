@@ -72,7 +72,7 @@ __ALIGN_BEGIN uint8_t Rx_Buff[ETH_RXBUFNB][ETH_RX_BUF_SIZE] __ALIGN_END; /* Ethe
 __ALIGN_BEGIN uint8_t Tx_Buff[ETH_TXBUFNB][ETH_TX_BUF_SIZE] __ALIGN_END; /* Ethernet Transmit Buffer */
 
 /* USER CODE BEGIN 2 */
-
+static struct netif *s_pxNetIf = NULL;
 /* USER CODE END 2 */
 
 /* Semaphore to signal incoming packets */
@@ -229,7 +229,7 @@ static void low_level_init(struct netif *netif)
   heth.Init.MediaInterface = ETH_MEDIA_INTERFACE_RMII;
 
   /* USER CODE BEGIN MACADDRESS */
-
+  s_pxNetIf = netif;
   /* USER CODE END MACADDRESS */
 
   hal_eth_init_status = HAL_ETH_Init(&heth);
@@ -272,13 +272,15 @@ static void low_level_init(struct netif *netif)
 /* create a binary semaphore used for informing ethernetif of frame reception */
   //osSemaphoreDef(SEM);
   //s_xSemaphore = osSemaphoreCreate(osSemaphore(SEM), 1);
-  ethRxMutex = xSemaphoreCreateMutex();
+  //ethRxMutex = xSemaphoreCreateMutex();
 
 /* create the task that handles the ETH_MAC */
 /* USER CODE BEGIN OS_THREAD_DEF_CREATE_CMSIS_RTOS_V1 */
   //osThreadDef(EthIf, ethernetif_input, osPriorityRealtime, 0, INTERFACE_THREAD_STACK_SIZE);
   //osThreadCreate (osThread(EthIf), netif);
-  xTaskCreate(ethernetif_input, "ETH_IF_TASK", INTERFACE_THREAD_STACK_SIZE, netif, osPriorityRealtime, NULL);
+  //taskENTER_CRITICAL();
+  //xTaskCreate(ethernetif_input, "ETH_IF_TASK", INTERFACE_THREAD_STACK_SIZE, netif, 4 + osPriorityRealtime, NULL);
+  //taskEXIT_CRITICAL();
 /* USER CODE END OS_THREAD_DEF_CREATE_CMSIS_RTOS_V1 */
   /* Enable MAC and DMA transmission and reception */
   HAL_ETH_Start(&heth);
@@ -500,7 +502,8 @@ static struct pbuf * low_level_input(struct netif *netif)
 void ethernetif_input(void * argument)
 {
   struct pbuf *p;
-  struct netif *netif = (struct netif *) argument;
+  //struct netif *netif = (struct netif *) argument;
+  ethRxMutex = xSemaphoreCreateMutex();
 
   for( ;; )
   {
@@ -509,16 +512,16 @@ void ethernetif_input(void * argument)
     {
       do
       {
-        LOCK_TCPIP_CORE();
-        p = low_level_input( netif );
+        //LOCK_TCPIP_CORE();
+        p = low_level_input( s_pxNetIf );
         if   (p != NULL)
         {
-          if (netif->input( p, netif) != ERR_OK )
+          if (s_pxNetIf->input( p, s_pxNetIf) != ERR_OK )
           {
             pbuf_free(p);
           }
         }
-        UNLOCK_TCPIP_CORE();
+        //UNLOCK_TCPIP_CORE();
       } while(p!=NULL);
     }
   }
@@ -630,31 +633,32 @@ err_t ethernetif_init(struct netif *netif)
 void ethernetif_link_moniter_task(void *argument)
 
 {
-  uint32_t regvalue = 0;
-  struct link_str *link_arg = (struct link_str *)argument;
-
-  for(;;)
-  {
-    /* Read PHY_BSR*/
-    HAL_ETH_ReadPHYRegister(&heth, PHY_BSR, &regvalue);
-
-    regvalue &= PHY_LINKED_STATUS;
-
-    /* Check whether the netif link down and the PHY link is up */
-    if(!netif_is_link_up(link_arg->netif) && (regvalue))
-    {
-      /* network cable is connected */
-      netif_set_link_up(link_arg->netif);
-    }
-    else if(netif_is_link_up(link_arg->netif) && (!regvalue))
-    {
-      /* network cable is dis-connected */
-      netif_set_link_down(link_arg->netif);
-    }
-
-    /* Suspend thread for 200 ms */
-    vTaskDelay(200);
-  }
+  return;
+//  uint32_t regvalue = 0;
+//  struct link_str *link_arg = (struct link_str *)argument;
+//
+//  for(;;)
+//  {
+//    /* Read PHY_BSR*/
+//    HAL_ETH_ReadPHYRegister(&heth, PHY_BSR, &regvalue);
+//
+//    regvalue &= PHY_LINKED_STATUS;
+//
+//    /* Check whether the netif link down and the PHY link is up */
+//    if(!netif_is_link_up(link_arg->netif) && (regvalue))
+//    {
+//      /* network cable is connected */
+//      netif_set_link_up(link_arg->netif);
+//    }
+//    else if(netif_is_link_up(link_arg->netif) && (!regvalue))
+//    {
+//      /* network cable is dis-connected */
+//      netif_set_link_down(link_arg->netif);
+//    }
+//
+//    /* Suspend thread for 200 ms */
+//    vTaskDelay(200);
+//  }
 }
 
 /* USER CODE BEGIN 7 */

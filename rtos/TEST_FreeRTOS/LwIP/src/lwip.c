@@ -63,9 +63,9 @@ void MX_LWIP_Init(void)
   //ipaddr.addr = 0;
   //netmask.addr = 0;
   //gw.addr = 0;
-  IP4_ADDR(&ipaddr, 192, 168, 0, 10);
+  IP4_ADDR(&ipaddr, 192, 168, 1, 10);
   IP4_ADDR(&netmask, 255, 255, 255, 0);
-  IP4_ADDR(&gw, 192, 168, 0, 1);
+  IP4_ADDR(&gw, 192, 168, 1, 1);
 
   /* add the network interface (IPv4/IPv6) with RTOS */
   netif_add(&gnetif, &ipaddr, &netmask, &gw, NULL, &ethernetif_init, &tcpip_input);
@@ -98,11 +98,13 @@ void MX_LWIP_Init(void)
 /* USER CODE BEGIN OS_THREAD_DEF_CREATE_CMSIS_RTOS_V1 */
   //osThreadDef(LinkThr, ethernetif_link_moniter_task, osPriorityBelowNormal, 0, configMINIMAL_STACK_SIZE * 2);
   //osThreadCreate (osThread(LinkThr), &link_arg);
-  xTaskCreate(ethernetif_link_moniter_task, "ETH_LINK_TASK", configMINIMAL_STACK_SIZE * 2, &link_arg, osPriorityBelowNormal, NULL);
+  //taskENTER_CRITICAL();
+  //xTaskCreate(ethernetif_link_moniter_task, "ETH_LINK_TASK", configMINIMAL_STACK_SIZE * 2, &link_arg, 4 + osPriorityBelowNormal, NULL);
+  //taskEXIT_CRITICAL();
 /* USER CODE END OS_THREAD_DEF_CREATE_CMSIS_RTOS_V1 */
 
   /* Start DHCP negotiation for a network interface (IPv4) */
-  dhcp_start(&gnetif);
+  //dhcp_start(&gnetif);
 
 /* USER CODE BEGIN 3 */
 
