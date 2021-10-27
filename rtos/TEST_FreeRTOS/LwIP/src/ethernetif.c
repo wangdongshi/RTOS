@@ -91,8 +91,8 @@ ETH_HandleTypeDef heth;
 void HAL_ETH_MspInit(ETH_HandleTypeDef* ethHandle)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-  if(ethHandle->Instance==ETH)
-  {
+  //if(ethHandle->Instance==ETH)
+  //{
   /* USER CODE BEGIN ETH_MspInit 0 */
 
   /* USER CODE END ETH_MspInit 0 */
@@ -140,7 +140,7 @@ void HAL_ETH_MspInit(ETH_HandleTypeDef* ethHandle)
   /* USER CODE BEGIN ETH_MspInit 1 */
 
   /* USER CODE END ETH_MspInit 1 */
-  }
+  //}
 }
 
 void HAL_ETH_MspDeInit(ETH_HandleTypeDef* ethHandle)
