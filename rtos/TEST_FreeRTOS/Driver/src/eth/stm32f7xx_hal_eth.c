@@ -1192,7 +1192,7 @@ void HAL_ETH_IRQHandler(ETH_HandleTypeDef *heth)
   else if (__HAL_ETH_DMA_GET_FLAG(heth, ETH_DMA_FLAG_T)) 
   {
 #if (USE_HAL_ETH_REGISTER_CALLBACKS == 1)
-    /*  Call resgistered Transfer complete callback*/
+    /*  Call registered Transfer complete callback*/
     heth->TxCpltCallback(heth);
 #else
     /* Transfer complete callback */

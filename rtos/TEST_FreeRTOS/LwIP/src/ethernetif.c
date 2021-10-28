@@ -72,13 +72,11 @@ __ALIGN_BEGIN uint8_t Rx_Buff[ETH_RXBUFNB][ETH_RX_BUF_SIZE] __ALIGN_END; /* Ethe
 __ALIGN_BEGIN uint8_t Tx_Buff[ETH_TXBUFNB][ETH_TX_BUF_SIZE] __ALIGN_END; /* Ethernet Transmit Buffer */
 
 /* USER CODE BEGIN 2 */
-static struct netif *s_pxNetIf = NULL;
+
 /* USER CODE END 2 */
 
 /* Semaphore to signal incoming packets */
-//osSemaphoreId s_xSemaphore = NULL;
-SemaphoreHandle_t ethRxMutex = NULL;
-
+osSemaphoreId s_xSemaphore = NULL;
 /* Global Ethernet handle */
 ETH_HandleTypeDef heth;
 
@@ -91,8 +89,8 @@ ETH_HandleTypeDef heth;
 void HAL_ETH_MspInit(ETH_HandleTypeDef* ethHandle)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-  //if(ethHandle->Instance==ETH)
-  //{
+  if(ethHandle->Instance==ETH)
+  {
   /* USER CODE BEGIN ETH_MspInit 0 */
 
   /* USER CODE END ETH_MspInit 0 */
@@ -140,7 +138,7 @@ void HAL_ETH_MspInit(ETH_HandleTypeDef* ethHandle)
   /* USER CODE BEGIN ETH_MspInit 1 */
 
   /* USER CODE END ETH_MspInit 1 */
-  //}
+  }
 }
 
 void HAL_ETH_MspDeInit(ETH_HandleTypeDef* ethHandle)
@@ -186,8 +184,7 @@ void HAL_ETH_MspDeInit(ETH_HandleTypeDef* ethHandle)
   */
 void HAL_ETH_RxCpltCallback(ETH_HandleTypeDef *heth)
 {
-  //osSemaphoreRelease(s_xSemaphore);
-  osSemaphoreRelease(ethRxMutex);
+  osSemaphoreRelease(s_xSemaphore);
 }
 
 /* USER CODE BEGIN 4 */
@@ -211,7 +208,7 @@ static void low_level_init(struct netif *netif)
 
 /* Init ETH */
 
-  uint8_t MACAddr[6];
+   uint8_t MACAddr[6] ;
   heth.Instance = ETH;
   heth.Init.AutoNegotiation = ETH_AUTONEGOTIATION_ENABLE;
   heth.Init.Speed = ETH_SPEED_100M;
@@ -229,7 +226,7 @@ static void low_level_init(struct netif *netif)
   heth.Init.MediaInterface = ETH_MEDIA_INTERFACE_RMII;
 
   /* USER CODE BEGIN MACADDRESS */
-  s_pxNetIf = netif;
+
   /* USER CODE END MACADDRESS */
 
   hal_eth_init_status = HAL_ETH_Init(&heth);
@@ -270,17 +267,13 @@ static void low_level_init(struct netif *netif)
   #endif /* LWIP_ARP */
 
 /* create a binary semaphore used for informing ethernetif of frame reception */
-  //osSemaphoreDef(SEM);
-  //s_xSemaphore = osSemaphoreCreate(osSemaphore(SEM), 1);
-  //ethRxMutex = xSemaphoreCreateMutex();
+  osSemaphoreDef(SEM);
+  s_xSemaphore = osSemaphoreCreate(osSemaphore(SEM), 1);
 
 /* create the task that handles the ETH_MAC */
 /* USER CODE BEGIN OS_THREAD_DEF_CREATE_CMSIS_RTOS_V1 */
-  //osThreadDef(EthIf, ethernetif_input, osPriorityRealtime, 0, INTERFACE_THREAD_STACK_SIZE);
-  //osThreadCreate (osThread(EthIf), netif);
-  //taskENTER_CRITICAL();
-  //xTaskCreate(ethernetif_input, "ETH_IF_TASK", INTERFACE_THREAD_STACK_SIZE, netif, 4 + osPriorityRealtime, NULL);
-  //taskEXIT_CRITICAL();
+  osThreadDef(EthIf, ethernetif_input, osPriorityRealtime, 0, INTERFACE_THREAD_STACK_SIZE);
+  osThreadCreate (osThread(EthIf), netif);
 /* USER CODE END OS_THREAD_DEF_CREATE_CMSIS_RTOS_V1 */
   /* Enable MAC and DMA transmission and reception */
   HAL_ETH_Start(&heth);
@@ -499,29 +492,27 @@ static struct pbuf * low_level_input(struct netif *netif)
  *
  * @param netif the lwip network interface structure for this ethernetif
  */
-void ethernetif_input(void * argument)
+void ethernetif_input(void const * argument)
 {
   struct pbuf *p;
-  //struct netif *netif = (struct netif *) argument;
-  ethRxMutex = xSemaphoreCreateMutex();
+  struct netif *netif = (struct netif *) argument;
 
   for( ;; )
   {
-    //if (osSemaphoreWait(s_xSemaphore, TIME_WAITING_FOR_INPUT) == osOK)
-    if (xSemaphoreTake(ethRxMutex, TIME_WAITING_FOR_INPUT))
+    if (osSemaphoreWait(s_xSemaphore, TIME_WAITING_FOR_INPUT) == osOK)
     {
       do
       {
-        //LOCK_TCPIP_CORE();
-        p = low_level_input( s_pxNetIf );
+        LOCK_TCPIP_CORE();
+        p = low_level_input( netif );
         if   (p != NULL)
         {
-          if (s_pxNetIf->input( p, s_pxNetIf) != ERR_OK )
+          if (netif->input( p, netif) != ERR_OK )
           {
             pbuf_free(p);
           }
         }
-        //UNLOCK_TCPIP_CORE();
+        UNLOCK_TCPIP_CORE();
       } while(p!=NULL);
     }
   }
@@ -607,10 +598,10 @@ err_t ethernetif_init(struct netif *netif)
 * @param  None
 * @retval Time
 */
-//u32_t sys_jiffies(void)
-//{
-//  return HAL_GetTick();
-//}
+u32_t sys_jiffies(void)
+{
+  return HAL_GetTick();
+}
 
 /**
 * @brief  Returns the current time in milliseconds
@@ -618,10 +609,10 @@ err_t ethernetif_init(struct netif *netif)
 * @param  None
 * @retval Time
 */
-//u32_t sys_now(void)
-//{
-//  return HAL_GetTick();
-//}
+u32_t sys_now(void)
+{
+  return HAL_GetTick();
+}
 
 /* USER CODE END 6 */
 
@@ -630,35 +621,34 @@ err_t ethernetif_init(struct netif *netif)
   * @param  netif: the network interface
   * @retval None
   */
-void ethernetif_link_moniter_task(void *argument)
+void ethernetif_set_link(void const *argument)
 
 {
-  return;
-//  uint32_t regvalue = 0;
-//  struct link_str *link_arg = (struct link_str *)argument;
-//
-//  for(;;)
-//  {
-//    /* Read PHY_BSR*/
-//    HAL_ETH_ReadPHYRegister(&heth, PHY_BSR, &regvalue);
-//
-//    regvalue &= PHY_LINKED_STATUS;
-//
-//    /* Check whether the netif link down and the PHY link is up */
-//    if(!netif_is_link_up(link_arg->netif) && (regvalue))
-//    {
-//      /* network cable is connected */
-//      netif_set_link_up(link_arg->netif);
-//    }
-//    else if(netif_is_link_up(link_arg->netif) && (!regvalue))
-//    {
-//      /* network cable is dis-connected */
-//      netif_set_link_down(link_arg->netif);
-//    }
-//
-//    /* Suspend thread for 200 ms */
-//    vTaskDelay(200);
-//  }
+  uint32_t regvalue = 0;
+  struct link_str *link_arg = (struct link_str *)argument;
+
+  for(;;)
+  {
+    /* Read PHY_BSR*/
+    HAL_ETH_ReadPHYRegister(&heth, PHY_BSR, &regvalue);
+
+    regvalue &= PHY_LINKED_STATUS;
+
+    /* Check whether the netif link down and the PHY link is up */
+    if(!netif_is_link_up(link_arg->netif) && (regvalue))
+    {
+      /* network cable is connected */
+      netif_set_link_up(link_arg->netif);
+    }
+    else if(netif_is_link_up(link_arg->netif) && (!regvalue))
+    {
+      /* network cable is dis-connected */
+      netif_set_link_down(link_arg->netif);
+    }
+
+    /* Suspend thread for 200 ms */
+    osDelay(200);
+  }
 }
 
 /* USER CODE BEGIN 7 */

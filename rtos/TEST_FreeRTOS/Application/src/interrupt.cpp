@@ -11,7 +11,10 @@
 #include "stm32f746xx.h"
 #include "platform.h"
 #include "EHmiEvent.h"
+#include "stm32f7xx_hal_eth.h"
 #include "interrupt.h"
+
+extern ETH_HandleTypeDef heth;
 
 #ifdef MODE_STAND_ALONE
 extern char character;
@@ -172,4 +175,15 @@ void DMA2_Stream6_IRQHandler(void)
 	SDMMC1->DCTRL			&=	~(SDMMC_DCTRL_DMAEN_Msk | SDMMC_DCTRL_DTEN_Msk);
 
 	DMA2_Stream6->CR 		&=	~DMA_SxCR_EN_Msk;
+}
+
+void ETH_IRQHandler(void)
+{
+  /* USER CODE BEGIN ETH_IRQn 0 */
+
+  /* USER CODE END ETH_IRQn 0 */
+  HAL_ETH_IRQHandler(&heth);
+  /* USER CODE BEGIN ETH_IRQn 1 */
+
+  /* USER CODE END ETH_IRQn 1 */
 }
