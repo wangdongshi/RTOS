@@ -9,7 +9,6 @@
 
 #include "FreeRTOS.h"
 #include "semphr.h"
-//#include "cmsis_os.h"
 
 #ifdef  __cplusplus
 extern "C" {

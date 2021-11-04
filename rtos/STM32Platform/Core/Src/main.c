@@ -19,9 +19,11 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "cmsis_os.h"
+//#include "cmsis_os.h"
 #include "ethernetif.h"
 #include "lwip/sockets.h"
+#include "FreeRTOS.h"
+#include "task.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -93,7 +95,8 @@ TIM_HandleTypeDef htim5;
 
 SDRAM_HandleTypeDef hsdram1;
 
-osThreadId defaultTaskHandle;
+//osThreadId defaultTaskHandle;
+TaskHandle_t defaultTaskHandle;
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -217,15 +220,19 @@ int main(void)
 
   /* Create the thread(s) */
   /* definition and creation of defaultTask */
-  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 4096);
-  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+  //osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 4096);
+  //defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+  xTaskCreate((TaskFunction_t)StartDefaultTask,	(const char *)("DEFAULT_TASK"),	4096,	NULL,	3,	&defaultTaskHandle);
+  //defaultTaskHandle = xTaskGetHandle("DEFAULT_TASK");
+
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
 
   /* Start scheduler */
-  osKernelStart();
+  //osKernelStart();
+  vTaskStartScheduler();
 
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
