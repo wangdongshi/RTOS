@@ -12,6 +12,8 @@ int errno;
 
 #define WAIT_FOREVER     0xFFFFFFFF
 
+SemaphoreHandle_t lwip_sys_mutex;
+
 // System
 static int inHandlerMode(void)
 {
@@ -31,8 +33,6 @@ static uint32_t sysTick(void)
 // Mailbox
 err_t sys_mbox_new(sys_mbox_t *mbox, int size)
 {
-	//osMessageQDef(QUEUE, size, void *);
-	//*mbox = osMessageCreate(osMessageQ(QUEUE), NULL);
 	*mbox = xQueueCreate(size, sizeof(void*));
 #if SYS_STATS
 	++lwip_stats.sys.mbox.used;
@@ -48,6 +48,7 @@ err_t sys_mbox_new(sys_mbox_t *mbox, int size)
 void sys_mbox_free(sys_mbox_t *mbox)
 {
 	LWIP_ASSERT("Thread API (sys_mbox_free) is called in handler mode!", !inHandlerMode());
+
 	if (uxQueueMessagesWaiting(*mbox)) {
 		// Line for breakpoint.
 		// Should never break here!
@@ -56,7 +57,6 @@ void sys_mbox_free(sys_mbox_t *mbox)
 		lwip_stats.sys.mbox.err++;
 #endif
 	}
-
 	vQueueDelete(*mbox);
 #if SYS_STATS
 	--lwip_stats.sys.mbox.used;
@@ -65,7 +65,6 @@ void sys_mbox_free(sys_mbox_t *mbox)
 
 void sys_mbox_post(sys_mbox_t *mbox, void *data)
 {
-	//while(osMessagePut(*mbox, (uint32_t)data, WAIT_FOREVER) != osOK);
 	LWIP_ASSERT("Thread API (sys_mbox_post) is called in handler mode!", !inHandlerMode());
 
 	portBASE_TYPE taskWoken = pdFALSE;
@@ -85,7 +84,6 @@ err_t sys_mbox_trypost(sys_mbox_t *mbox, void *msg)
 	LWIP_ASSERT("Thread API (sys_mbox_trypost) is called in handler mode!", !inHandlerMode());
 
 	err_t result;
-	//if (osMessagePut(*mbox, (uint32_t)msg, 0) == osOK) {
 	if (xQueueSend(*mbox, &msg, 0) == pdTRUE) {
 		result = ERR_OK;
 	}
@@ -94,7 +92,7 @@ err_t sys_mbox_trypost(sys_mbox_t *mbox, void *msg)
 		result = ERR_MEM;
 #if SYS_STATS
 		lwip_stats.sys.mbox.err++;
-#endif /* SYS_STATS */
+#endif
 	}
 
 	return result;
@@ -102,7 +100,6 @@ err_t sys_mbox_trypost(sys_mbox_t *mbox, void *msg)
 
 err_t sys_mbox_trypost_fromisr(sys_mbox_t *mbox, void *msg)
 {
-	//return sys_mbox_trypost(mbox, msg);
 	err_t result;
 
 	LWIP_ASSERT("Handler API (sys_mbox_trypost) is called in thread mode!", inHandlerMode());
@@ -123,7 +120,6 @@ err_t sys_mbox_trypost_fromisr(sys_mbox_t *mbox, void *msg)
 u32_t sys_arch_mbox_fetch(sys_mbox_t *mbox, void **msg, u32_t timeout)
 {
 	portBASE_TYPE	taskWoken;
-	//osEvent			event;
 	uint32_t		start = sysTick();
 	TickType_t		ticks = 0;
 
@@ -143,14 +139,12 @@ u32_t sys_arch_mbox_fetch(sys_mbox_t *mbox, void **msg, u32_t timeout)
 		return SYS_ARCH_TIMEOUT;
 	}
 	else {
-		//*msg = (void *)event.value.v;
 		return (sysTick() - start);
 	}
 }
 
 u32_t sys_arch_mbox_tryfetch(sys_mbox_t *mbox, void **msg)
 {
-	//osEvent event;
 	portBASE_TYPE taskWoken;
 	portBASE_TYPE result = (inHandlerMode()) ?
 							xQueueReceiveFromISR(*mbox, &(*msg), &taskWoken) :
@@ -160,7 +154,6 @@ u32_t sys_arch_mbox_tryfetch(sys_mbox_t *mbox, void **msg)
 		return SYS_MBOX_EMPTY;
 	}
 	else {
-		//*msg = (void *)event.value.v;
 		return ERR_OK;
 	}
 }
@@ -168,10 +161,6 @@ u32_t sys_arch_mbox_tryfetch(sys_mbox_t *mbox, void **msg)
 int sys_mbox_valid(sys_mbox_t *mbox)
 {
 	return (*mbox != SYS_MBOX_NULL);
-	//if (*mbox == SYS_MBOX_NULL)
-	//	return 0;
-	//else
-	//	return 1;
 }
 
 void sys_mbox_set_invalid(sys_mbox_t *mbox)
@@ -183,19 +172,16 @@ void sys_mbox_set_invalid(sys_mbox_t *mbox)
 err_t sys_sem_new(sys_sem_t *sem, u8_t count)
 {
 	portBASE_TYPE taskWoken;
-	//osSemaphoreDef(SEM);
-	//*sem = osSemaphoreCreate (osSemaphore(SEM), 1);
 	vSemaphoreCreateBinary(*sem);
 
 	if (*sem == NULL) {
 #if SYS_STATS
 		++lwip_stats.sys.sem.err;
-#endif /* SYS_STATS */
+#endif
 		return ERR_MEM;
 	}
 
 	if (count == 0) { // Means it can't be taken
-		//osSemaphoreWait(*sem, 0);
 		if (inHandlerMode()) {
 			xSemaphoreTakeFromISR(*sem, &taskWoken);
 			portEND_SWITCHING_ISR(taskWoken);
@@ -224,7 +210,6 @@ u32_t sys_arch_sem_wait(sys_sem_t *sem, u32_t timeout)
 
 	if (timeout == 0) {
 		ticks = portMAX_DELAY;
-		//while(osSemaphoreWait (*sem, WAIT_FOREVER) != osOK);
 		do {
 			result = (inHandlerMode()) ?
 						xSemaphoreTakeFromISR(*sem, &taskWoken) :
@@ -251,7 +236,6 @@ u32_t sys_arch_sem_wait(sys_sem_t *sem, u32_t timeout)
 
 void sys_sem_signal(sys_sem_t *sem)
 {
-	//osSemaphoreRelease(*sem);
 	portBASE_TYPE taskWoken = pdFALSE;
 
 	if (inHandlerMode()) {
@@ -266,22 +250,15 @@ void sys_sem_signal(sys_sem_t *sem)
 void sys_sem_free(sys_sem_t *sem)
 {
 	LWIP_ASSERT("Thread API (sys_mbox_trypost) is called in handler mode!", !inHandlerMode());
-
 #if SYS_STATS
 	--lwip_stats.sys.sem.used;
 #endif
-
-	//osSemaphoreDelete(*sem);
 	vSemaphoreDelete(*sem);
 }
 
 int sys_sem_valid(sys_sem_t *sem)
 {
 	return (*sem != SYS_SEM_NULL);
-	//if (*sem == SYS_SEM_NULL)
-	//	return 0;
-	//else
-	//	return 1;
 }
 
 void sys_sem_set_invalid(sys_sem_t *sem)
@@ -289,32 +266,24 @@ void sys_sem_set_invalid(sys_sem_t *sem)
 	*sem = SYS_SEM_NULL;
 }
 
-SemaphoreHandle_t lwip_sys_mutex;
-//osMutexDef(lwip_sys_mutex);
-
-// Initialize sys arch
+// Mutex
 void sys_init(void)
 {
-	//lwip_sys_mutex = osMutexCreate(osMutex(lwip_sys_mutex));
 	lwip_sys_mutex = xSemaphoreCreateMutex();
 }
 
-// Mutexes
 #if LWIP_COMPAT_MUTEX == 0
 
-err_t sys_mutex_new(sys_mutex_t *mutex) {
-	//osMutexDef(MUTEX);
-	//*mutex = osMutexCreate(osMutex(MUTEX));
+err_t sys_mutex_new(sys_mutex_t *mutex)
+{
 	*mutex = xSemaphoreCreateMutex();
 
-	if (*mutex == NULL)
-	{
+	if (*mutex == NULL) {
 #if SYS_STATS
 		++lwip_stats.sys.mutex.err;
 #endif
 		return ERR_MEM;
 	}
-
 #if SYS_STATS
 	++lwip_stats.sys.mutex.used;
 	if (lwip_stats.sys.mutex.max < lwip_stats.sys.mutex.used) {
@@ -327,18 +296,14 @@ err_t sys_mutex_new(sys_mutex_t *mutex) {
 void sys_mutex_free(sys_mutex_t *mutex)
 {
 	LWIP_ASSERT("Thread API (sys_mbox_trypost) is called in handler mode!", !inHandlerMode());
-
 #if SYS_STATS
 	--lwip_stats.sys.mutex.used;
 #endif
-
-	//osMutexDelete(*mutex);
 	vQueueDelete(*mutex);
 }
 
 void sys_mutex_lock(sys_mutex_t *mutex)
 {
-	//osMutexWait(*mutex, WAIT_FOREVER);
 	LWIP_ASSERT("Mutex is null!", *mutex != NULL);
 
 	TickType_t ticks		= portMAX_DELAY;
@@ -355,7 +320,6 @@ void sys_mutex_lock(sys_mutex_t *mutex)
 
 void sys_mutex_unlock(sys_mutex_t *mutex)
 {
-	//osMutexRelease(*mutex);
 	portBASE_TYPE taskWoken = pdFALSE;
 
 	if (inHandlerMode()) {
@@ -369,11 +333,9 @@ void sys_mutex_unlock(sys_mutex_t *mutex)
 
 #endif // LWIP_COMPAT_MUTEX
 
-// Thread
+// Task
 sys_thread_t sys_thread_new(const char *name, lwip_thread_fn thread , void *arg, int stacksize, int prio)
 {
-	//const osThreadDef_t os_thread_def = { (char *)name, (os_pthread)thread, (osPriority)prio, 0, stacksize};
-	//return osThreadCreate(&os_thread_def, arg);
 	sys_thread_t handle;
 	xTaskCreate((TaskFunction_t)thread, (const portCHAR *)name, stacksize,
 				arg, (UBaseType_t)(3 + prio), (TaskHandle_t*)(&handle));
@@ -382,7 +344,6 @@ sys_thread_t sys_thread_new(const char *name, lwip_thread_fn thread , void *arg,
 
 sys_prot_t sys_arch_protect(void)
 {
-	//osMutexWait(lwip_sys_mutex, WAIT_FOREVER);
 	TickType_t ticks		= portMAX_DELAY;
 	portBASE_TYPE taskWoken	= pdFALSE;
 
@@ -400,7 +361,6 @@ sys_prot_t sys_arch_protect(void)
 void sys_arch_unprotect(sys_prot_t pval)
 {
 	( void ) pval;
-	//osMutexRelease(lwip_sys_mutex);
 	portBASE_TYPE taskWoken	= pdFALSE;
 
 	if (inHandlerMode()) {
