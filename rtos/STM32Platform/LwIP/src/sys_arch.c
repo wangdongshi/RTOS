@@ -122,24 +122,33 @@ u32_t sys_arch_mbox_fetch(sys_mbox_t *mbox, void **msg, u32_t timeout)
 	portBASE_TYPE	taskWoken;
 	uint32_t		start = sysTick();
 	TickType_t		ticks = 0;
+	portBASE_TYPE 	result;
 
-	if (timeout == WAIT_FOREVER) {
+	if (*mbox == NULL) {
+		return SYS_ARCH_TIMEOUT;
+	}
+
+	if (timeout == WAIT_FOREVER || timeout == 0) {
 		ticks = portMAX_DELAY;
 	}
-	else if (timeout != 0) {
+	else {
 		ticks = timeout / portTICK_PERIOD_MS;
 		if (ticks == 0) ticks = 1;
 	}
 
-	portBASE_TYPE result = (inHandlerMode()) ?
-							xQueueReceiveFromISR(*mbox, &(*msg), &taskWoken) :
-							xQueueReceive(*mbox, &(*msg), ticks);
-
-	if (timeout != 0 && result != pdTRUE) {
-		return SYS_ARCH_TIMEOUT;
+	if (inHandlerMode()) {
+		result = xQueueReceiveFromISR(*mbox, &(*msg), &taskWoken);
+		portEND_SWITCHING_ISR(taskWoken);
 	}
 	else {
+		result = xQueueReceive(*mbox, &(*msg), ticks);
+	}
+
+	if (timeout == 0 || result == pdTRUE) {
 		return (sysTick() - start);
+	}
+	else {
+		return SYS_ARCH_TIMEOUT;
 	}
 }
 
