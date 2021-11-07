@@ -17,7 +17,7 @@ extern int libEntry(void);
 #include <string.h>
 #include "platform.h"
 #include "EHmiMain.h"
-#include "lwip.h"
+#include "ethernetif.h"
 #include "http_task.h"
 
 //#define TEST_DMA
@@ -96,7 +96,7 @@ void ehmiTask(void * pvParameters)
 void mainTask(void *pvParameters)
 {
 	// initialization
-	MX_LWIP_Init();
+	LWIP_Init();
 	printBanner();
 	showLogo();
 	checkDevices();
