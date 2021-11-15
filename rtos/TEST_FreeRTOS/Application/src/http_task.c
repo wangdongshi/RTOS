@@ -21,25 +21,23 @@
 #define HTTP_RECV_TIMEOUT	30000   // 30s
 #define HTTP_SEND_TIMEOUT	60000   // 60s
 
-const char html_head[] = "HTTP/1.1 200 OK\r\nContent-type: text/html\r\n\r\n";
-const char html_body_home[] = "<html>\
+const char htmlHead[] = "HTTP/1.1 200 OK\r\nContent-type: text/html\r\n\r\n";
+const char htmlBody[] = "<html>\
 	<head>\
-	<title>TW230 HTTP Server</title>\
+	<title>HTTP Server</title>\
 	<style type=\"text/css\">h3{display:inline;}</style>\
 	</head>\
 	<body>\
-	<h1>Welcome to TW230 HTTP server !</h1>\
-	<hr align=left width=550 size=1></hr>\
-	<p>Thank you for purchasing and using TW230 Multi-function Power Transducer.</p>\
+	<h1>Welcome to STM32F746G-DISCO HTTP server !</h1>\
+	<hr align=left width=700 size=1></hr>\
+	<p>Thank you for using STM32F746G-DISCO.</p>\
 	<br>\
-	<p>1. <a href=\"tw230-system-info.html\">TW230 System Information</a></p>\
-	<p>2. <a href=\"tw230-wavelog.html\">TW230 Wave Log Viewer</a></p>\
-	<p>3. <a href=\"tw230-error-list.html\">TW230 Error Log Viewer</a></p>\
-	<p>4. <a href=\"tw230-cal-param.html\">TW230 Calibration Parameter</a></p>\
+	<p>1. <a href=\"System-info.html\">System Information</a></p>\
+	<p>2. <a href=\"Error-list.html\">Error Log Viewer</a></p>\
 	</body>\
 	</html>";
 
-const char html_body_error[] = "\
+const char htmlError[] = "\
 	<html>\
 	<head>\
 	<title>Error Page</title>\
@@ -51,18 +49,18 @@ const char html_body_error[] = "\
 	</body>\
 	</html>";
 
-// Here in_buffer just need 1500 bytes, but for alignment it should be increased to 2048 bytes.
-char __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(16) ) ) in_buffer[2048];
+// Here httpRxBuffer just need 1500 bytes, but for alignment it should be increased to 2048 bytes.
+char __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(16) ) ) httpRxBuffer[2048];
 
-static void http_server(int conn);
-static void MakeHomePage(int conn);
-static void Make404Page(int conn);
+static void httpServer(int conn);
+static void makeHomePage(int conn);
+static void make404Page(int conn);
 
 void httpTask(void *pvParameters)
 {
 	int sock, conn, size;
 	int timeout;
-	struct sockaddr_in address, remotehost;
+	struct sockaddr_in address, remoteHost;
 
 	// avoid connect failure after power on
 	vTaskDelay(2000);
@@ -87,27 +85,27 @@ void httpTask(void *pvParameters)
 	// listen for incoming connections (TCP listen backlog = 1)
 	listen(sock, 1);
 
-	size = sizeof(remotehost);
+	size = sizeof(remoteHost);
 
 	while (1) {
-		conn = accept(sock, (struct sockaddr *)&remotehost, (socklen_t *)&size);
+		conn = accept(sock, (struct sockaddr *)&remoteHost, (socklen_t *)&size);
 		timeout = HTTP_RECV_TIMEOUT;
 		setsockopt(conn, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
 		timeout = HTTP_SEND_TIMEOUT;
 		setsockopt(conn, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout));
-		http_server(conn);
+		httpServer(conn);
 	}
 
 	close(sock);
 }
 
-static void http_server(int conn)
+static void httpServer(int conn)
 {
 	int buflen = 1500;
 	int ret;
 
 	// Read in the request
-	ret = read(conn, in_buffer, buflen);
+	ret = read(conn, httpRxBuffer, buflen);
 	if(ret <= 0) {
 		// Avoid too quickly request
 		vTaskDelay(300);
@@ -115,11 +113,11 @@ static void http_server(int conn)
 		return;
 	}
 
-	if(strncmp((char *)in_buffer, "GET /default", 12) == 0) { // home page
-		MakeHomePage(conn);
+	if(strncmp((char *)httpRxBuffer, "GET /default", 12) == 0) { // home page
+		makeHomePage(conn);
 	}
 	else { // 404 page(Error page)
-		Make404Page(conn);
+		make404Page(conn);
 	}
 
 	// Avoid too quickly request
@@ -129,18 +127,18 @@ static void http_server(int conn)
 	close(conn);
 }
 
-static void MakeHomePage(int conn)
+static void makeHomePage(int conn)
 {
 	// Send the HTML header
-	write(conn, html_head, sizeof(html_head)-1);
+	write(conn, htmlHead, sizeof(htmlHead)-1);
 	// Send our HTML page
-	write(conn, html_body_home, sizeof(html_body_home)-1);
+	write(conn, htmlBody, sizeof(htmlBody)-1);
 }
 
-static void Make404Page(int conn)
+static void make404Page(int conn)
 {
 	// Send the HTML header
-	write(conn, html_head, sizeof(html_head)-1);
+	write(conn, htmlHead, sizeof(htmlHead)-1);
 	// Send the HTML page (404 error)
-	write(conn, html_body_error, sizeof(html_body_error)-1);
+	write(conn, htmlError, sizeof(htmlError)-1);
 }
