@@ -56,14 +56,13 @@ const char html_body_error[] = "\
 	</body>\
 	</html>";
 
-TaskHandle_t defaultTaskHandle;
 char __attribute__( ( aligned(4) ) ) in_buffer[1500];
 
 static void http_server(int conn);
 static void MakeHomePage(int conn);
 static void Make404Page(int conn);
-static void MX_GPIO_Init(void);
 
+static void MX_GPIO_Init(void);
 void SystemClock_Config(void);
 void StartDefaultTask(void const * argument);
 
@@ -111,19 +110,28 @@ static void Make404Page(int conn)
 	write(conn, html_body_error, sizeof(html_body_error)-1);
 }
 
-/**
-  * @brief  The application entry point.
-  * @retval int
-  */
 int main(void)
 {
+  TaskHandle_t defaultTaskHandle;
+
   HAL_Init();
   SystemClock_Config();
   MX_GPIO_Init();
+
   xTaskCreate((TaskFunction_t)StartDefaultTask,	(const char *)("DEFAULT_TASK"),	4096,	NULL,	3,	&defaultTaskHandle);
   vTaskStartScheduler();
 
   while (1);
+}
+
+void HAL_MspInit(void)
+{
+  __HAL_RCC_PWR_CLK_ENABLE();
+  __HAL_RCC_SYSCFG_CLK_ENABLE();
+
+  /* System interrupt init*/
+  /* PendSV_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(PendSV_IRQn, 15, 0);
 }
 
 /**
@@ -579,20 +587,18 @@ static void MX_GPIO_Init(void)
 
 void StartDefaultTask(void const * argument)
 {
-  /* init code for LWIP */
-  LWIP_Init();
-  /* USER CODE BEGIN 5 */
-
 	int sock, conn, size;
 	int timeout;
 	struct sockaddr_in address, remotehost;
+
+	// init code for LWIP
+	LWIP_Init();
 
 	// avoid connect failure after power on
 	vTaskDelay(2000);
 
 	// create a TCP socket
-	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-	{
+	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 		printf("Can not create socket.\r\n");
 		return;
 	}
@@ -602,8 +608,7 @@ void StartDefaultTask(void const * argument)
 	address.sin_port = htons(80);
 	address.sin_addr.s_addr = INADDR_ANY;
 
-	if (bind(sock, (struct sockaddr *)&address, sizeof (address)) < 0)
-	{
+	if (bind(sock, (struct sockaddr *)&address, sizeof (address)) < 0) {
 		printf("Can not bind socket.\r\n");
 		close(sock);
 		return;
@@ -624,13 +629,6 @@ void StartDefaultTask(void const * argument)
 	}
 
 	close(sock);
-}
-
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-  if (htim->Instance == TIM6) {
-    HAL_IncTick();
-  }
 }
 
 /**
