@@ -35,6 +35,9 @@ void EXTI15_10_IRQHandler(void);
 void SDMMC1_IRQHandler(void);
 void DMA2_Stream3_IRQHandler(void);
 void DMA2_Stream6_IRQHandler(void);
+void ETH_IRQHandler(void);
+
+void HardFault_Handler(void);
 
 #ifdef __cplusplus
 }

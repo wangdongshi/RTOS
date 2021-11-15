@@ -125,7 +125,7 @@ void HAL_ETH_MspInit(ETH_HandleTypeDef* ethHandle)
 		HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 		// Peripheral interrupt init
-		HAL_NVIC_SetPriority(ETH_IRQn, 5, 0);
+		HAL_NVIC_SetPriority(ETH_IRQn, 12, 0);
 		HAL_NVIC_EnableIRQ(ETH_IRQn);
 	}
 }

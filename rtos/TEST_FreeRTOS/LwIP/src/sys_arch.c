@@ -1,4 +1,3 @@
-//#include "cmsis_gcc.h"
 #include "lwip/debug.h"
 #include "lwip/def.h"
 #include "lwip/sys.h"
@@ -18,7 +17,10 @@ SemaphoreHandle_t lwip_sys_mutex;
 // System
 static int inHandlerMode(void)
 {
-	return __get_IPSR() != 0;
+	uint32_t result;
+
+	__asm volatile ("MRS %0, ipsr" : "=r" (result) );
+	return(result);
 }
 
 static uint32_t sysTick(void)

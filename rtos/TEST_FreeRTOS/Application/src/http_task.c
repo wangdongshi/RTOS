@@ -67,8 +67,7 @@ void httpTask(void *pvParameters)
 	vTaskDelay(2000);
 
 	// create a TCP socket
-	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-	{
+	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 		TRACE("Can not create socket.\r\n");
 		return;
 	}
@@ -78,8 +77,7 @@ void httpTask(void *pvParameters)
 	address.sin_port = htons(80);
 	address.sin_addr.s_addr = INADDR_ANY;
 
-	if (bind(sock, (struct sockaddr *)&address, sizeof (address)) < 0)
-	{
+	if (bind(sock, (struct sockaddr *)&address, sizeof (address)) < 0) {
 		TRACE("Can not bind socket.\r\n");
 		close(sock);
 		return;

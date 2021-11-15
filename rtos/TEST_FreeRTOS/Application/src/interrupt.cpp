@@ -177,13 +177,16 @@ void DMA2_Stream6_IRQHandler(void)
 	DMA2_Stream6->CR 		&=	~DMA_SxCR_EN_Msk;
 }
 
+// Ethernet receive interrupt
 void ETH_IRQHandler(void)
 {
-  /* USER CODE BEGIN ETH_IRQn 0 */
+	HAL_ETH_IRQHandler(&heth);
+}
 
-  /* USER CODE END ETH_IRQn 0 */
-  HAL_ETH_IRQHandler(&heth);
-  /* USER CODE BEGIN ETH_IRQn 1 */
-
-  /* USER CODE END ETH_IRQn 1 */
+// Exception handler
+void HardFault_Handler(void)
+{
+	while (1) {
+		;
+	}
 }
