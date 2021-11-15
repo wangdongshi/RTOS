@@ -105,9 +105,9 @@ SD_INFO __attribute__( ( aligned(4) ) ) sdcard;
 uint8_t __attribute__( ( aligned(4) ) ) sdTestSrc[SD_BLOCK_SIZE * 2];
 uint8_t __attribute__( ( aligned(4) ) ) sdTestDes[SD_BLOCK_SIZE * 2];
 
-uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) )   charBuffer[12 * 16 * COLOR_BYTE_ARGB8888];
-uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) ) frameBuffer1[LCD_FRAME_BUF_SIZE];
-uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) ) frameBuffer2[LCD_FRAME_BUF_SIZE];
+uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(16) ) )   charBuffer[12 * 16 * COLOR_BYTE_ARGB8888];
+uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(16) ) ) frameBuffer1[LCD_FRAME_BUF_SIZE];
+uint8_t __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(16) ) ) frameBuffer2[LCD_FRAME_BUF_SIZE];
 
 static void initFPU(void);
 static void initSystemClock(void);

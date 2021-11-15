@@ -51,7 +51,8 @@ const char html_body_error[] = "\
 	</body>\
 	</html>";
 
-char __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(4) ) ) in_buffer[1500];
+// Here in_buffer just need 1500 bytes, but for alignment it should be increased to 2048 bytes.
+char __attribute__( ( section(".sdram" ) ) ) __attribute__( ( aligned(16) ) ) in_buffer[2048];
 
 static void http_server(int conn);
 static void MakeHomePage(int conn);
