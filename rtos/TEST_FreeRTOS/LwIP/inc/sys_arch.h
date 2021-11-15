@@ -1,3 +1,13 @@
+/**********************************************************************
+ * Copyright (c) 2018 - 2021 by WangYu
+ * All rights reserved
+ *
+ * Filename : sys_arch.h
+ * Project  : Minimum RTOS platform
+ * Date     : 2021/11/5
+ * Author   : WangYu
+ *
+ **********************************************************************/
 #ifndef __SYS_ARCH_H__
 #define __SYS_ARCH_H__
 

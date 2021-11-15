@@ -1,5 +1,15 @@
+/**********************************************************************
+ * Copyright (c) 2018 - 2021 by WangYu
+ * All rights reserved
+ *
+ * Filename : ethernetif.c
+ * Project  : Minimum RTOS platform
+ * Date     : 2021/11/5
+ * Author   : WangYu
+ *
+ **********************************************************************/
 #include <string.h>
-#include "stm32f7xx_hal.h" // TODO
+#include "stm32f7xx_hal.h"
 #include "ethernetif.h"
 #include "lwip/init.h"
 #include "lwip/netif.h"

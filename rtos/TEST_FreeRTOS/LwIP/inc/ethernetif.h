@@ -1,3 +1,13 @@
+/**********************************************************************
+ * Copyright (c) 2018 - 2021 by WangYu
+ * All rights reserved
+ *
+ * Filename : ethernetif.h
+ * Project  : Minimum RTOS platform
+ * Date     : 2021/11/5
+ * Author   : WangYu
+ *
+ **********************************************************************/
 #ifndef __ETHERNETIF_H__
 #define __ETHERNETIF_H__
 

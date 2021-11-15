@@ -1,3 +1,13 @@
+/**********************************************************************
+ * Copyright (c) 2018 - 2021 by WangYu
+ * All rights reserved
+ *
+ * Filename : sys_arch.c
+ * Project  : Minimum RTOS platform
+ * Date     : 2021/11/5
+ * Author   : WangYu
+ *
+ **********************************************************************/
 #include "lwip/debug.h"
 #include "lwip/def.h"
 #include "lwip/sys.h"
