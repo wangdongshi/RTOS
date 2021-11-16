@@ -19,6 +19,7 @@ extern int libEntry(void);
 #include "EHmiMain.h"
 #include "ethernetif.h"
 #include "http_task.h"
+#include "mqtt_task.h"
 
 //#define TEST_DMA
 //#define TEST_DMA2D
@@ -45,8 +46,6 @@ static void testDynamicLoad(void);
 #endif
 
 EHmiMain* pHmi = new EHmiMain();
-extern void ethernetif_input(void * argument);
-extern void ethernetif_link_moniter_task(void *argument);
 
 int main(void)
 {
@@ -69,6 +68,7 @@ void startTask(void *pvParameters)
 	xTaskCreate(led1Task,	"LED1_TASK",	400,	NULL,	2,	NULL); // for monitor board
 	xTaskCreate(ehmiTask,	"EHMI_TASK",	400,	NULL,	2,	NULL);
 	xTaskCreate(httpTask,	"HTTP_TASK",	400,	NULL,	3,	NULL);
+	xTaskCreate(mqttTask,	"MQTT_TASK",	400,	NULL,	3,	NULL);
 	xTaskCreate(mainTask,	"MAIN_TASK",	8000,	NULL,	5,	NULL);
 	TaskHandle_t handler = xTaskGetHandle("START_TASK");
 	vTaskDelete(handler);
