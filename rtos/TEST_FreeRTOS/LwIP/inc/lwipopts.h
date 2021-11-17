@@ -13,7 +13,7 @@
 #define __LWIPOPTS__H__
 
 #ifdef __cplusplus
- extern "C" {
+extern "C" {
 #endif
 
 #define WITH_RTOS					1
@@ -21,6 +21,8 @@
 
 // LwIP Stack Parameters (modified compared to initialization value in opt.h)
 #define MEM_ALIGNMENT				4
+//#define MEMP_MEM_MALLOC			1
+#define MQTT_DEBUG					LWIP_DBG_ON
 #define LWIP_ETHERNET				1
 #define LWIP_DNS_SECURE				7
 #define TCP_SND_QUEUELEN			9
