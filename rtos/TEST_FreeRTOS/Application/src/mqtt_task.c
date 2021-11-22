@@ -44,7 +44,7 @@ static ip_addr_t mqtt_server_ip;
 static mqtt_client_t* mqtt_client;
 
 static const struct mqtt_connect_client_info_t mqtt_client_info = {
-	"myMQTT",
+	"myClient1",
 	NULL,	// user name
 	NULL,	// password
 	100,	// keep alive
@@ -59,23 +59,25 @@ static const struct mqtt_connect_client_info_t mqtt_client_info = {
 
 static void mqtt_init(void)
 {
-	ip4_addr_set_u32(&mqtt_server_ip, ipaddr_addr("192.168.1.2"));
+	ip4_addr_set_u32(&mqtt_server_ip, ipaddr_addr("192.168.1.110"));
 	mqtt_client = mqtt_client_new();
-	mqtt_set_inpub_callback(mqtt_client, mqtt_incoming_publish_cb, mqtt_incoming_data_cb, LWIP_CONST_CAST(void*, &mqtt_client_info));
 	mqtt_client_connect(mqtt_client, &mqtt_server_ip, MQTT_PORT, mqtt_connection_cb, LWIP_CONST_CAST(void*, &mqtt_client_info), &mqtt_client_info);
+	mqtt_set_inpub_callback(mqtt_client, mqtt_incoming_publish_cb, mqtt_incoming_data_cb, LWIP_CONST_CAST(void*, &mqtt_client_info));
 }
 
 static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags)
 {
+	LWIP_UNUSED_ARG(len);
+	LWIP_UNUSED_ARG(flags);
 	const struct mqtt_connect_client_info_t* client_info = (const struct mqtt_connect_client_info_t*)arg;
-	LWIP_UNUSED_ARG(data);
-	TRACE("MQTT client \"%s\" data cb: len %d, flags %d\r\n", client_info->client_id, (int)len, (int)flags);
+	TRACE("MQTT client \"%s\" received message \"%s\".\r\n", client_info->client_id, data);
 }
 
 static void mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len)
 {
+	LWIP_UNUSED_ARG(tot_len);
 	const struct mqtt_connect_client_info_t* client_info = (const struct mqtt_connect_client_info_t*)arg;
-	TRACE("MQTT client \"%s\" publish cb: topic %s, len %d\r\n", client_info->client_id, topic, (int)tot_len);
+	TRACE("MQTT client \"%s\" received from topic \"%s\".\r\n", client_info->client_id, topic);
 }
 
 static void mqtt_request_cb(void *arg, err_t err)

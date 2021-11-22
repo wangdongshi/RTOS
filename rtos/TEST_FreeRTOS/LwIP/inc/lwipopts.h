@@ -21,7 +21,7 @@ extern "C" {
 
 // LwIP Stack Parameters (modified compared to initialization value in opt.h)
 #define MEM_ALIGNMENT				4
-//#define MEMP_MEM_MALLOC			1
+#define MEMP_NUM_SYS_TIMEOUT		13
 #define MQTT_DEBUG					LWIP_DBG_ON
 #define LWIP_ETHERNET				1
 #define LWIP_DNS_SECURE				7
