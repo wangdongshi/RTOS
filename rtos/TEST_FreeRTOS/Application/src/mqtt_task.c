@@ -11,39 +11,34 @@
 #include "platform.h"
 #include "lwip/apps/mqtt.h"
 
-static void mqtt_init(void);
-static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags);
-static void mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len);
-static void mqtt_request_cb(void *arg, err_t err);
-static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection_status_t status);
+static void mqttInit(void);
+static void mqttIncomingDataCb(void *arg, const u8_t *data, u16_t len, u8_t flags);
+static void mqttIncomingPublishCb(void *arg, const char *topic, u32_t len);
+static void mqttRequestCb(void *arg, err_t err);
+static void mqttConnectionCb(mqtt_client_t *client, void *arg, mqtt_connection_status_t status);
+static void mqttClientPubRequestCb(void *arg, err_t err);
+
+static ip_addr_t mqttServerIP;
+static mqtt_client_t* mqttClient;
 
 void mqttTask(void *pvParameters)
 {
+	char topic[] = "/public/ST/sensor";
+	char message[] = "Hello MQTT broker!";
+
 	// avoid connect failure after power on
 	vTaskDelay(2000);
+	mqttInit();
+	vTaskDelay(1000);
 
-#if LWIP_TCP
-	mqtt_init();
-#endif
-#if 0
-	char message_test[] = "Hello mqtt server";
-	for (int i = 0; i < 10; i++) {
-		mqtt_incoming_publish_cb(s__mqtt_client_instance, "/public/TEST/AidenHinGwenWong_pub",\
-						 message_test, sizeof(message_test), 1, 0);
-		vTaskDelay(1000);
-	}
-#endif
+	// publish cyclicly (5s)
 	while(1) {
-		vTaskDelay(1000);
+		mqtt_publish(mqttClient, topic, message, sizeof(message), 1, 0, mqttClientPubRequestCb, (void*)mqttClient);
+		vTaskDelay(5000);
 	}
 }
 
-#if LWIP_TCP
-
-static ip_addr_t mqtt_server_ip;
-static mqtt_client_t* mqtt_client;
-
-static const struct mqtt_connect_client_info_t mqtt_client_info = {
+static const struct mqtt_connect_client_info_t mqttClientInfo = {
 	"myClient1",
 	NULL,	// user name
 	NULL,	// password
@@ -57,43 +52,52 @@ static const struct mqtt_connect_client_info_t mqtt_client_info = {
 #endif
 };
 
-static void mqtt_init(void)
+static void mqttInit(void)
 {
-	ip4_addr_set_u32(&mqtt_server_ip, ipaddr_addr("192.168.1.110"));
-	mqtt_client = mqtt_client_new();
-	mqtt_client_connect(mqtt_client, &mqtt_server_ip, MQTT_PORT, mqtt_connection_cb, LWIP_CONST_CAST(void*, &mqtt_client_info), &mqtt_client_info);
-	mqtt_set_inpub_callback(mqtt_client, mqtt_incoming_publish_cb, mqtt_incoming_data_cb, LWIP_CONST_CAST(void*, &mqtt_client_info));
+	ip4_addr_set_u32(&mqttServerIP, ipaddr_addr("192.168.1.2"));
+	mqttClient = mqtt_client_new();
+	mqtt_client_connect(mqttClient, &mqttServerIP, MQTT_PORT, mqttConnectionCb, LWIP_CONST_CAST(void*, &mqttClientInfo), &mqttClientInfo);
+	mqtt_set_inpub_callback(mqttClient, mqttIncomingPublishCb, mqttIncomingDataCb, LWIP_CONST_CAST(void*, &mqttClientInfo));
 }
 
-static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags)
+static void mqttIncomingDataCb(void *arg, const u8_t *data, u16_t len, u8_t flags)
 {
 	LWIP_UNUSED_ARG(len);
 	LWIP_UNUSED_ARG(flags);
-	const struct mqtt_connect_client_info_t* client_info = (const struct mqtt_connect_client_info_t*)arg;
-	TRACE("MQTT client \"%s\" received message \"%s\".\r\n", client_info->client_id, data);
+	const struct mqtt_connect_client_info_t* clientInfo = (const struct mqtt_connect_client_info_t*)arg;
+	TRACE("MQTT client \"%s\" received message \"%s\".\r\n", clientInfo->client_id, data);
 }
 
-static void mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len)
+static void mqttIncomingPublishCb(void *arg, const char *topic, u32_t len)
 {
-	LWIP_UNUSED_ARG(tot_len);
-	const struct mqtt_connect_client_info_t* client_info = (const struct mqtt_connect_client_info_t*)arg;
-	TRACE("MQTT client \"%s\" received from topic \"%s\".\r\n", client_info->client_id, topic);
+	LWIP_UNUSED_ARG(len);
+	const struct mqtt_connect_client_info_t* clientInfo = (const struct mqtt_connect_client_info_t*)arg;
+	TRACE("MQTT client \"%s\" received from topic \"%s\".\r\n", clientInfo->client_id, topic);
 }
 
-static void mqtt_request_cb(void *arg, err_t err)
+static void mqttRequestCb(void *arg, err_t err)
 {
-	const struct mqtt_connect_client_info_t* client_info = (const struct mqtt_connect_client_info_t*)arg;
-	TRACE("MQTT client \"%s\" request cb: err %d\r\n", client_info->client_id, (int)err);
+	const struct mqtt_connect_client_info_t* clientInfo = (const struct mqtt_connect_client_info_t*)arg;
+	TRACE("MQTT client \"%s\" request cb: err %d\r\n", clientInfo->client_id, (int)err);
 }
 
-static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection_status_t status)
+static void mqttConnectionCb(mqtt_client_t *client, void *arg, mqtt_connection_status_t status)
 {
-	const struct mqtt_connect_client_info_t* client_info = (const struct mqtt_connect_client_info_t*)arg;
+	const struct mqtt_connect_client_info_t* clientInfo = (const struct mqtt_connect_client_info_t*)arg;
 	LWIP_UNUSED_ARG(client);
-	TRACE("MQTT client \"%s\" connection cb: status %d\r\n", client_info->client_id, (int)status);
+	TRACE("MQTT client \"%s\" connection cb: status %d\r\n", clientInfo->client_id, (int)status);
 	if (status == MQTT_CONNECT_ACCEPTED) {
-		mqtt_sub_unsub(client, "topic_qos1", 1, mqtt_request_cb, LWIP_CONST_CAST(void*, client_info), 1);
-		mqtt_sub_unsub(client, "topic_qos0", 0, mqtt_request_cb, LWIP_CONST_CAST(void*, client_info), 1);
+		mqtt_sub_unsub(client, "topic_qos1", 1, mqttRequestCb, LWIP_CONST_CAST(void*, clientInfo), 1);
+		mqtt_sub_unsub(client, "topic_qos0", 0, mqttRequestCb, LWIP_CONST_CAST(void*, clientInfo), 1);
 	}
 }
-#endif // LWIP_TCP
+
+static void mqttClientPubRequestCb(void *arg, err_t err)
+{
+	if (err != ERR_OK) {
+		TRACE("STM32 MQTT client publish failed with an error (%s).\r\n", lwip_strerr(err));
+	}
+	else {
+		TRACE("STM32 MQTT client publish once.\r\n");
+	}
+}
